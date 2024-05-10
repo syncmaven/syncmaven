@@ -1,4 +1,4 @@
-name: Build
+name: Canary Build
 
 on:
   push:
@@ -22,6 +22,7 @@ jobs:
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org/'
+          scope: '@syncmaven'  # Replace with your npm scope if needed
           always-auth: true
 
       - name: Install pnpm
@@ -46,11 +47,15 @@ jobs:
           pnpm build
           pnpm test
 
-#      - name: Publish to NPM
-#        run: |
-#          #pnpm ${{ if github.event.inputs.release-version }}release --version ${{ github.event.inputs.release-version }} --publish${{ else }}release:canary${{ endif }}
-#        env:
-#          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to NPM
+        run: |
+          if [ "${{ github.event.inputs.release-version }}" != "" ]; then
+            pnpm release --version ${{ github.event.inputs.release-version }} --publish
+          else
+            pnpm release:canary
+          fi
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   build-docker:
     runs-on: ubuntu-latest
@@ -80,16 +85,11 @@ jobs:
 
       - name: Build and push Docker images
         run: |
-          docker buildx build \
-            --platform linux/${{ matrix.arch }} \
-            ${{ if github.event.inputs.release-version }} \
-              --tag syncmaven/syncmaven:v${{ github.event.inputs.release-version }} \
-              --tag syncmaven/syncmaven:latest \
-            ${{ else }} \
-              --tag syncmaven/syncmaven:canary-${{ matrix.arch }} \
-            ${{ endif }} \
-            --push \
-            .
+          if [ "${{ github.event.inputs.release-version }}" != "" ]; then
+            docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:v${{ github.event.inputs.release-version }} --tag syncmaven/syncmaven:latest --push .
+          else
+            docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-${{ matrix.arch }} --push .
+          fi
 
   manifest:
     runs-on: ubuntu-latest
@@ -103,7 +103,10 @@ jobs:
 
       - name: Create and push manifest list
         run: |
-          docker manifest create syncmaven/syncmaven:${{ if github.event.inputs.release-version }}v${{ github.event.inputs.release-version }}${{ else }}canary${{ endif }} \
-            --amend syncmaven/syncmaven:canary-amd64 \
-            --amend syncmaven/syncmaven:canary-arm64
-          docker manifest push syncmaven/syncmaven:${{ if github.event.inputs.release-version }}v${{ github.event.inputs.release-version }}${{ else }}canary${{ endif }}
+          if [ "${{ github.event.inputs.release-version }}" != "" ]; then
+            docker manifest create syncmaven/syncmaven:v${{ github.event.inputs.release-version }} --amend syncmaven/syncmaven:canary-amd64 --amend syncmaven/syncmaven:canary-arm64
+            docker manifest push syncmaven/syncmaven:v${{ github.event.inputs.release-version }}
+          else
+            docker manifest create syncmaven/syncmaven:canary --amend syncmaven/syncmaven:canary-amd64 --amend syncmaven/syncmaven:canary-arm64
+            docker manifest push syncmaven/syncmaven:canary
+          fi
