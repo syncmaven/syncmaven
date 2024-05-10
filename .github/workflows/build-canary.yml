@@ -16,7 +16,6 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: "pnpm"
 
       - name: Install Bun
         run: |
@@ -26,7 +25,6 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm
 
-      # Step 1: Build the Node project (once)
       - name: Check out repository
         uses: actions/checkout@v3
 
