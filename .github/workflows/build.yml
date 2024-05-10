@@ -46,11 +46,11 @@ jobs:
           pnpm build
           pnpm test
 
-      - name: Publish to NPM
-        run: |
-          pnpm ${{ if github.event.inputs.release-version }}release --version ${{ github.event.inputs.release-version }} --publish${{ else }}release:canary${{ endif }}
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+#      - name: Publish to NPM
+#        run: |
+#          #pnpm ${{ if github.event.inputs.release-version }}release --version ${{ github.event.inputs.release-version }} --publish${{ else }}release:canary${{ endif }}
+#        env:
+#          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   build-docker:
     runs-on: ubuntu-latest
