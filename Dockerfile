@@ -10,11 +10,9 @@ WORKDIR /syncmaven
 FROM base AS builder
 RUN apt update && apt install -y python3 python3-pip make g++ sqlite3 libsqlite3-dev
 RUN npm -g install pnpm
-RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.0.16"
-RUN ln -s `which bun` /bin/bun
 COPY . .
 RUN pnpm install
-#RUN pnpm run test - this is not working by some reason
+RUN pnpm run test # verify once again so we are sure not to ship a broken image
 RUN pnpm run build
 
 FROM base AS release

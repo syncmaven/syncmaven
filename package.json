@@ -17,15 +17,19 @@
     "release": "monorel --npm-tag latest --filter './packages/a'  --filter './packages/b'",
     "canary:publish": "monorel --version '0.0.2-alpha.{rev}' --npm-tag canary --publish",
     "compile": "tsc --noEmit",
-    "test": "bun test",
+    "test": "tsc && node --test dist/__tests__/**/*.test.js\n",
     "build": "tsc",
     "format:check": "prettier --ignore-unknown --check --config ./.prettierrc.json --ignore-path ./.prettierignore $(git diff --name-only --diff-filter d | xargs)",
     "format:check:all": "prettier --check --config ./.prettierrc.json --ignore-path ./.prettierignore .",
     "format": "prettier --ignore-unknown --write --config ./.prettierrc.json --ignore-path ./.prettierignore $(git diff --name-only --diff-filter d | xargs)",
     "format:all": "prettier --write --config ./.prettierrc.json --ignore-path ./.prettierignore ."
   },
+  "ts-node": {
+    "swc": true
+  },
   "devDependencies": {
-    "@swc/core": "^1.5.0",
+    "@swc/cli": "^0.3.12",
+    "@swc/core": "^1.5.5",
     "@swc/helpers": "^0.5.10",
     "@types/better-sqlite3": "^7.6.10",
     "@types/bun": "latest",
@@ -39,6 +43,7 @@
     "@types/pg-query-stream": "^3.4.0",
     "monorel": "^0.5.0",
     "prettier": "^3.2.5",
+    "ts-node-test": "^0.4.3",
     "type-fest": "^4.16.0"
   },
   "peerDependencies": {

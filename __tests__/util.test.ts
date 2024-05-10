@@ -1,4 +1,5 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "assert";
 import { maskPassword, splitName } from "../src/lib/util";
 
 test("maskPassword", () => {
@@ -6,12 +7,12 @@ test("maskPassword", () => {
   const masked = maskPassword(`postgresql://user:${password}@pg.company.com/database?sslmode=no-verify&schema=data`);
   const expected = `postgresql://user:****@pg.company.com/database?sslmode=no-verify&schema=data`;
   console.log(masked);
-  expect(masked).toBe(expected);
+  assert.strictEqual(masked, expected);
 });
 
 test("splitName", () => {
   const test1 = splitName("John Doe");
   const test2 = splitName("Jack");
-  expect(test1).toEqual({ first: "John", last: "Doe" });
-  expect(test2).toEqual({ first: "Jack", last: "" });
+  assert.deepEqual(test1, { first: "John", last: "Doe" });
+  assert.deepEqual(test2, { first: "Jack", last: "" });
 });
