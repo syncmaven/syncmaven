@@ -2,7 +2,7 @@
   "compilerOptions": {
     "rootDir": ".",
     "noImplicitAny": false,
-    "noEmit": true,
+    "outDir": "./dist",
     "allowSyntheticDefaultImports": true,
     "importHelpers": true,
     "removeComments": true,

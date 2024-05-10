@@ -4,22 +4,22 @@ import { twitterAdsProvider } from "./destinations/twitter";
 import { pdlEnrichmentProvider } from "./enrichment/pdl";
 import { resendProvider } from "./destinations/resend";
 import { googleAdsProvider } from "./destinations/google-ads";
+import { ComponentChannel, createDestinationChannel, createEnrichmentChannel } from "../types/protocol";
 
-export function getDestinationProvider(kind: string): DestinationProvider | undefined {
+export function getDestinationChannel(kind: string): ComponentChannel | undefined {
   if (kind === "facebook") {
-    return facebookAdsProvider;
+    return createDestinationChannel(facebookAdsProvider);
   } else if (kind === "twitter") {
-    return twitterAdsProvider;
+    return createDestinationChannel(twitterAdsProvider);
   } else if (kind === "resend") {
-    return resendProvider;
+    return createDestinationChannel(resendProvider);
   } else if (kind === "google-ads") {
-    return googleAdsProvider;
+    return createDestinationChannel(googleAdsProvider);
   }
 }
 
-export function getEnrichmentProvider(kind: string): EnrichmentProvider | undefined {
+export function getEnrichmentProvider(kind: string): ComponentChannel | undefined {
   if (kind === "people-data-labs") {
-    return pdlEnrichmentProvider;
+    return createEnrichmentChannel(pdlEnrichmentProvider);
   }
 }
-

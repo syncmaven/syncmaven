@@ -1,8 +1,28 @@
 {
-  "name": "audience-sync",
+  "name": "syncmaven",
+  "version": "0.0.0",
+  "description": "",
+  "author": "Vladimir Klimontovich <v@klimontovich.com>",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": "./bin/syncmaven",
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "main": "NODE_OPTIONS=--no-deprecation ts-node src/index.ts",
-    "compile": "tsc --noEmit"
+    "release": "monorel --npm-tag latest --filter './packages/a'  --filter './packages/b'",
+    "canary:publish": "monorel --version '0.0.2-alpha.{rev}' --npm-tag canary --publish",
+    "compile": "tsc --noEmit",
+    "test": "bun test",
+    "build": "tsc",
+    "format:check": "prettier --ignore-unknown --check --config ./.prettierrc.json --ignore-path ./.prettierignore $(git diff --name-only --diff-filter d | xargs)",
+    "format:check:all": "prettier --check --config ./.prettierrc.json --ignore-path ./.prettierignore .",
+    "format": "prettier --ignore-unknown --write --config ./.prettierrc.json --ignore-path ./.prettierignore $(git diff --name-only --diff-filter d | xargs)",
+    "format:all": "prettier --write --config ./.prettierrc.json --ignore-path ./.prettierignore ."
   },
   "devDependencies": {
     "@swc/core": "^1.5.0",
@@ -17,6 +37,7 @@
     "@types/pg": "^8.11.5",
     "@types/pg-cursor": "^2.7.2",
     "@types/pg-query-stream": "^3.4.0",
+    "monorel": "^0.5.0",
     "prettier": "^3.2.5",
     "type-fest": "^4.16.0"
   },
@@ -41,6 +62,7 @@
     "pg": "^8.11.5",
     "pg-cursor": "^2.10.5",
     "pg-query-stream": "^4.5.5",
+    "request": "^2.88.2",
     "resend": "^3.2.0",
     "ts-node": "^10.9.2",
     "tslib": "^2.6.2",

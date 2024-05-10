@@ -1,0 +1,32 @@
+---
+title: "Sync"
+icon: arrows-rotate
+iconType: solid
+---
+
+Sync is a process that synchronizes the data between the [model](/fundamentals/model) and the [destination](/fundamentals/destination).
+
+Sync consists of reference to a [connection](/fundamentals/connection), reference to [model](/fundamentals/model) that is being synchronized
+and an optional enrichment configuration. It's defined in a `sync` folder in the project directory in a `.yaml` or `.yml` file.
+
+```yaml
+model: all-users
+destination: facebook
+options:
+  ...
+  ...
+enrichments:
+  ...
+  ...
+```
+
+`model` references the [model](/fundamentals/model) by id. The id of the model equals the name of the model file without the `.yaml` extension, unless
+the parameter `id` is explicitly set in the model file.
+
+`destination` references the [connection](/fundamentals/connection) by id. The id of the connection equals the name of the connection file without the `.yaml` extension,
+the parameter `id` is explicitly set in the destination file.
+
+`options` set the configuration for connection. They are specific to [connection](/fundamentals/connection)
+
+
+# Enrichment

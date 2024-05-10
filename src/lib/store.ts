@@ -10,7 +10,6 @@ function stringifyKey(prefix: StorageKey) {
 export class SqliteStore implements StreamPersistenceStore {
   private database: Database;
 
-
   constructor(dir: string) {
     if (!fs.existsSync(dir)) {
       console.log(`Creating directory ${dir} to store state`);
@@ -37,13 +36,15 @@ export class SqliteStore implements StreamPersistenceStore {
   }
 
   get(key: StorageKey): Promise<any> {
-    const strVal = this.database.prepare<any, any>(`SELECT value FROM store WHERE key = ?`).get(typeof key === "string" ? key : key.join("::"))?.value;
+    const strVal = this.database
+      .prepare<any, any>(`SELECT value FROM store WHERE key = ?`)
+      .get(typeof key === "string" ? key : key.join("::"))?.value;
     return Promise.resolve(strVal ? JSON.parse(strVal) : undefined);
   }
 
   async list(prefix: StorageKey): Promise<Entry[]> {
     const res: Entry[] = [];
-    await this.stream(prefix, (entry) => {
+    await this.stream(prefix, entry => {
       res.push(entry);
     });
     return res;
@@ -51,11 +52,17 @@ export class SqliteStore implements StreamPersistenceStore {
 
   set(key: StorageKey, value: any): Promise<void> {
     this.validateKey(key);
-    this.database.prepare(`insert or replace into store (key, value) values (?, ?)`).run(stringifyKey(key), JSON.stringify(value));
+    this.database
+      .prepare(`insert or replace into store (key, value) values (?, ?)`)
+      .run(stringifyKey(key), JSON.stringify(value));
     return Promise.resolve();
   }
 
-  async streamBatch(prefix: StorageKey, cb: (batch: Entry[]) => (Promise<void> | void), maxBatchSize: number): Promise<any> {
+  async streamBatch(
+    prefix: StorageKey,
+    cb: (batch: Entry[]) => Promise<void> | void,
+    maxBatchSize: number
+  ): Promise<any> {
     const batch: Entry[] = [];
     const flushBatch = async () => {
       if (batch.length > 0) {
@@ -75,7 +82,7 @@ export class SqliteStore implements StreamPersistenceStore {
     });
   }
 
-  async stream(prefix: StorageKey, cb: (entry: Entry) => (Promise<void> | void)): Promise<any> {
+  async stream(prefix: StorageKey, cb: (entry: Entry) => Promise<void> | void): Promise<any> {
     const keyString = stringifyKey(prefix);
     const stmt = this.database.prepare(`SELECT key, value FROM store WHERE key LIKE ? or key = ? ORDER BY key ASC`);
     const stream = stmt.iterate(`${keyString}::%`, keyString);
@@ -84,19 +91,16 @@ export class SqliteStore implements StreamPersistenceStore {
     }
   }
 
-
   size(prefix: StorageKey): Promise<number> {
     // const result = this.database.prepare(`SELECT count(*) as count FROM store WHERE key LIKE ? OR key = ?`).get(`${key}::%`, key);
 
     const stmt = this.database.prepare(`SELECT count(*) as count FROM store WHERE key LIKE ? OR key = ?`);
     const prefixArr = Array.isArray(prefix) ? prefix : [prefix];
-    const key = prefixArr.join('::');
+    const key = prefixArr.join("::");
     const keyPattern = `${key}::%`;
     const result = stmt.get(keyPattern, key);
     return (result as any).count;
   }
-
-
 
   deleteByPrefix(prefix: StorageKey): Promise<void> {
     const prefixArr = Array.isArray(prefix) ? prefix : [prefix];

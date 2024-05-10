@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+
+//remove deprecation warnings, it's nothing we can do about them
+//they are coming from twitter ads lib
+process.removeAllListeners("warning");
+
+require("../dist/src/index.js");

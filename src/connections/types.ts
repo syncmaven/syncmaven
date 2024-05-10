@@ -5,46 +5,52 @@ type AnyCredentials = any;
 
 export type DestinationStream<Cred extends AnyCredentials = AnyCredentials, RowType extends AnyRow = AnyRow> = {
   name: string;
-  rowType: ZodType<RowType>
-  createOutputStream: (config: OutputStreamConfiguration<Cred>, ctx: ExecutionContext) => OutputStream<RowType> | Promise<OutputStream<RowType>>
-}
+  rowType: ZodType<RowType>;
+  createOutputStream: (
+    config: OutputStreamConfiguration<Cred>,
+    ctx: ExecutionContext
+  ) => OutputStream<RowType> | Promise<OutputStream<RowType>>;
+};
 
 export type OutputStreamConfiguration<T extends AnyCredentials = AnyCredentials, O = any> = {
-  streamId: string,
-  options: O,
-  credentials: T,
-  syncId: string,
-  fullRefresh?: boolean
+  streamId: string;
+  options: O;
+  credentials: T;
+  syncId: string;
+  fullRefresh?: boolean;
 };
 
 export type OutputStream<RowType extends AnyRow = AnyRow> = {
   handleRow: (row: RowType, ctx: ExecutionContext) => Promise<void> | void;
   finish?: (ctx: ExecutionContext) => Promise<void>;
-}
+};
 
 export type DestinationProvider<T extends AnyCredentials = AnyCredentials> = {
   credentialsType: ZodType<T>;
   name: string;
   streams: DestinationStream<T, any>[];
   defaultStream: string;
-}
+};
 
 export type EnrichmentConfig<Cred extends AnyCredentials = AnyCredentials, Opts = any> = {
   credentials: Cred;
   options: Opts;
-}
+};
 
 type EnrichmentResult<T> = T[] | T | undefined | void;
 
 export type StreamEnrichment<RowType extends AnyRow = AnyRow> = {
   enrichRow: (row: RowType, ctx: ExecutionContext) => Promise<EnrichmentResult<RowType>> | EnrichmentResult<RowType>;
-}
+};
 
 export type EnrichmentProvider<Cred extends AnyCredentials = AnyCredentials, RowType extends AnyRow = AnyRow> = {
   credentialsType: ZodType<Cred>;
   name: string;
-  createEnrichment: (config: EnrichmentConfig<Cred>, ctx: ExecutionContext) => StreamEnrichment<RowType> | Promise<StreamEnrichment<RowType>>
-}
+  createEnrichment: (
+    config: EnrichmentConfig<Cred>,
+    ctx: ExecutionContext
+  ) => StreamEnrichment<RowType> | Promise<StreamEnrichment<RowType>>;
+};
 
 export type StorageKey = string | string[];
 
@@ -73,8 +79,7 @@ export interface StreamPersistenceStore {
 
 export type ExecutionContext = {
   store: StreamPersistenceStore;
-}
-
+};
 
 export abstract class BaseOutputStream<RowT extends Record<string, any>, ConfigT> implements OutputStream<RowT> {
   protected readonly config: OutputStreamConfiguration<ConfigT>;
@@ -99,7 +104,11 @@ export abstract class BatchingOutputStream<RowT extends Record<string, any>, Con
   protected currentBatch: RowT[] = [];
   protected maxBatchSize: number;
 
-  protected constructor(config: OutputStreamConfiguration<ConfigT>, ctx: ExecutionContext, maxBatchSize: number = 1000) {
+  protected constructor(
+    config: OutputStreamConfiguration<ConfigT>,
+    ctx: ExecutionContext,
+    maxBatchSize: number = 1000
+  ) {
     this.config = config;
     this.ctx = ctx;
     this.maxBatchSize = maxBatchSize;
@@ -115,14 +124,13 @@ export abstract class BatchingOutputStream<RowT extends Record<string, any>, Con
     if (this.currentBatch.length >= 1000) {
       await this.flushBatch(ctx);
     }
-  };
+  }
 
   async finish(ctx) {
     if (this.currentBatch.length > 0) {
       await this.flushBatch(ctx);
     }
   }
-
 
   private async flushBatch(ctx: ExecutionContext) {
     console.log(`Flushing batch of ${this.currentBatch.length} rows....`);

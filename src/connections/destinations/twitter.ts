@@ -42,7 +42,8 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
       api_version: "12",
     });
 
-    const audienceName = this.config.options.audienceName || `AudienceSync: ${this.config.syncId}, stream=${this.config.streamId}`;
+    const audienceName =
+      this.config.options.audienceName || `AudienceSync: ${this.config.syncId}, stream=${this.config.streamId}`;
     const audiences = await this.get(`/accounts/${this.config.credentials.accountId}/custom_audiences`);
     console.debug(`Twitter audiences ${typeof audiences}. Will look for '${audienceName}'`, audiences.data);
     for (const audience of audiences.data) {
@@ -66,20 +67,27 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
     if (!this.config.options.doNotClearAudience) {
       const size = await this.ctx.store.size(this.rowsCacheKey);
       console.log(`Cleaning twitter audience = ${this.audienceId}. Previously synced audience size is ${size}`);
-      await this.ctx.store.streamBatch(this.rowsCacheKey, async (batch) => {
-        console.log(`Deleting ${batch.length} rows from audience`);
-        await this.post(`/accounts/${this.config.credentials.accountId}/custom_audiences/${this.audienceId}/users`,
-          [
-            { "operation_type": "Delete", users: batch.map((row) => AudienceRowType.parse(row.value)).map(r => emailHash(normalizeEmail(r.email))) },
-          ],
-          { forceJson: true },
-        );
-      }, this.maxBatchSize);
+      await this.ctx.store.streamBatch(
+        this.rowsCacheKey,
+        async batch => {
+          console.log(`Deleting ${batch.length} rows from audience`);
+          await this.post(
+            `/accounts/${this.config.credentials.accountId}/custom_audiences/${this.audienceId}/users`,
+            [
+              {
+                operation_type: "Delete",
+                users: batch.map(row => AudienceRowType.parse(row.value)).map(r => emailHash(normalizeEmail(r.email))),
+              },
+            ],
+            { forceJson: true }
+          );
+        },
+        this.maxBatchSize
+      );
       await this.ctx.store.deleteByPrefix(this.rowsCacheKey);
     }
     return this;
   }
-
 
   private async get(url: string): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -108,26 +116,28 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
   private async post(url: string, body: any, opts: { forceJson?: boolean } = {}): Promise<any> {
     if (opts.forceJson) {
       return new Promise((resolve, reject) => {
-        request({
-          baseUrl: `https://ads-api.twitter.com/${this.twitterApiVersion}`,
-          url: url,
-          method: "POST",
-          json: true,
-          body: body,
-          oauth: {
-            consumer_key: this.config.credentials.consumerKey,
-            consumer_secret: this.config.credentials.consumerSecret,
-            token: this.config.credentials.accessToken,
-            token_secret: this.config.credentials.accessTokenSecret,
+        request(
+          {
+            baseUrl: `https://ads-api.twitter.com/${this.twitterApiVersion}`,
+            url: url,
+            method: "POST",
+            json: true,
+            body: body,
+            oauth: {
+              consumer_key: this.config.credentials.consumerKey,
+              consumer_secret: this.config.credentials.consumerSecret,
+              token: this.config.credentials.accessToken,
+              token_secret: this.config.credentials.accessTokenSecret,
+            },
           },
-        }, function(err, resp, body) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(body);
+          function (err, resp, body) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(body);
+            }
           }
-        });
-
+        );
       });
     } else {
       return new Promise((resolve, reject) => {
@@ -142,7 +152,6 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
     }
   }
 
-
   protected async processBatch(currentBatch: AudienceRowType[]) {
     function fixISO(iso: string) {
       //apparently, twitter has its own idea of what a valid ISO date is
@@ -150,18 +159,19 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
       return parts[0] + "Z";
     }
 
-    const response = await this.post(`/accounts/${this.config.credentials.accountId}/custom_audiences/${this.audienceId}/users`,
+    const response = await this.post(
+      `/accounts/${this.config.credentials.accountId}/custom_audiences/${this.audienceId}/users`,
       [
         {
-          "operation_type": "Update",
+          operation_type: "Update",
           params: {
-            "effective_at": fixISO(new Date().toISOString()),
-            "expires_at": fixISO(new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 30).toISOString()), // 30 days
-            users: currentBatch.map((row) => ({ email: [emailHash(normalizeEmail(row.email))] })),
+            effective_at: fixISO(new Date().toISOString()),
+            expires_at: fixISO(new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 30).toISOString()), // 30 days
+            users: currentBatch.map(row => ({ email: [emailHash(normalizeEmail(row.email))] })),
           },
         },
       ],
-      { forceJson: true },
+      { forceJson: true }
     );
     console.log(`Sent ${currentBatch.length} users to twitter API. Response:`, JSON.stringify(response, null, 2));
     console.log(`Saving ${currentBatch.length} rows to cache`);
@@ -170,13 +180,17 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
       await this.ctx.store.set(key, row);
     }
   }
-
-
 }
 
 export const twitterAdsProvider: DestinationProvider<TwitterCredentials> = {
-  credentialsType: TwitterCredentials, defaultStream: "audience", name: "Twitter Ads", streams: [
-    { name: "audience", rowType: AudienceRowType, createOutputStream: (config, ctx) => new TwitterOutputStream(config, ctx).init() },
+  credentialsType: TwitterCredentials,
+  defaultStream: "audience",
+  name: "Twitter Ads",
+  streams: [
+    {
+      name: "audience",
+      rowType: AudienceRowType,
+      createOutputStream: (config, ctx) => new TwitterOutputStream(config, ctx).init(),
+    },
   ],
-
 };

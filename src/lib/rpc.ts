@@ -30,13 +30,11 @@ function notEmpty(param): boolean {
   return param !== undefined && param !== null && Object.keys(param).length > 0;
 }
 
-
 export type RpcParams<Query = Record<string, any>, Payload = any> = Omit<RequestInit, "method" | "body"> & {
   method?: string;
   body?: Payload;
   query?: Query;
 };
-
 
 export interface RpcFunc<Result = any, Query = Record<string, any>, Payload = any> {
   (url: string, params?: RpcParams<Query, Payload>): Promise<Result>;
@@ -46,10 +44,14 @@ function extractString(obj: any): string | undefined {
   return typeof obj === "string" ? obj : undefined;
 }
 
-export function createRpcClient<Result = any, Query = Record<string, any>, Payload = any>(params: Pick<RequestInit, "headers"> & { urlBase?: string }): RpcFunc<Result, Query, Payload> {
+export function createRpcClient<Result = any, Query = Record<string, any>, Payload = any>(
+  params: Pick<RequestInit, "headers"> & { urlBase?: string }
+): RpcFunc<Result, Query, Payload> {
   return async (url, { headers, ...rest } = {}) => {
-
-    return rpc(params.urlBase ? `${params.urlBase}${url}` : url, { headers: { ...params.headers, ...headers }, ...rest } as any);
+    return rpc(params.urlBase ? `${params.urlBase}${url}` : url, {
+      headers: { ...params.headers, ...headers },
+      ...rest,
+    } as any);
   };
 }
 
@@ -67,7 +69,10 @@ export class RpcError extends Error {
   public readonly url: string;
   public response: any;
 
-  constructor(message: string, opts: { url: string, statusCode: number, headers: Record<string, string>, response: any }) {
+  constructor(
+    message: string,
+    opts: { url: string; statusCode: number; headers: Record<string, string>; response: any }
+  ) {
     super(message);
     this.headers = opts.headers;
     this.statusCode = opts.statusCode;
@@ -82,8 +87,6 @@ export class RpcError extends Error {
       this.response = opts.response;
     }
   }
-
-
 }
 
 export const rpc: RpcFunc = async (url, { body, ...rest } = {}) => {
@@ -134,7 +137,6 @@ export const rpc: RpcFunc = async (url, { body, ...rest } = {}) => {
       headers: toRecord(result.headers),
       url: urlWithQuery,
       response: errorText,
-
     });
     // throw new ApiResponseError(errorMessage, typeof errorJson === "string" ? undefined : errorJson, {
     //   url: urlWithQuery,

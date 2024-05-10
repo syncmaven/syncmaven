@@ -3,7 +3,7 @@ import { isTruish } from "./lib/util";
 type LoggingMethod = (message?: any, ...optionalParams: any[]) => void;
 
 const severityLevels = ["INFO", "WARN", "ERROR", "DEBUG"] as const;
-type SeverityLevel = typeof severityLevels[number];
+type SeverityLevel = (typeof severityLevels)[number];
 const maxSeverityLevelLength = Math.max(...severityLevels.map(s => s.length));
 
 const RESET = "\x1b[0m";
@@ -11,7 +11,7 @@ const RESET = "\x1b[0m";
 const streamFormatStacks: Record<number, string[]> = {
   [process.stdout.fd]: [],
   [process.stderr.fd]: [],
-}
+};
 
 export const fmt = {
   bold: (x: any) => wrap("\x1b[1m", x),

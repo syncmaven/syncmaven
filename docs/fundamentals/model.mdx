@@ -1,0 +1,51 @@
+---
+title: "Model"
+icon: "table"
+iconType: "solid"
+---
+
+Model tells Syncmaven how to access the data in the database. Typically, it's represented by a SQL query
+along with parameters. The query is executed by Syncmaven to fetch the data from the database.
+
+Models are defined in the `./models` directory of the project.
+
+# SQL file
+
+Model can be defined in a SQL file. The file should have a `.sql` extension. The file should contain a SQL query
+
+```sql
+--{{ config("name", "Active Users" }) }}
+--{{ config("datasource", "${env.POSTGRES_URL}" }}
+
+SELECT * FROM users WHERE active = true;
+```
+
+In addition to the SQL query, the file can set model configuration using the `config` directive
+
+```
+-- {{ config("param", "value" }) }}
+```
+
+Please note that the `config` directive should be in a comment block to be ignored by the SQL parser.
+
+The model must define `datasource`, which is the connection string to the database. Also, the model have two optional
+parameters `name` and `id`. Default values for these parameters is the file name without the extension.
+
+# YAML file
+
+Model can also be defined in a YAML file. The file should have a `.yaml` or `.ymk` extension:
+
+```
+name: Active Users minus Paid Users
+datasource: ${env.POSTGRES_URL}
+query: SELECT * FROM users WHERE active = true AND paid = false;
+```
+
+As in the SQL file, the YAML file must define `datasource` and `sql`. `name` and `id` are optional parameters.
+
+# Datasource
+
+## Postgres
+
+To connect to a Postgres database, the `datasource` should be a connection string: `postgres://user:password@host:port/dbname`
+

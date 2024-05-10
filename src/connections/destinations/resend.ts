@@ -29,10 +29,11 @@ class ResendStream extends BatchingOutputStream<ResendRow, ResendCredentials> {
   }
 
   async init() {
-    const audienceName = this.config.options.audienceName || `AudienceSync: ${this.config.syncId}, stream=${this.config.streamId}`;
+    const audienceName =
+      this.config.options.audienceName || `AudienceSync: ${this.config.syncId}, stream=${this.config.streamId}`;
     const audiences = await this.resend.audiences.list();
     if (audiences.error) {
-      throw new Error(`Error getting audiences ${audiences.error.message}`, );
+      throw new Error(`Error getting audiences ${audiences.error.message}`);
     }
     assert(audiences.data);
 
@@ -65,7 +66,6 @@ class ResendStream extends BatchingOutputStream<ResendRow, ResendCredentials> {
       await this.resend.contacts.create(createPayload);
     }
   }
-
 }
 
 export const resendProvider: DestinationProvider<ResendCredentials> = {

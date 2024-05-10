@@ -11,18 +11,18 @@ export function maskPassword(url: string): string {
     return "******";
   }
   urlObj = new URL(url);
-    const password = urlObj.password;
-    if (password) {
-        urlObj.password = "****";
-    }
-    return urlObj.toString();
+  const password = urlObj.password;
+  if (password) {
+    urlObj.password = "****";
+  }
+  return urlObj.toString();
 }
 
 export function isTruish(x: any): boolean {
   return x === "true" || x === "1";
 }
 
-export function splitName(name: string): {first: string, last: string} {
+export function splitName(name: string): { first: string; last: string } {
   const [first, ...rest] = name.split(" ");
   return {
     first,

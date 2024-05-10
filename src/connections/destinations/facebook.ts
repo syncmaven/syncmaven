@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { BaseOutputStream, DestinationProvider, DestinationStream, ExecutionContext, OutputStreamConfiguration } from "../types";
+import {
+  BaseOutputStream,
+  DestinationProvider,
+  DestinationStream,
+  ExecutionContext,
+  OutputStreamConfiguration,
+} from "../types";
 import { createRpcClient, rpc, RpcError, RpcFunc } from "../../lib/rpc";
 import crypto from "crypto";
 
@@ -8,8 +14,7 @@ export const FacebookAdsCredentials = z.object({
   accountId: z.string(),
 });
 
-export type FacebookAdsCredentials = z.infer<typeof FacebookAdsCredentials>
-
+export type FacebookAdsCredentials = z.infer<typeof FacebookAdsCredentials>;
 
 const AudienceRowType = z.object({
   email: z.string(),
@@ -28,15 +33,17 @@ class FacebookAudienceOutputStream extends BaseOutputStream<AudienceRowType, Fac
   private client: RpcFunc;
   private rowsKey: string[];
 
-
   constructor(config: OutputStreamConfiguration<FacebookAdsCredentials>, ctx: ExecutionContext) {
     super(config, ctx);
-    this.accountId = config.credentials.accountId.startsWith("act_") ? config.credentials.accountId : "act_" + config.credentials.accountId;
+    this.accountId = config.credentials.accountId.startsWith("act_")
+      ? config.credentials.accountId
+      : "act_" + config.credentials.accountId;
     this.client = createRpcClient({
       headers: {
         Authorization: `Bearer ${config.credentials.accessToken}`,
         "Content-Type": "application/json",
-      }, urlBase: `https://graph.facebook.com/${this.apiVersion}/${this.accountId}`,
+      },
+      urlBase: `https://graph.facebook.com/${this.apiVersion}/${this.accountId}`,
     });
     this.rowsKey = [`sync=${config.syncId}`, `stream=${config.streamId}`, "last-synced-rows"];
   }
@@ -46,7 +53,7 @@ class FacebookAudienceOutputStream extends BaseOutputStream<AudienceRowType, Fac
     const currentAudiences = await this.client(`/customaudiences?fields=id,name,description`);
     const audienceName = this.config.options?.audienceName || `audience-sync?syncId=${syncId}&streamId=` + streamId;
     const description = `This audience is created by Jitsu for stream ${streamId} with syncId ${syncId}. Don't change it's name!`;
-    this.audienceId = currentAudiences.data.find((a) => a.name === audienceName)?.id;
+    this.audienceId = currentAudiences.data.find(a => a.name === audienceName)?.id;
     if (!this.audienceId) {
       console.log(`Audience with ${audienceName} not found, creating...`);
       const audience = await this.client(`/customaudiences`, {
@@ -77,7 +84,10 @@ class FacebookAudienceOutputStream extends BaseOutputStream<AudienceRowType, Fac
         };
         await rpc(`https://graph.facebook.com/${this.apiVersion}/${this.audienceId}/users`, {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${this.config.credentials.accessToken}`, "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${this.config.credentials.accessToken}`,
+            "Content-Type": "application/json",
+          },
           body: { payload },
         });
         toRemoveBatch.length = 0;
@@ -100,9 +110,7 @@ class FacebookAudienceOutputStream extends BaseOutputStream<AudienceRowType, Fac
       await this.ctx.store.deleteByPrefix(this.rowsKey);
     }
 
-
     return this;
-
   }
 
   async handleRow(row: AudienceRowType, ctx: ExecutionContext) {
@@ -117,7 +125,6 @@ class FacebookAudienceOutputStream extends BaseOutputStream<AudienceRowType, Fac
       await this.flushBatch();
     }
   }
-
 
   private async flushBatch(lastBatch: boolean = false) {
     console.log(`Flushing batch of ${this.currentBatch.length} users`);
@@ -145,12 +152,16 @@ class FacebookAudienceOutputStream extends BaseOutputStream<AudienceRowType, Fac
       //console.log(`Batch payload`, body);
       const batchFlushResponse = await rpc(`https://graph.facebook.com/${this.apiVersion}/${this.audienceId}/users`, {
         headers: { Authorization: `Bearer ${this.config.credentials.accessToken}`, "Content-Type": "application/json" },
-        method: "POST", body: body,
+        method: "POST",
+        body: body,
       });
       console.log(`Batch of ${this.currentBatch.length} users flushed. Response`, batchFlushResponse);
     } catch (e) {
       if (e instanceof RpcError) {
-        console.error(`Error flushing batch of ${this.currentBatch.length} users. Code ${e.statusCode}. Response`, e.response);
+        console.error(
+          `Error flushing batch of ${this.currentBatch.length} users. Code ${e.statusCode}. Response`,
+          e.response
+        );
       }
     } finally {
       this.currentBatch.length = 0;

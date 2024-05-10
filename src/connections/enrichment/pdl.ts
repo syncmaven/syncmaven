@@ -8,7 +8,7 @@ export const PeopleDataLabsCredentials = z.object({
   apiKey: z.string(),
 });
 
-export type PeopleDataLabsCredentials = z.infer<typeof PeopleDataLabsCredentials>
+export type PeopleDataLabsCredentials = z.infer<typeof PeopleDataLabsCredentials>;
 
 export const pdlEnrichmentProvider: EnrichmentProvider = {
   name: "pdl",
@@ -17,9 +17,8 @@ export const pdlEnrichmentProvider: EnrichmentProvider = {
   createEnrichment: (config, ctx) => {
     let rateLimitExpires: undefined | Date;
     let usageLimitExceeded = false;
-    return ({
-      enrichRow: async (row) => {
-
+    return {
+      enrichRow: async row => {
         const { apiKey } = config.credentials;
         const cacheNamespace = config.options.cacheNamespace || emailHash(apiKey);
         const cacheTTLHours = config.options.cacheTTLHours || 24 * 30;
@@ -59,7 +58,9 @@ export const pdlEnrichmentProvider: EnrichmentProvider = {
                 rateLimitExpires = new Date(new Date().getTime() + 1000 * 60);
                 return [row];
               } else if (e.statusCode === 402) {
-                console.warn(`Error fetching PDL data for ${email}. Usage limit exceeded. No further requests will be made.`);
+                console.warn(
+                  `Error fetching PDL data for ${email}. Usage limit exceeded. No further requests will be made.`
+                );
                 usageLimitExceeded = true;
                 return [row];
               } else {
@@ -71,19 +72,22 @@ export const pdlEnrichmentProvider: EnrichmentProvider = {
               return [row];
             }
           }
-          await ctx.store.set(cacheKey, { response, expire: new Date(new Date().getTime() + 1000 * 60 * 60 * cacheTTLHours) });
+          await ctx.store.set(cacheKey, {
+            response,
+            expire: new Date(new Date().getTime() + 1000 * 60 * 60 * cacheTTLHours),
+          });
         }
-        const emails: string[] = (response?.data?.emails || []).map((email: any) => email.address as string).filter(Boolean).map(normalizeEmail).filter(e => e !== email);
+        const emails: string[] = (response?.data?.emails || [])
+          .map((email: any) => email.address as string)
+          .filter(Boolean)
+          .map(normalizeEmail)
+          .filter(e => e !== email);
         const additionalRecords = emails.map(email => ({
           ...row,
           email,
         }));
-        return [
-          row,
-          ...additionalRecords,
-        ];
+        return [row, ...additionalRecords];
       },
-    });
+    };
   },
-
 };

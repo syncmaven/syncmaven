@@ -1,0 +1,32 @@
+---
+title: Connection
+icon: plug
+iconType: solid
+---
+
+The "Connection" defines how Syncmaven should connect to an external service, which typically involves a set of credentials required for this connection.
+
+
+
+Connections are defined in the connections folder of a [Syncmaven project](/fundametals/project). Each connection is defined in a `.yml` or `.yaml` file and can reference environment variables through the `${env.VARNAME`} syntax:
+
+```yaml
+kind: facebook
+credentials:
+  accessToken: ${env.FACEBOOK_ADS_ACCESS_TOKEN}
+  accountId: ${env.FACEBOOK_ADS_ACCOUNT_ID}
+```
+
+Each file must specify two nodes: `kind`, which defines the connection type, and `credentials`, which contains the credentials.
+
+<Info> It is important not to store credentials in the connection file for security reasons. Refer to them through `${env.VARIABLE}` instead</Info>
+
+The connection does not specify how the connected service should be used; it merely defines how Syncmaven should establish the connection. Connections are user in [syncs](/fundamentals/syncs)
+to connect to destinations or enrichments.
+
+# Manifests
+
+A connection can have one or several manifests, depending on how the connections may be used.
+If a connection can be used as a destination, it has a destination manifest. For more information about the manifest structure, please refer the [Protocol](/fundametals/protocol) section.
+
+In order to access a manifest of connection, execute `syncmaven manifest` to display all available connections and their manifest types. Then, run `syncmaven manifest -t <manifest-kind> -p <destination or enrichment>`.
