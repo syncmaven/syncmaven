@@ -63,7 +63,10 @@ class ResendStream extends BatchingOutputStream<ResendRow, ResendCredentials> {
         unsubscribed: !!row.unsubscribed,
         audienceId: this.audienceId,
       };
-      await this.resend.contacts.create(createPayload);
+      const creationResult = await this.resend.contacts.create(createPayload);
+      if (creationResult.error) {
+        console.log(`Error creating contact ${email}: ${creationResult.error.message}`);
+      }
     }
   }
 }

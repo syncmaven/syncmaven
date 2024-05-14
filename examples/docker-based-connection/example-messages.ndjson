@@ -1,0 +1,8 @@
+{type: "spec"}
+{type: "stream-spec"}
+{type: "stream-start", payload: {stream: "stream1"}}
+{type: "row", payload: {row: {email: "a@b.com", name: "Alice"}}}
+{type: "row", payload: {row: {email: "a1@b.com", name: "Bob"}}}
+{type: "row", payload: {row: {email: "a@b.com", name: "Alice"}}}
+{type: "stream-end"}
+

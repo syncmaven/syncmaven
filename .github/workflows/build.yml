@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       release-version:
-        description: 'Release Version (optional)'
+        description: "Release Version (optional)"
         required: false
 
 jobs:
@@ -21,8 +21,8 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          registry-url: 'https://registry.npmjs.org/'
-          scope: '@syncmaven'  # Replace with your npm scope if needed
+          registry-url: "https://registry.npmjs.org/"
+          scope: "@syncmaven" # Replace with your npm scope if needed
           always-auth: true
 
       - name: Install pnpm

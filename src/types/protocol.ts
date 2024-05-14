@@ -22,6 +22,7 @@ export const DescribeConnectionMessage = MessageBase.merge(
     type: z.literal("describe"),
     direction: z.literal("incoming").default("incoming").optional(),
     payload: z.never().optional(),
+    result: z.literal(1).default(1).optional(),
   })
 );
 
@@ -195,6 +196,7 @@ export type ReplyChannel = {
 
 export interface ComponentChannel {
   handleMessage: (messages: Message, channel: ReplyChannel, ctx: ExecutionContext) => Promise<void> | void;
+  close?: () => Promise<void> | void;
 }
 
 export async function processMessages(
@@ -223,7 +225,7 @@ export async function processMessageWithResult<T>(
 ): Promise<T> {
   const messages = await processMessages(ch, message, ctx);
   if (messages.length !== 1) {
-    throw new Error(`Expected exactly one in reply to a message ${message.type}, got ${messages.length}`);
+    throw new Error(`Expected exactly one in reply to a message '${message.type}', got ${messages.length}`);
   } else {
     try {
       //we parsing it for validation onlu, we should return the original message since it could contain some fields which
