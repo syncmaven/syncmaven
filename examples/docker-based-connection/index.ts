@@ -32,7 +32,7 @@ const rowSchema = {
       type: "string",
     },
   },
-  required: ["requiredKey"],
+  required: ["email"],
 };
 
 function rpc(method: string, body: any): Promise<any> {
@@ -63,8 +63,6 @@ function rpc(method: string, body: any): Promise<any> {
     output: process.stdout,
     terminal: false,
   });
-
-  let streamStarted = false;
 
   rl.on("line", line => {
     if (line.trim() === "") {

@@ -1,10 +1,11 @@
-import { ComponentChannel, Message, ReplyChannel } from "../types/protocol";
+import { ComponentChannel, IncomingMessage, LogMessage, Message, ReplyChannel, replyTable } from "../types/protocol";
 import Docker from "dockerode";
 import express from "express";
 import http from "http";
 import { ExecutionContext } from "../connections/types";
 import JSON5 from "json5";
 import readline from "readline";
+import assert from "assert";
 
 export class DockerChannel implements ComponentChannel {
   private image: string;
@@ -12,13 +13,14 @@ export class DockerChannel implements ComponentChannel {
   private ctx?: ExecutionContext;
   private rpcServer?: RpcServer;
   private container: any;
-  private messageQueue: Message[] = [];
   private containerStream?: any;
+  private lineReader?: readline.Interface;
+  private shouldHalt = false;
 
   constructor(image: string) {
     this.image = image;
     this.docker = new Docker({
-      socketPath: "/var/run/docker.sock"
+      socketPath: "/var/run/docker.sock",
     });
   }
 
@@ -42,7 +44,7 @@ export class DockerChannel implements ComponentChannel {
       OpenStdin: true,
       StdinOnce: false,
       Tty: false,
-      env: [`RPC_URL=http://host.docker.internal:${this.rpcServer.port}`],
+      env: [`RPC_URL=http://localhost:${this.rpcServer.port}`],
     });
     console.log(`Container created. Id: ${this.container.id}`);
 
@@ -54,49 +56,41 @@ export class DockerChannel implements ComponentChannel {
       stderr: true,
       hijack: true,
     });
-    const rl = readline.createInterface({ input: this.containerStream!, });
-    rl!.on("line", (data) => {
-      let rawMessage: any;
-      let messageStr = data.toString();
-      while (messageStr.charAt(0) != "{" && messageStr.length > 0) {
-        messageStr = messageStr.slice(1);
-      }
-
+    assert(this.containerStream, "Container stream is not set");
+    this.lineReader = readline.createInterface({ input: this.containerStream });
+    this.lineReader.on("line", (data) => {
+      let msg: any;
       try {
-        rawMessage = JSON5.parse(messageStr);
-      } catch (error) {
-        console.error(`Received message is not in JSON format: '${messageStr}'`, error);
+        msg = this.parseLine(data);
+      } catch (e) {
+        //if we can't parse the message, we'll just log it. Con
+        this.handleLogMessage({ type: "log", payload: { level: "info", message: data } } );
         return;
       }
-      let message: Message;
-      try {
-        message = Message.parse(rawMessage);
-      } catch (error) {
-        console.error(`Received message doesn't match schema: ${messageStr}`, error);
-        return;
+      if (msg.type === "log") {
+        this.handleLogMessage(msg);
+      } else if (msg.type === "halt") {
+        //we can't halt here, setting flag instead
+        console.log("Received halt message. Stopping process...");
+        this.shouldHalt = true;
       }
-      this.handleParsedMessage(message);
-
     });
 
     // Start the container
     await this.container.start();
   }
 
-  handleParsedMessage(message: Message) {
-    if (message.type === "log") {
-      const params = message.payload.params;
-      const msgText = `${message.payload.message}`;
-      if (params) {
-        console[message.payload.level](msgText, ...(Array.isArray(params) ? params : [params]));
-      } else {
-        console[message.payload.level](msgText);
-      }
-    } else if (message.type === "halt") {
-      console.error(`Received halt message. Closing...`);
-      this.close();
+  haltIfRequested() {
+    if (this.shouldHalt) {
+      throw new Error(`${this.image} requested full stop by sending 'halt' message`);
     }
-    this.messageQueue.push(message);
+  }
+
+  parseLine(str: string): any {
+    while (str.charAt(0) != "{" && str.length > 0) {
+      str = str.slice(1);
+    }
+    return JSON5.parse(str);
   }
 
   async handleRpcRequest(opts: { body: any; path: string; query: Record<string, string> }): Promise<any> {
@@ -105,13 +99,82 @@ export class DockerChannel implements ComponentChannel {
     }
   }
 
-  async handleMessage(message, channel: ReplyChannel, ctx) {
+  /**
+   * Waits until certain message is received from the channel
+   * @param opts
+   */
+  async waitForMessage<T = any>(opts: {
+    //sends an initial message. invoked after listener is set up
+    init: () => Promise<void> | void;
+    //parses a line into a message
+    parser: (line: string) => any;
+    //only messages that pass this filter, will be considered. If not set, all messages are accepted
+    accept?: (message: T) => boolean;
+    //not implemented yet. If no acceptable message is received, the promise will be rejected after this timeout
+    timeoutMs?: number;
+  }): Promise<T> {
+    const reader = this.lineReader!;
+    let listener;
+    try {
+      const messageAwaiter = new Promise<T>((resolve, reject) => {
+        listener = (line) => {
+          try {
+            const message = opts.parser(line);
+            if (!opts.accept || opts.accept(message)) {
+              resolve(message);
+            }
+          } catch (e) {
+            reject(new Error(`Failed to parse message: ${line}`, { cause: e }));
+          }
+        };
+        reader.on("line", listener);
+      });
+      await opts.init();
+      return await messageAwaiter;
+    } finally {
+      if (listener) {
+        reader.off("line", listener);
+      }
+    }
+  }
+
+  async dispatchMessage(incomingMessage: IncomingMessage, channel: ReplyChannel, ctx) {
+    this.haltIfRequested();
     if (!this.ctx) {
       console.log("Received first message, lazy-initializing docker image");
       this.ctx = ctx;
       await this.init();
     }
-    console.log(`Sent ${message.type}: ${JSON.stringify(message)}. Will wait for ${message.result} messages to be processed from`);
+    assert(this.containerStream, "Container stream is not set");
+    assert(this.lineReader, "Line reader is not set");
+    const expectReply = !!replyTable[incomingMessage.type];
+    if (expectReply) {
+      console.debug(`Will send '${incomingMessage.type}' to channel, expecting reply...`);
+      const replyMessage = await this.waitForMessage({
+        init: () => {
+          this.containerStream?.write(JSON.stringify(incomingMessage) + "\n");
+          console.debug(`Send '${incomingMessage.type}' to channel, expecting reply. Message sent: '${JSON.stringify(incomingMessage)}'`);
+        },
+        parser: (line) => this.parseLine(line),
+        accept: (reply) => replyTable[incomingMessage.type] === reply.type,
+      });
+      let parsedMessage: Message;
+      try {
+        console.debug(`Received reply to '${incomingMessage.type}' message: ${JSON.stringify(replyMessage)}`);
+        parsedMessage = Message.parse(replyMessage);
+      } catch (e) {
+        throw new Error(`Error parsing message: ${JSON.stringify(incomingMessage)}`, { cause: e });
+      }
+      this.haltIfRequested();
+      try {
+        await channel.dispatchReplyMessage(parsedMessage);
+      } catch (e) {
+        throw new Error(`Error dispatch`, { cause: e });
+      }
+    } else {
+      this.containerStream?.write(JSON.stringify(incomingMessage) + "\n");
+    }
+    this.haltIfRequested();
   }
 
 
@@ -122,11 +185,24 @@ export class DockerChannel implements ComponentChannel {
       console.warn(`Failed to stop server: ${e?.message}`);
     }
     try {
+      console.info(`Stopping container ${this.container.id} of ${this.image}...`);
       await this.container?.stop();
-      await this.container?.remove();
+      console.info(`Container stopped. Removing container ${this.container.id} of ${this.image}`);
+      await this.docker.removeContainer(this.container.id);
+      console.info(`Docker cleanup done for ${this.image}`);
     } catch (e: any) {
       console.warn(`Failed to stop server: ${e?.message}`);
     }
+  }
+
+  private handleLogMessage(msg: any) {
+    try {
+      const parsedMessage = LogMessage.parse(msg);
+      console[parsedMessage.payload.level](`[${this.image}] ${parsedMessage.payload.message}`, ...(parsedMessage.payload.params || []));
+    } catch (e) {
+      console.warn(`Invalid log message received: ${JSON.stringify(msg)}`, { cause: e });
+    }
+
   }
 }
 

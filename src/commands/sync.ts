@@ -12,9 +12,10 @@ import { readProject, untildify } from "../lib/project";
 import { executeQuery } from "../lib/datasource";
 import { createErrorThreshold } from "../lib/error-threshold";
 import { Project } from "../types/project";
+import { createParser, SchemaBasedParser, stringifyParseError } from "../lib/uniparser";
 
 async function applyEnrichment(
-  rowType: ZodSchema,
+  rowType: SchemaBasedParser,
   enrichment: ComponentChannel,
   rows: any[],
   ctx: ExecutionContext,
@@ -43,13 +44,6 @@ async function applyEnrichment(
   return res;
 }
 
-function isZodSchema(obj: any): boolean {
-  return obj && obj._def && obj._def.typeName;
-}
-
-function isJsonSchema(obj: any): boolean {
-  return obj && obj.$schema && obj.type;
-}
 
 function haltIfNeeded(m: Message | Message[], subject: string) {
   const arr = Array.isArray(m) ? m : [m];
@@ -68,7 +62,6 @@ async function closeChannels(channels: (ComponentChannel | undefined)[]) {
       } catch (e: any) {
         console.warn(`Failed to close channel`, e);
       }
-
     }
   }
 
@@ -123,22 +116,13 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
     if (!streamSpec) {
       throw new Error(`Stream ${streamId} not found in destination ${destinationId}`);
     }
-    if (!isZodSchema(streamSpec.rowType)) {
-      throw new Error(
-        `Row type of stream ${streamId} is not based on Zod. We don't support JSON schema yet. Schema: ${JSON.stringify(streamSpec.rowType)}`,
-      );
-    }
-    const rowSchema = streamSpec.rowType as ZodSchema;
-    if (!isZodSchema(connectionSpec.payload.connectionCredentials)) {
-      throw new Error(
-        `Connection credentials schema of ${destinationId} is not based on Zod. We don't support JSON schema yet`,
-      );
-    }
-    const connectionCredentialsType = connectionSpec.payload.connectionCredentials as ZodSchema;
-    const parsedCredentials = connectionCredentialsType.safeParse(destination.credentials);
+    console.debug(`Stream spec: ${JSON.stringify(streamSpec)}`);
+    const rowSchemaParser = createParser(streamSpec.rowType);
+    const connectionCredentialsParser = createParser(connectionSpec.payload.connectionCredentials);
+    const parsedCredentials = connectionCredentialsParser.safeParse(destination.credentials);
     if (!parsedCredentials.success) {
       throw new Error(
-        `Invalid credentials for destination ${destinationId}: ${stringifyZodError(parsedCredentials.error)}`,
+        `Invalid credentials for destination ${destinationId}: ${stringifyParseError(parsedCredentials.error)}`,
       );
     }
     haltIfNeeded(
@@ -191,11 +175,11 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
           //await streamHandler.setup(header, context);
         },
         row: async row => {
-          const parseResult = rowSchema.safeParse(row);
+          const parseResult = rowSchemaParser.safeParse(row);
           if (parseResult.success) {
             let rows = [parseResult.data];
             for (const enrichment of enrichments) {
-              rows = await applyEnrichment(rowSchema, enrichment, rows, context);
+              rows = await applyEnrichment(rowSchemaParser, enrichment, rows, context);
             }
             if (rows.length > 1) {
               console.debug(
@@ -220,7 +204,7 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
             }
           } else {
             const zodError = stringifyZodError(parseResult.error);
-            const errorMessage = `Invalid format of a row: ${zodError}. Row: ${JSON.stringify(row)}`;
+            const errorMessage = `Invalid format of a row: ${zodError}. Row: ${JSON.stringify(row)}.`;
             if (errorThreshold.fail()) {
               throw new Error(errorMessage + `. Failed because of too many errors - ${errorThreshold.summary()}`);
             } else {
@@ -243,7 +227,9 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
     });
     console.info(`Sync ${syncId} is finished. Source rows ${totalRows}, enriched rows ${enrichedRows}`);
   } finally {
+    console.debug(`Closing all communications channels of sync '${syncId}'. It might take a while`);
     await closeChannels([...enrichments, destinationChannel]);
+    console.debug(`All channels of '${syncId}' has been closed`);
   }
 }
 

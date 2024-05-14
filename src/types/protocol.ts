@@ -1,12 +1,6 @@
 import { z, ZodType } from "zod";
 import { Simplify } from "type-fest";
-import {
-  DestinationProvider,
-  DestinationStream,
-  EnrichmentProvider,
-  ExecutionContext,
-  StreamEnrichment,
-} from "../connections/types";
+import { DestinationProvider, DestinationStream, EnrichmentProvider, ExecutionContext, StreamEnrichment } from "../connections/types";
 import { stringifyZodError } from "../lib/zod";
 
 const MessageBase = z.object({
@@ -22,8 +16,7 @@ export const DescribeConnectionMessage = MessageBase.merge(
     type: z.literal("describe"),
     direction: z.literal("incoming").default("incoming").optional(),
     payload: z.never().optional(),
-    result: z.literal(1).default(1).optional(),
-  })
+  }),
 );
 
 export type DescribeConnectionMessage = z.infer<typeof DescribeConnectionMessage>;
@@ -36,7 +29,7 @@ export const ConnectionSpecMessage = MessageBase.merge(
       roles: z.array(z.enum(["enrichment", "destination"])),
       connectionCredentials: z.any(),
     }),
-  })
+  }),
 );
 
 export type ConnectionSpecMessage = z.infer<typeof ConnectionSpecMessage>;
@@ -46,7 +39,7 @@ export const DescribeStreamsMessage = MessageBase.merge(
     type: z.literal("describe-streams"),
     direction: z.literal("incoming").default("incoming").optional(),
     payload: z.never().optional(),
-  })
+  }),
 );
 
 export type DescribeStreamsMessage = z.infer<typeof DescribeStreamsMessage>;
@@ -65,10 +58,10 @@ export const StreamSpecMessage = MessageBase.merge(
         z.object({
           name: z.string(),
           rowType: z.any(),
-        })
+        }),
       ),
     }),
-  })
+  }),
 );
 
 export type StreamSpecMessage = z.infer<typeof StreamSpecMessage>;
@@ -84,7 +77,7 @@ export const StartStreamMessage = MessageBase.merge(
       syncId: z.string(),
       fullRefresh: z.boolean().optional().default(false),
     }),
-  })
+  }),
 );
 
 export type StartStreamMessage = z.infer<typeof StartStreamMessage>;
@@ -96,7 +89,7 @@ export const RowMessage = MessageBase.merge(
     payload: z.object({
       row: z.any(),
     }),
-  })
+  }),
 );
 
 export type RowMessage = z.infer<typeof RowMessage>;
@@ -106,7 +99,7 @@ export const EndStreamMessage = MessageBase.merge(
     type: z.literal("end-stream"),
     direction: z.literal("incoming").default("incoming").optional(),
     reason: z.enum(["success", "error"]),
-  })
+  }),
 );
 
 export type EndStreamMessage = z.infer<typeof EndStreamMessage>;
@@ -120,7 +113,7 @@ export const LogMessage = MessageBase.merge(
       message: z.string(),
       params: z.array(z.any()).optional(),
     }),
-  })
+  }),
 );
 
 export type LogMessage = z.infer<typeof LogMessage>;
@@ -133,7 +126,7 @@ export const HaltMessage = MessageBase.merge(
       message: z.string().optional(),
       data: z.any().optional(),
     }),
-  })
+  }),
 );
 
 export type HaltMessage = z.infer<typeof HaltMessage>;
@@ -145,7 +138,7 @@ export const EnrichmentRequest = MessageBase.merge(
     payload: z.object({
       row: z.any(),
     }),
-  })
+  }),
 );
 
 export type EnrichmentRequest = z.infer<typeof EnrichmentRequest>;
@@ -157,7 +150,7 @@ export const EnrichmentResponse = MessageBase.merge(
     payload: z.object({
       row: z.any(),
     }),
-  })
+  }),
 );
 
 export const EnrichmentConnect = MessageBase.merge(
@@ -168,60 +161,92 @@ export const EnrichmentConnect = MessageBase.merge(
       credentials: z.any(),
       options: z.any(),
     }),
-  })
+  }),
 );
 
 export type EnrichmentConnect = z.infer<typeof EnrichmentConnect>;
 
-export const Message = z.discriminatedUnion("type", [
+export const IncomingMessage = z.discriminatedUnion("type", [
   DescribeConnectionMessage,
-  ConnectionSpecMessage,
   DescribeStreamsMessage,
-  StreamSpecMessage,
   StartStreamMessage,
   EndStreamMessage,
   RowMessage,
-  LogMessage,
-  HaltMessage,
   EnrichmentRequest,
-  EnrichmentResponse,
   EnrichmentConnect,
 ]);
 
+export type IncomingMessage = Simplify<z.infer<typeof IncomingMessage>>;
+
+export const ReplyMessage = z.discriminatedUnion("type", [
+  ConnectionSpecMessage,
+  StreamSpecMessage,
+  LogMessage,
+  HaltMessage,
+  EnrichmentResponse,
+]);
+
+export type ReplyMessage = Simplify<z.infer<typeof ReplyMessage>>;
+
+export const Message = z.union([
+  IncomingMessage,
+  ReplyMessage,
+]);
+
+/**
+ * This table defines which incoming messages must give a reply message
+ */
+export const replyTable: Record<IncomingMessage["type"], ReplyMessage["type"] | undefined> = {
+  describe: "spec",
+  "describe-streams": "stream-spec",
+  "start-stream": undefined,
+  "end-stream": undefined,
+  row: undefined,
+  "enrichment-request": "enrichment-response",
+  "enrichment-connect": "halt",
+};
+
+/**
+ * Messages that are not replies to any particular message, but are system messages
+ */
+export const systemMessageTypes: ReplyMessage["type"][] = ["halt", "log"];
+
+
 export type Message = Simplify<z.infer<typeof Message>>;
 
+
 export type ReplyChannel = {
-  send: (message: Message) => Promise<void>;
+  dispatchReplyMessage: (message: Message) => Promise<void>;
 };
 
 export interface ComponentChannel {
-  handleMessage: (messages: Message, channel: ReplyChannel, ctx: ExecutionContext) => Promise<void> | void;
+  dispatchMessage: (messages: IncomingMessage, channel: ReplyChannel, ctx: ExecutionContext) => Promise<void> | void;
   close?: () => Promise<void> | void;
 }
 
 export async function processMessages(
   ch: ComponentChannel,
-  message: Message,
-  ctx: ExecutionContext
+  message: IncomingMessage,
+  ctx: ExecutionContext,
 ): Promise<Message[]> {
   const messages: Message[] = [];
-  await ch.handleMessage(
+  await ch.dispatchMessage(
     message,
     {
-      send: async reply => {
+      dispatchReplyMessage: async reply => {
         messages.push(reply);
       },
     },
-    ctx
+    ctx,
   );
   return messages;
 }
 
 export async function processMessageWithResult<T>(
   ch: ComponentChannel,
-  message: Message,
+  message: IncomingMessage,
   ctx: ExecutionContext,
-  expectedMessageType: ZodType<T>
+  expectedMessageType: ZodType<T>,
 ): Promise<T> {
   const messages = await processMessages(ch, message, ctx);
   if (messages.length !== 1) {
@@ -234,7 +259,7 @@ export async function processMessageWithResult<T>(
       return messages[0] as T;
     } catch (e) {
       throw new Error(
-        `Error while parsing a reply to '${message.type}' message: ${stringifyZodError(e)}. Reply: ${JSON.stringify(messages[0])}`
+        `Error while parsing a reply to '${message.type}' message: ${stringifyZodError(e)}. Reply: ${JSON.stringify(messages[0])}`,
       );
     }
   }
@@ -243,10 +268,10 @@ export async function processMessageWithResult<T>(
 export function createEnrichmentChannel(provider: EnrichmentProvider): ComponentChannel {
   let enrichment: StreamEnrichment | undefined;
   return {
-    async handleMessage(message: Message, channel: ReplyChannel, ctx: ExecutionContext) {
+    async dispatchMessage(message: Message, channel: ReplyChannel, ctx: ExecutionContext) {
       try {
         if (message.type === "describe") {
-          await channel.send({
+          await channel.dispatchReplyMessage({
             type: "spec",
             payload: {
               roles: ["enrichment"],
@@ -255,7 +280,7 @@ export function createEnrichmentChannel(provider: EnrichmentProvider): Component
           });
         } else if (message.type === "enrichment-connect") {
           if (enrichment) {
-            await channel.send({ type: "halt", payload: { message: `Enrichment already connected` } });
+            await channel.dispatchReplyMessage({ type: "halt", payload: { message: `Enrichment already connected` } });
             return;
           }
           enrichment = await provider.createEnrichment(
@@ -263,11 +288,11 @@ export function createEnrichmentChannel(provider: EnrichmentProvider): Component
               credentials: message.payload.credentials,
               options: message.payload.options,
             },
-            ctx
+            ctx,
           );
         } else if (message.type === "enrichment-request") {
           if (!enrichment) {
-            await channel.send({ type: "halt", payload: { message: `Enrichment not connected` } });
+            await channel.dispatchReplyMessage({ type: "halt", payload: { message: `Enrichment not connected` } });
             return;
           }
 
@@ -276,13 +301,13 @@ export function createEnrichmentChannel(provider: EnrichmentProvider): Component
             const rows = Array.isArray(enrichedRows) ? enrichedRows : [enrichedRows];
 
             for (const enrichedRow of rows) {
-              await channel.send({ type: "enrichment-response", payload: { row: enrichedRow } });
+              await channel.dispatchReplyMessage({ type: "enrichment-response", payload: { row: enrichedRow } });
             }
           }
         }
       } catch (e: any) {
         console.error(`Unhandled error while handling message ${message.type}`, e);
-        await channel.send({ type: "halt", payload: { message: e?.message } });
+        await channel.dispatchReplyMessage({ type: "halt", payload: { message: e?.message } });
       }
     },
   };
@@ -293,10 +318,10 @@ export function createDestinationChannel(provider: DestinationProvider): Compone
   let stream: DestinationStream;
 
   return {
-    async handleMessage(message: Message, channel: ReplyChannel, ctx: ExecutionContext) {
+    async dispatchMessage(message: Message, channel: ReplyChannel, ctx: ExecutionContext) {
       try {
         if (message.type === "describe") {
-          await channel.send({
+          await channel.dispatchReplyMessage({
             type: "spec",
             payload: {
               roles: ["destination"],
@@ -304,7 +329,7 @@ export function createDestinationChannel(provider: DestinationProvider): Compone
             },
           });
         } else if (message.type === "describe-streams") {
-          await channel.send({
+          await channel.dispatchReplyMessage({
             type: "stream-spec",
             payload: {
               roles: ["destination"],
@@ -315,14 +340,14 @@ export function createDestinationChannel(provider: DestinationProvider): Compone
         } else if (message.type === "start-stream") {
           stream = provider.streams.find(s => s.name === message.payload.stream)!;
           if (!stream) {
-            await channel.send({
+            await channel.dispatchReplyMessage({
               type: "halt",
               payload: { message: `Stream ${message.payload.stream} not found in ${provider.name} manifest` },
             });
             return;
           }
           if (outputStream) {
-            await channel.send({
+            await channel.dispatchReplyMessage({
               type: "halt",
               payload: { message: `Stream ${message.payload.stream} already started in ${provider.name}` },
             });
@@ -336,24 +361,24 @@ export function createDestinationChannel(provider: DestinationProvider): Compone
               syncId: message.payload.syncId,
               fullRefresh: message.payload.fullRefresh,
             },
-            ctx
+            ctx,
           );
         } else if (message.type === "end-stream") {
           if (!outputStream) {
-            await channel.send({ type: "halt", payload: { message: `Stream not started in ${provider.name}` } });
+            await channel.dispatchReplyMessage({ type: "halt", payload: { message: `Stream not started in ${provider.name}` } });
             return;
           }
           await outputStream.finish(ctx);
           outputStream = undefined;
         } else if (message.type === "row") {
           if (!outputStream) {
-            await channel.send({ type: "halt", payload: { message: `Stream not started in ${provider.name}` } });
+            await channel.dispatchReplyMessage({ type: "halt", payload: { message: `Stream not started in ${provider.name}` } });
             return;
           }
           try {
             message.payload = stream.rowType.parse(message.payload.row);
           } catch (e) {
-            await channel.send({
+            await channel.dispatchReplyMessage({
               type: "halt",
               payload: { message: `Row cannot be parsed`, data: { row: message.payload.row } },
             });
@@ -364,7 +389,7 @@ export function createDestinationChannel(provider: DestinationProvider): Compone
         }
       } catch (e: any) {
         console.error(`Unhandled error while handling message ${message.type}`, e);
-        await channel.send({ type: "halt", payload: { message: e?.message } });
+        await channel.dispatchReplyMessage({ type: "halt", payload: { message: e?.message } });
       }
     },
   };
