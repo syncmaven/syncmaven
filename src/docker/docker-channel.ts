@@ -198,7 +198,9 @@ export class DockerChannel implements ComponentChannel {
   private handleLogMessage(msg: any) {
     try {
       const parsedMessage = LogMessage.parse(msg);
-      console[parsedMessage.payload.level](`[${this.image}] ${parsedMessage.payload.message}`, ...(parsedMessage.payload.params || []));
+      if (parsedMessage.payload.message?.trim()?.length > 0) {
+        console[parsedMessage.payload.level](`[🐳${this.image}] ${parsedMessage.payload.message}`, ...(parsedMessage.payload.params || []));
+      }
     } catch (e) {
       console.warn(`Invalid log message received: ${JSON.stringify(msg)}`, { cause: e });
     }
