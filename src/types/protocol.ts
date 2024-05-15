@@ -194,16 +194,27 @@ export const Message = z.union([
 ]);
 
 /**
- * This table defines which incoming messages must give a reply message
+ * How message should be processed by the channel
+ * The logic is somewhat similar to HTTP connection processing types
  */
-export const replyTable: Record<IncomingMessage["type"], ReplyMessage["type"] | undefined> = {
-  describe: "spec",
-  "describe-streams": "stream-spec",
-  "start-stream": undefined,
-  "end-stream": undefined,
-  row: undefined,
-  "enrichment-request": "enrichment-response",
-  "enrichment-connect": "halt",
+export type MessageProcessingMode =
+  //the process should send open channel, listen to replies and wait for channel to be closed
+  "singleton"
+  //the process should send message, set up listener and keep channel open
+| "keep-alive"
+  //assumes that the
+| "close"
+
+export const messageProcessingFlow: Record<IncomingMessage["type"], {mode: MessageProcessingMode, expectReply?: boolean}> = {
+  describe: { mode: "singleton" },
+  "describe-streams": { mode: "singleton" },
+  "start-stream": { mode: "keep-alive" },
+  "end-stream":  { mode: "close" } ,
+  row: { mode: "singleton" },
+
+  //not working right now, we should not support it
+  "enrichment-request": { mode: "keep-alive", expectReply: true },
+  "enrichment-connect": { mode: "keep-alive" },
 };
 
 /**

@@ -35,6 +35,10 @@ const rowSchema = {
   required: ["email"],
 };
 
+function halt(reason: string) {
+  reply("halt", { message: reason });
+}
+
 function rpc(method: string, body: any): Promise<any> {
   return fetch(`${process.env.RPC_URL}/${method}`, {
     method: "POST",
@@ -53,6 +57,7 @@ function rpc(method: string, body: any): Promise<any> {
     })
     .catch(error => {
       log("error", "Failed to call RPC method", { error });
+      halt(`Failed to call RPC method: ${error.message}`);
       return Promise.resolve();
     });
 }

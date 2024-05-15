@@ -13,6 +13,7 @@
     "README.md"
   ],
   "scripts": {
+    "package": "pkg . --out-path bin-dist",
     "main": "NODE_OPTIONS=--no-deprecation ts-node src/index.ts",
     "release": "monorel --npm-tag latest --filter './packages/a'  --filter './packages/b'",
     "canary:publish": "monorel --version '0.0.2-alpha.{rev}' --npm-tag canary --publish",
