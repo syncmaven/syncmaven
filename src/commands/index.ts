@@ -13,7 +13,6 @@ export function initCli(): Command {
       "-e, --env <file...>",
       "Read environment variables from <file> in addition to <project-dir>/.env and <project-dir>/.env.local. Supports multiple files by providing multiple --env options"
     )
-    .option("-h, --help", "Display this help message")
     .option(
       "-d, --project-dir <project-directory>",
       "Which directory to look in for the project. If not specified, a current directory will be used"
@@ -51,5 +50,8 @@ export function initCli(): Command {
     .option("--debug", "Enable extra logging for debugging purposes")
     .argument("[project-dir]", "Alternative way to specify project directory")
     .action(init);
+
+  program.helpOption("-h --help", "display help for command");
+
   return program;
 }
