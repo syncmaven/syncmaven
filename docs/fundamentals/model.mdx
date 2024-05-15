@@ -41,7 +41,7 @@ datasource: ${env.POSTGRES_URL}
 query: SELECT * FROM users WHERE active = true AND paid = false;
 ```
 
-As in the SQL file, the YAML file must define `datasource` and `sql`. `name` and `id` are optional parameters.
+As in the SQL file, the YAML file must define `datasource` and `query`. `name` and `id` are optional parameters.
 
 # Datasource
 

@@ -233,14 +233,14 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
   }
 }
 
-export async function sync(opts: {
+export async function sync(projectDir: string, opts: {
   projectDir?: string;
   state?: string;
   select?: string;
   fullRefresh?: boolean;
   env?: string[];
 }) {
-  const projectDir = untildify(opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd());
+  projectDir = untildify(projectDir || opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd());
   const envFileNames = [".env", ".env.local"];
   dotenv.config({
     path: [

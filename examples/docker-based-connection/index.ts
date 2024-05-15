@@ -116,7 +116,7 @@ function rpc(method: string, body: any): Promise<any> {
             if (json) {
               const { counter } = json;
               log("info", `Got counter for ${row.email}`, { counter });
-              rpc(`state.set`, { key: [key], value: { counter: counter + 1 } }).then(json => {
+              rpc(`state.set`, { key: [key], value: { counter: (counter??0) + 1 } }).then(json => {
                 if (json) {
                   log("info", `Counter for ${row.email} has been incremented`);
                 }

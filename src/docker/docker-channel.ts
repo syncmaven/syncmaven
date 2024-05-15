@@ -1,11 +1,21 @@
 import { ComponentChannel, IncomingMessage, LogMessage, Message, ReplyChannel, replyTable } from "../types/protocol";
 import Docker from "dockerode";
-import express from "express";
+import express, { query } from "express";
 import http from "http";
 import { ExecutionContext } from "../connections/types";
 import JSON5 from "json5";
 import readline from "readline";
 import assert from "assert";
+
+
+export type RpcHandler = (ctx: ExecutionContext | undefined, opts: {
+  body: any;
+  path: string;
+  query: Record<string, string>;
+}) => Promise<any>;
+
+type RpcServer = { port: number, close: () => Promise<void> | void };
+
 
 export class DockerChannel implements ComponentChannel {
   private image: string;
@@ -25,7 +35,7 @@ export class DockerChannel implements ComponentChannel {
   }
 
   async init() {
-    this.rpcServer = await createRpcServer(this.handleRpcRequest);
+    this.rpcServer = await this.createRpcServer(this.handleRpcRequest);
     console.log(`RPC server started on port ${this.rpcServer.port}. Pulling image ${this.image}`);
     await this.docker.pull(this.image, (err) => {
       if (err) {
@@ -43,8 +53,9 @@ export class DockerChannel implements ComponentChannel {
       AttachStderr: true,
       OpenStdin: true,
       StdinOnce: false,
+      ExtraHosts: ["host.docker.internal:host-gateway"],
       Tty: false,
-      env: [`RPC_URL=http://localhost:${this.rpcServer.port}`],
+      env: [`RPC_URL=http://host.docker.internal:${this.rpcServer.port}`],
     });
     console.log(`Container created. Id: ${this.container.id}`);
 
@@ -57,6 +68,8 @@ export class DockerChannel implements ComponentChannel {
       hijack: true,
     });
     assert(this.containerStream, "Container stream is not set");
+    //separates first message from some technical data at the beginning
+    this.containerStream?.write("\n");
     this.lineReader = readline.createInterface({ input: this.containerStream });
     this.lineReader.on("line", (data) => {
       let msg: any;
@@ -93,10 +106,24 @@ export class DockerChannel implements ComponentChannel {
     return JSON5.parse(str);
   }
 
-  async handleRpcRequest(opts: { body: any; path: string; query: Record<string, string> }): Promise<any> {
-    if (!this.ctx) {
+  async handleRpcRequest(ctx: ExecutionContext | undefined, opts: { body: any; path: string; query: Record<string, string> }): Promise<any> {
+    console.log(`RPC path:${opts.path} query:${JSON.stringify(opts.query)} body:${JSON.stringify(opts.body)} ctx:${JSON.stringify(ctx)}`)
+    if (!ctx) {
       throw new Error("Context is not set");
     }
+    const key = opts.body.key
+    if (key) {
+      switch (opts.path) {
+        case "/state.get":
+          const res =  await ctx.store.get(key)
+          console.log(`GET ${key}: ${JSON.stringify(res)}`)
+          return res || {}
+        case "/state.set":
+          await ctx.store.set(key, opts.body.value)
+          return {}
+      }
+    }
+    return {}
   }
 
   /**
@@ -180,16 +207,16 @@ export class DockerChannel implements ComponentChannel {
 
   async close() {
     try {
-      await this.rpcServer?.close();
-    } catch (e: any) {
-      console.warn(`Failed to stop server: ${e?.message}`);
-    }
-    try {
       console.info(`Stopping container ${this.container.id} of ${this.image}...`);
       await this.container?.stop();
       console.info(`Container stopped. Removing container ${this.container.id} of ${this.image}`);
-      await this.docker.removeContainer(this.container.id);
+      await this.container.remove();
       console.info(`Docker cleanup done for ${this.image}`);
+    } catch (e: any) {
+      console.warn(`Failed to remove container: ${e?.message}`);
+    }
+    try {
+      await this.rpcServer?.close();
     } catch (e: any) {
       console.warn(`Failed to stop server: ${e?.message}`);
     }
@@ -206,53 +233,49 @@ export class DockerChannel implements ComponentChannel {
     }
 
   }
-}
 
-export type RpcHandler = (opts: {
-  body: any;
-  path: string;
-  query: Record<string, string>;
-}) => Promise<any>;
 
-type RpcServer = { port: number, close: () => Promise<void> | void };
-
-async function createRpcServer(rpcHandler: RpcHandler): Promise<RpcServer> {
-  return new Promise((resolve) => {
-    const app = express();
-    const server = http.createServer(app);
-    app.use((req, res, next) => {
-      const body = req.body;
-      const path = req.path;
-      const query = req.query;
-      rpcHandler({ body, path, query })
-        .then((result) => {
-          res.json(result);
-        })
-        .catch((error) => {
-          res.status(500).json({ error: error.message });
-        });
-      next();
-    });
-
-    server.listen(0, () => {
-      const port = (server.address() as any).port;
-      console.log(`Started one-time RPC server on http://localhost:${port}`);
-
-      resolve({
-        port,
-        close: () => {
-          return new Promise((resolve) => {
-            server.close((err) => {
-              if (err) {
-                resolve();
-                console.error(`Failed to close server: ${err.message}`);
-              } else {
-                resolve();
-              }
-            });
+  async createRpcServer(rpcHandler: RpcHandler): Promise<RpcServer> {
+    const ctx = this.ctx
+    return new Promise((resolve) => {
+      const app = express();
+      app.use(express.json())
+      const server = http.createServer(app);
+      app.use((req, res, next) => {
+        const body = req.body;
+        const path = req.path;
+        const query = req.query;
+        rpcHandler(ctx,{ body, path, query })
+          .then((result) => {
+            res.json(result);
+          })
+          .catch((error) => {
+            console.error(error)
+            res.status(500).json({ error: error.message });
           });
-        },
+        next();
+      });
+
+      server.listen(0, () => {
+        const port = (server.address() as any).port;
+        console.log(`Started one-time RPC server on http://localhost:${port}`);
+
+        resolve({
+          port,
+          close: () => {
+            return new Promise((resolve) => {
+              server.close((err) => {
+                if (err) {
+                  resolve();
+                  console.error(`Failed to close server: ${err.message}`);
+                } else {
+                  resolve();
+                }
+              });
+            });
+          },
+        });
       });
     });
-  });
+  }
 }

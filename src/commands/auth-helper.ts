@@ -5,9 +5,9 @@ import { waitForRequest } from "../lib/cli-http";
 
 export const defaultOauthRedirectURIPort = 4512;
 
-export async function triggerOauthFlow(opts: { projectDir?: string; connection: string; port: string }) {
+export async function triggerOauthFlow(projectDir: string, opts: { projectDir?: string; connection: string; port: string }) {
   const port = opts.port ? parseInt(opts.port) : defaultOauthRedirectURIPort;
-  const projectDir = opts.projectDir || process.cwd();
+  projectDir = projectDir || opts.projectDir || process.cwd();
   const project = readProject(projectDir);
   const connectionFactory = project.connection[opts.connection];
   assert(connectionFactory, `Connection with id ${opts.connection} not found in the project`);
