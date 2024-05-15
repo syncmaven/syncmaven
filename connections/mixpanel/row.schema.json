@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string"
+    },
+    "campaign_id": {
+      "type": ["string", "integer"]
+    },
+    "cost": {
+      "type": ["number", "null"]
+    },
+    "clicks": {
+      "type": ["number", "null"]
+    },
+    "impressions": {
+      "type": ["number", "null"]
+    },
+    "utm_source": {
+      "type": ["string", "null"]
+    },
+    "utm_medium": {
+      "type": ["string", "null"]
+    },
+    "utm_campaign": {
+      "type": ["string", "null"]
+    },
+    "utm_content": {
+      "type": ["string", "null"]
+    },
+    "utm_term": {
+      "type": ["string", "null"]
+    }
+  },
+  "required": ["time", "source", "campaign_id"]
+}

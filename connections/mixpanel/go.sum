@@ -1,0 +1,8 @@
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/jackc/pgx/v5 v5.5.5/go.mod h1:ez9gk+OAat140fv9ErkZDYFWmXLfV+++K0uAOiwgm1A=
+github.com/jitsucom/bulker/bulkerlib v0.0.0-20240329181058-ba6820a9d32b/go.mod h1:sFzbuSkoxSaJK+KQbCVsJfBl2+ffSHCe/BlLkiBd1Tk=
+github.com/jitsucom/bulker/jitsubase v0.0.0-20240331054313-e02b0d970611/go.mod h1:Xad/8wYVeYWnuT/PCmq63q5e2WqA5lzcz8C3kHk+KSA=
+github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
+github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
+github.com/mixpanel/mixpanel-go v1.2.1 h1:iykbHKomTJjVoWU95Vt1sjZy4HLt8UOYacMEEEMFBok=
+github.com/mixpanel/mixpanel-go v1.2.1/go.mod h1:mPGaNhBoZMJuLu8k7Y1KhU5n8Vw13rxQZZjHj+b9RLk=

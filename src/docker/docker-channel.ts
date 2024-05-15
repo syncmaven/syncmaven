@@ -199,6 +199,7 @@ export class DockerChannel implements ComponentChannel {
         throw new Error(`Error dispatch`, { cause: e });
       }
     } else {
+      console.debug(`Send '${incomingMessage.type}' to channel. Message sent: '${JSON.stringify(incomingMessage)}'`);
       this.containerStream?.write(JSON.stringify(incomingMessage) + "\n");
     }
     this.haltIfRequested();
