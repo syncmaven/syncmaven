@@ -1,46 +1,22 @@
-import { DestinationProvider, EnrichmentProvider } from "./types";
-import { facebookAdsProvider } from "./destinations/facebook";
-import { twitterAdsProvider } from "./destinations/twitter";
-import { pdlEnrichmentProvider } from "./enrichment/pdl";
-import { resendProvider } from "./destinations/resend";
-import { googleAdsProvider } from "./destinations/google-ads";
-import { ComponentChannel, createDestinationChannel, createEnrichmentChannel } from "../types/protocol";
+import { DestinationChannel, EnrichmentChannel, MessageHandler } from "../types/protocol";
 import { ConnectionDefinition } from "../types/objects";
 import assert from "assert";
 import { DockerChannel } from "../docker/docker-channel";
 
-export function getDestinationChannel(destination: ConnectionDefinition): ComponentChannel | undefined {
+export function getDestinationChannel(destination: ConnectionDefinition, messagesHandler: MessageHandler): DestinationChannel | undefined {
   if (destination.package) {
     if (destination.package.type === "npm") {
       throw new Error("NPM-based destination packages are not yet supported");
     }
     const image = destination.package.image;
     assert(image, "Docker image is required if package type is docker");
-    return new DockerChannel(image);
+    return new DockerChannel(image, messagesHandler);
+  } else {
+    throw new Error("Only NPM or Docker packages are supported as destinations.");
   }
-  const kind = destination.kind;
-  assert(kind, "Destination kind is required if package is not provided");
-  if (kind === "facebook") {
-    return createDestinationChannel(facebookAdsProvider);
-  } else if (kind === "twitter") {
-    return createDestinationChannel(twitterAdsProvider);
-  } else if (kind === "resend") {
-    return createDestinationChannel(resendProvider);
-  } else if (kind === "google-ads") {
-    throw new Error(
-      "Google Ads destination is not yet supported, although the code exists. It's still in development."
-    );
-    //return createDestinationChannel(googleAdsProvider);
-  }
+
 }
 
-export function getEnrichmentProvider(en: ConnectionDefinition): ComponentChannel | undefined {
-  if (en.package) {
+export function getEnrichmentProvider(en: ConnectionDefinition, messagesHandler: MessageHandler): EnrichmentChannel | undefined {
     throw new Error("Package-based enrichments are not yet supported");
-  }
-  const kind = en.kind;
-  assert(kind, "Enrichment kind is required if package is not provided");
-  if (kind === "people-data-labs") {
-    return createEnrichmentChannel(pdlEnrichmentProvider);
-  }
 }

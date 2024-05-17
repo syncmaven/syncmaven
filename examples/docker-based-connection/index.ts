@@ -62,6 +62,11 @@ function rpc(method: string, body: any): Promise<any> {
     });
 }
 
+let received = 0;
+let skipped = 0;
+let failed = 0;
+let success = 0;
+
 (async function main() {
   const rl = readline.createInterface({
     input: process.stdin,
@@ -104,18 +109,21 @@ function rpc(method: string, body: any): Promise<any> {
         reply("halt", { message: `Unknown stream ${stream}` });
         process.exit(1);
       }
-    } else if (message.type === "stop-stream") {
+    } else if (message.type === "end-stream") {
+      log("info", "Received end-stream message. Bye!");
       setTimeout(() => {
-        log("info", "Received stop-stream message. Bye!");
+        reply("stream-result", { received, skipped, success, failed });
         process.exit(0);
       }, 1000);
     } else if (message.type === "row") {
+      received++
       const row = message.payload.row;
       if (!row.email) {
+        failed++
         log("error", "Row does not have an email", { row });
       } else {
         if (process.env.RPC_URL) {
-          console.log("Sending email to RPC", row.email);
+          log("info", "Sending email to RPC", row.email);
           const key = `email=${row.email}`;
           rpc(`state.get`, { key: [key] }).then(json => {
             if (json) {
@@ -128,6 +136,7 @@ function rpc(method: string, body: any): Promise<any> {
               });
             }
           });
+          success++
         }
       }
     } else {

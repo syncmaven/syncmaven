@@ -4,9 +4,13 @@ import { SyncDefinition } from "../types/objects";
 import assert from "assert";
 import { ExecutionContext } from "../connections/types";
 import { SqliteStore } from "../lib/store";
-import { ComponentChannel, ConnectionSpecMessage, Message, processMessages, processMessageWithResult, StreamSpecMessage } from "../types/protocol";
+import {
+  BaseChannel,
+  DestinationChannel, EnrichmentChannel,
+  HaltMessage,
+  LogMessage,
+} from "../types/protocol";
 import { getDestinationChannel, getEnrichmentProvider } from "../connections";
-import { ZodSchema } from "zod";
 import { stringifyZodError } from "../lib/zod";
 import { readProject, untildify } from "../lib/project";
 import { executeQuery } from "../lib/datasource";
@@ -14,57 +18,28 @@ import { createErrorThreshold } from "../lib/error-threshold";
 import { Project } from "../types/project";
 import { createParser, SchemaBasedParser, stringifyParseError } from "../lib/uniparser";
 
-async function applyEnrichment(
-  rowType: SchemaBasedParser,
-  enrichment: ComponentChannel,
-  rows: any[],
-  ctx: ExecutionContext,
-): Promise<any[]> {
-  const res: any[] = [];
-  for (const row of rows) {
-    const replyMessages = await processMessages(enrichment, { type: "enrichment-request", payload: { row } }, ctx);
-
-    for (const item of replyMessages) {
-      if (item.type !== "enrichment-response") {
-        console.warn(
-          `Enrichment returned unexpected message type ${item.type}. Expected 'enrichment-response'. Will skip it. Message: ${JSON.stringify(item)}`,
-        );
-        continue;
-      }
-      const parseResult = rowType.safeParse(item.payload.row);
-      if (parseResult.success) {
-        res.push(parseResult.data);
-      } else {
-        console.warn(
-          `Enrichment returned invalid row: ${stringifyZodError(parseResult.error)}. Will skip it. Row: ${JSON.stringify(item)}`,
-        );
-      }
-    }
+export async function sync(projectDir: string, opts: {
+  projectDir?: string;
+  state?: string;
+  select?: string;
+  fullRefresh?: boolean;
+  env?: string[];
+}) {
+  projectDir = untildify(projectDir || opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd());
+  const envFileNames = [".env", ".env.local"];
+  dotenv.config({
+    path: [
+      ...envFileNames.map(file => path.join(projectDir, file)),
+      ...envFileNames.map(file => path.join(process.cwd(), file)),
+      ...(opts.env || []),
+    ].map(untildify),
+  });
+  const project = readProject(projectDir);
+  const syncIds = opts.select ? opts.select.split(",") : Object.keys(project.syncs);
+  for (const syncId of syncIds) {
+    await runSync(project, syncId, projectDir, opts);
   }
-  return res;
-}
-
-
-function haltIfNeeded(m: Message | Message[], subject: string) {
-  const arr = Array.isArray(m) ? m : [m];
-  for (const item of arr) {
-    if (item.type === "halt") {
-      throw new Error(`${subject} execution of sync: ${item.payload.message}`);
-    }
-  }
-}
-
-async function closeChannels(channels: (ComponentChannel | undefined)[]) {
-  for (const channel of channels) {
-    if (channel && channel.close) {
-      try {
-        await channel.close();
-      } catch (e: any) {
-        console.warn(`Failed to close channel`, e);
-      }
-    }
-  }
-
+  console.debug(`All syncs finished`);
 }
 
 async function runSync(project: Project, syncId: string, projectDir: string, opts: { projectDir?: string; state?: string; select?: string; fullRefresh?: boolean; env?: string[] }) {
@@ -92,25 +67,40 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
     store: new SqliteStore(path.join(projectDir, ".state")),
   };
 
-  const destinationChannel: ComponentChannel | undefined = getDestinationChannel(destination);
-  const enrichments: ComponentChannel[] = [];
+  let halt = false
+  let haltError:any
+
+  const messageListener = message => {
+    switch (message.type) {
+      case "log":
+        const logMes = message as LogMessage
+        const params = logMes.payload.params?.length ? ` ${logMes.payload.params.map(p => JSON.stringify(p)).join(", ")}` : ""
+        console.log(`LOG [${syncId}] ${logMes.payload.level.toUpperCase()} ${logMes.payload.message}${params}`)
+        break;
+      case "halt":
+        const haltMes = message as HaltMessage
+        halt = true
+        if (haltMes.payload.status == "error") {
+          haltError = new Error(haltMes.payload.message)
+          console.error(`HALT [${syncId}] ERROR ${haltMes.payload.message} data: ${haltMes.payload.data ?JSON.stringify(haltMes.payload.data): ""}`)
+        } else {
+          console.log(`HALT [${syncId}] OK ${haltMes.payload.message} data: ${haltMes.payload.data ?JSON.stringify(haltMes.payload.data): ""}`)
+        }
+        break
+      default:
+        console.error(`${message.type?.toUpperCase} [${syncId}] Unexpected message type: '${message.type}' payload: ${JSON.stringify(message)}`)
+    }
+  }
+
+  const destinationChannel: DestinationChannel | undefined = getDestinationChannel(destination, messageListener);
+  const enrichments: EnrichmentChannel[] = [];
   try {
 
     if (!destinationChannel) {
       throw new Error(`Destination provider ${destination.kind} referenced from ${syncId} not found`);
     }
-    const connectionSpec = await processMessageWithResult(
-      destinationChannel,
-      { type: "describe" },
-      context,
-      ConnectionSpecMessage,
-    );
-    const streamsSpec = await processMessageWithResult(
-      destinationChannel,
-      { type: "describe-streams" },
-      context,
-      StreamSpecMessage,
-    );
+    const connectionSpec = await destinationChannel.describe()
+    const streamsSpec = await destinationChannel.streams()
     const streamId = sync.stream || streamsSpec.payload.defaultStream;
     const streamSpec = streamsSpec.payload.streams.find(s => s.name === streamId);
     if (!streamSpec) {
@@ -125,43 +115,31 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
         `Invalid credentials for destination ${destinationId}: ${stringifyParseError(parsedCredentials.error)}`,
       );
     }
-    haltIfNeeded(
-      await processMessages(
-        destinationChannel,
-        {
-          type: "start-stream",
-          payload: {
-            stream: streamId,
-            connectionCredentials: parsedCredentials.data,
-            streamOptions: sync.options || {},
-            syncId,
-            fullRefresh: !!opts.fullRefresh,
-          },
-        },
-        context,
-      ),
-      `Destination ${destinationId} initialization`,
-    );
+    await destinationChannel.startStream({
+      type: "start-stream",
+      payload: {
+        stream: streamId,
+        connectionCredentials: parsedCredentials.data,
+        streamOptions: sync.options || {},
+        syncId,
+        fullRefresh: !!opts.fullRefresh,
+      },
+    }, context)
+
+
     const enrichmentSettings = sync.enrichments || (sync.enrichment ? [sync.enrichment] : []);
 
     for (const enrichmentRef of enrichmentSettings) {
       const connection = project.connection[enrichmentRef.connection]();
-      const enrichmentProvider = getEnrichmentProvider(connection);
+      const enrichmentProvider = getEnrichmentProvider(connection, () => {});
       if (!enrichmentProvider) {
         throw new Error(`Enrichment provider ${connection.kind} referenced from ${syncId} not found`);
       }
       enrichments.push(enrichmentProvider);
-      haltIfNeeded(
-        await processMessages(
-          enrichmentProvider,
-          {
-            type: "enrichment-connect",
-            payload: { credentials: connection.credentials, options: enrichmentRef.options },
-          },
-          context,
-        ),
-        `Enrichment ${enrichmentRef.connection} initialization`,
-      );
+      await enrichmentProvider.startEnrichment({
+        type: "enrichment-connect",
+        payload: { credentials: connection.credentials, options: enrichmentRef.options },
+      }, context)
     }
 
     let totalRows = 0;
@@ -188,19 +166,10 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
             }
             enrichedRows += rows.length;
             for (const row of rows) {
-              const messages = await processMessages(destinationChannel, { type: "row", payload: { row } }, context);
-              for (const message of messages) {
-                if (message.type === "halt") {
-                  throw new Error(`Destination ${destinationId} halted the stream: ${message.payload.message}`);
-                } else if (message.type === "log") {
-                  console[message.payload.level](message.payload.message, ...(message.payload.params || []));
-                } else {
-                  console.warn(
-                    `Destination ${destinationId} replied with unexpected message type ${message.type}`,
-                    message,
-                  );
-                }
+              if (halt) {
+                break
               }
+              await destinationChannel.row({ type: "row", payload: { row } })
             }
           } else {
             const zodError = stringifyZodError(parseResult.error);
@@ -214,18 +183,11 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
           totalRows++;
         },
         finalize: async () => {
-          haltIfNeeded(
-            await processMessages(destinationChannel, { type: "end-stream", reason: "success" }, context),
-            `Destination ${destinationId} finalization`,
-          );
-          // if (destinationChannel.close) {
-          //   console.debug(`Closing destination channel`);
-          //   await destinationChannel.close();
-          // }
         },
       },
     });
-    console.info(`Sync ${syncId} is finished. Source rows ${totalRows}, enriched rows ${enrichedRows}`);
+    const res = await destinationChannel.stopStream()
+    console.info(`Sync ${syncId} is finished. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats: ${JSON.stringify(res.payload)}`);
   } finally {
     console.debug(`Closing all communications channels of sync '${syncId}'. It might take a while`);
     await closeChannels([...enrichments, destinationChannel]);
@@ -233,26 +195,40 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
   }
 }
 
-export async function sync(projectDir: string, opts: {
-  projectDir?: string;
-  state?: string;
-  select?: string;
-  fullRefresh?: boolean;
-  env?: string[];
-}) {
-  projectDir = untildify(projectDir || opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd());
-  const envFileNames = [".env", ".env.local"];
-  dotenv.config({
-    path: [
-      ...envFileNames.map(file => path.join(projectDir, file)),
-      ...envFileNames.map(file => path.join(process.cwd(), file)),
-      ...(opts.env || []),
-    ].map(untildify),
-  });
-  const project = readProject(projectDir);
-  const syncIds = opts.select ? opts.select.split(",") : Object.keys(project.syncs);
-  for (const syncId of syncIds) {
-    await runSync(project, syncId, projectDir, opts);
+async function applyEnrichment(
+  rowType: SchemaBasedParser,
+  enrichment: EnrichmentChannel,
+  rows: any[],
+  ctx: ExecutionContext,
+): Promise<any[]> {
+  const res: any[] = [];
+  for (const row of rows) {
+    try {
+      const item = await enrichment.row({ type: "enrichment-request", payload: { row } })
+      const parseResult = rowType.safeParse(item.payload.row);
+      if (parseResult.success) {
+        res.push(parseResult.data);
+      } else {
+        console.warn(
+          `Enrichment returned invalid row: ${stringifyZodError(parseResult.error)}. Will skip it. Row: ${JSON.stringify(item)}`,
+        );
+      }
+    } catch (e: any) {
+      console.error(`Enrichment error: ${e.message} on row: ${JSON.stringify(row)}`)
+    }
   }
-  console.debug(`All syncs finished`);
+  return res;
+}
+
+async function closeChannels(channels: (BaseChannel | undefined)[]) {
+  for (const channel of channels) {
+    if (channel && channel.close) {
+      try {
+        await channel.close();
+      } catch (e: any) {
+        console.warn(`Failed to close channel`, e);
+      }
+    }
+  }
+
 }

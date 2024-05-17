@@ -41,6 +41,11 @@ type RowPayload struct {
 	UtmContent  string  `mapstructure:"utm_content"`
 }
 
+var received int
+var success int
+var skipped int
+var failed int
+
 func main() {
 	var mp *mixpanel.ApiClient
 	//mp := mixpanel.NewApiClient("PROJECT_TOKEN")
@@ -64,6 +69,7 @@ func main() {
 				"description":           "Mixpanel Connector",
 				"connectionCredentials": credentialSchema,
 			})
+			os.Exit(0)
 		case "describe-streams":
 			reply("stream-spec", map[string]any{
 				"roles":         []string{"destination"},
@@ -93,22 +99,31 @@ func main() {
 			} else {
 				mp = mixpanel.NewApiClient(projectToken)
 			}
-		case "stop-stream":
-			info("Received stop-stream message. Bye!")
+			info(fmt.Sprintf("Stream '%s' started", stream))
+		case "end-stream":
+			info("Received end-stream message. Bye!")
+			reply("stream-result", map[string]any{
+				"received": received,
+				"skipped":  skipped,
+				"failed":   failed,
+				"success":  success,
+			})
 			time.AfterFunc(1000, func() {
 				os.Exit(0)
 			})
 		case "row":
+			received++
 			var rowPayload RowPayload
 			err = mapstructure.Decode(message.Payload["row"], &rowPayload)
 			if err != nil {
+				failed++
 				lerror("Cannot parse row payload: "+line, err.Error())
+			} else {
+				processRow(mp, &rowPayload)
 			}
-			_ = processRow(mp, &rowPayload)
 		default:
 			lerror("Unknown message type", message.Type)
 		}
-
 	}
 	err := scanner.Err()
 	if err != nil {
@@ -116,14 +131,17 @@ func main() {
 	}
 }
 
-func processRow(mp *mixpanel.ApiClient, payload *RowPayload) error {
+func processRow(mp *mixpanel.ApiClient, payload *RowPayload) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 	t, err := time.Parse(time.RFC3339Nano, payload.Time)
 	if err != nil {
+		failed++
 		lerror("Error parsing time: "+payload.Time, err.Error())
+		return
 	}
 	status, err := mp.Import(ctx, []*mixpanel.Event{mp.NewEvent("Ad Data", "", map[string]any{
+		"$insert_id":   fmt.Sprintf("G-%s-%v", t.Format(time.DateOnly), payload.CampaignId),
 		"time":         t,
 		"source":       payload.Source,
 		"campaign_id":  payload.CampaignId,
@@ -135,13 +153,20 @@ func processRow(mp *mixpanel.ApiClient, payload *RowPayload) error {
 		"utm_medium":   payload.UtmMedium,
 		"utm_term":     payload.UtmTerm,
 		"utm_content":  payload.UtmContent,
-	})}, mixpanel.ImportOptions{Compression: mixpanel.Gzip})
+	})}, mixpanel.ImportOptions{Compression: mixpanel.Gzip, Strict: false})
 	if err != nil {
-		lerror("Error importing row", err.Error())
+		failed++
+		s, _ := json.Marshal(err)
+		lerror("Error importing row:", string(s))
 	} else {
-		info("Row imported", status.Code, status.NumRecordsImported, status.Status)
+		if status.Code != 200 || status.NumRecordsImported == 0 {
+			lerror(fmt.Sprintf("Error importing row. Code: %d Status: %+v", status.Code, status.Status))
+			failed++
+		} else {
+			success++
+			info("Row imported", status.Code, status.NumRecordsImported, status.Status)
+		}
 	}
-	return err
 }
 
 func logErr(err error) {
@@ -149,27 +174,30 @@ func logErr(err error) {
 }
 
 func info(message string, params ...any) {
-	log("info", message, params)
+	log("info", message, params...)
 }
 
 func debug(message string, params ...any) {
-	log("debug", message, params)
+	log("debug", message, params...)
 }
 
 func warn(message string, params ...any) {
-	log("warn", message, params)
+	log("warn", message, params...)
 }
 
 func lerror(message string, params ...any) {
-	log("error", message, params)
+	log("error", message, params...)
 }
 
 func log(level string, message string, params ...any) {
-	reply("log", map[string]any{
+	l := map[string]any{
 		"level":   level,
 		"message": message,
-		"params":  params,
-	})
+	}
+	if len(params) > 0 {
+		l["params"] = params
+	}
+	reply("log", l)
 }
 
 func reply(msgType string, payload map[string]any) {

@@ -104,6 +104,21 @@ export const EndStreamMessage = MessageBase.merge(
 
 export type EndStreamMessage = z.infer<typeof EndStreamMessage>;
 
+export const StreamResultMessage = MessageBase.merge(
+  z.object({
+    type: z.literal("stream-result"),
+    direction: z.literal("reply").default("reply").optional(),
+    payload: z.object({
+      received: z.number(),
+      success: z.number(),
+      skipped: z.number(),
+      failed: z.number(),
+    }),
+  }),
+);
+
+export type StreamResultMessage = z.infer<typeof StreamResultMessage>;
+
 export const LogMessage = MessageBase.merge(
   z.object({
     type: z.literal("log"),
@@ -123,6 +138,7 @@ export const HaltMessage = MessageBase.merge(
     type: z.literal("halt").optional(),
     direction: z.literal("reply").default("reply").optional(),
     payload: z.object({
+      status: z.enum(["ok", "error"]),
       message: z.string().optional(),
       data: z.any().optional(),
     }),
@@ -153,6 +169,9 @@ export const EnrichmentResponse = MessageBase.merge(
   }),
 );
 
+export type EnrichmentResponse = z.infer<typeof EnrichmentResponse>;
+
+
 export const EnrichmentConnect = MessageBase.merge(
   z.object({
     type: z.literal("enrichment-connect"),
@@ -181,6 +200,7 @@ export type IncomingMessage = Simplify<z.infer<typeof IncomingMessage>>;
 export const ReplyMessage = z.discriminatedUnion("type", [
   ConnectionSpecMessage,
   StreamSpecMessage,
+  StreamResultMessage,
   LogMessage,
   HaltMessage,
   EnrichmentResponse,
@@ -225,183 +245,30 @@ export const systemMessageTypes: ReplyMessage["type"][] = ["halt", "log"];
 
 export type Message = Simplify<z.infer<typeof Message>>;
 
+export type MessageHandler = (message: Message) => Promise<void> | void
+export type SingletonMessageHandler = (message: Message) => Promise<"done" | void> | "done" | void
+
 
 export type ReplyChannel = {
   dispatchReplyMessage: (message: Message) => Promise<void>;
 };
 
-export interface ComponentChannel {
-  dispatchMessage: (messages: IncomingMessage, channel: ReplyChannel, ctx: ExecutionContext) => Promise<void> | void;
+export interface BaseChannel {
+  init(messagesListener?: MessageHandler)
+  describe: () => Promise<ConnectionSpecMessage>
   close?: () => Promise<void> | void;
+
+}
+export interface DestinationChannel extends BaseChannel {
+  streams: () => Promise<StreamSpecMessage>
+  startStream: (startStreamMessage: StartStreamMessage, ctx: ExecutionContext) => Promise<void>
+  row: (rowMessage: RowMessage) => Promise<void>
+  stopStream: () => Promise<StreamResultMessage>
+
+  //dispatchMessage: (messages: IncomingMessage, channel: ReplyChannel, ctx: ExecutionContext) => Promise<void> | void;
 }
 
-export async function processMessages(
-  ch: ComponentChannel,
-  message: IncomingMessage,
-  ctx: ExecutionContext,
-): Promise<Message[]> {
-  const messages: Message[] = [];
-  await ch.dispatchMessage(
-    message,
-    {
-      dispatchReplyMessage: async reply => {
-        messages.push(reply);
-      },
-    },
-    ctx,
-  );
-  return messages;
-}
-
-export async function processMessageWithResult<T>(
-  ch: ComponentChannel,
-  message: IncomingMessage,
-  ctx: ExecutionContext,
-  expectedMessageType: ZodType<T>,
-): Promise<T> {
-  const messages = await processMessages(ch, message, ctx);
-  if (messages.length !== 1) {
-    throw new Error(`Expected exactly one in reply to a message '${message.type}', got ${messages.length}`);
-  } else {
-    try {
-      //we parsing it for validation onlu, we should return the original message since it could contain some fields which
-      //are not serializable
-      expectedMessageType.parse(messages[0]);
-      return messages[0] as T;
-    } catch (e) {
-      throw new Error(
-        `Error while parsing a reply to '${message.type}' message: ${stringifyZodError(e)}. Reply: ${JSON.stringify(messages[0])}`,
-      );
-    }
-  }
-}
-
-export function createEnrichmentChannel(provider: EnrichmentProvider): ComponentChannel {
-  let enrichment: StreamEnrichment | undefined;
-  return {
-    async dispatchMessage(message: Message, channel: ReplyChannel, ctx: ExecutionContext) {
-      try {
-        if (message.type === "describe") {
-          await channel.dispatchReplyMessage({
-            type: "spec",
-            payload: {
-              roles: ["enrichment"],
-              connectionCredentials: provider.credentialsType,
-            },
-          });
-        } else if (message.type === "enrichment-connect") {
-          if (enrichment) {
-            await channel.dispatchReplyMessage({ type: "halt", payload: { message: `Enrichment already connected` } });
-            return;
-          }
-          enrichment = await provider.createEnrichment(
-            {
-              credentials: message.payload.credentials,
-              options: message.payload.options,
-            },
-            ctx,
-          );
-        } else if (message.type === "enrichment-request") {
-          if (!enrichment) {
-            await channel.dispatchReplyMessage({ type: "halt", payload: { message: `Enrichment not connected` } });
-            return;
-          }
-
-          const enrichedRows = await enrichment.enrichRow(message.payload.row, ctx);
-          if (enrichedRows) {
-            const rows = Array.isArray(enrichedRows) ? enrichedRows : [enrichedRows];
-
-            for (const enrichedRow of rows) {
-              await channel.dispatchReplyMessage({ type: "enrichment-response", payload: { row: enrichedRow } });
-            }
-          }
-        }
-      } catch (e: any) {
-        console.error(`Unhandled error while handling message ${message.type}`, e);
-        await channel.dispatchReplyMessage({ type: "halt", payload: { message: e?.message } });
-      }
-    },
-  };
-}
-
-export function createDestinationChannel(provider: DestinationProvider): ComponentChannel {
-  let outputStream;
-  let stream: DestinationStream;
-
-  return {
-    async dispatchMessage(message: Message, channel: ReplyChannel, ctx: ExecutionContext) {
-      try {
-        if (message.type === "describe") {
-          await channel.dispatchReplyMessage({
-            type: "spec",
-            payload: {
-              roles: ["destination"],
-              connectionCredentials: provider.credentialsType,
-            },
-          });
-        } else if (message.type === "describe-streams") {
-          await channel.dispatchReplyMessage({
-            type: "stream-spec",
-            payload: {
-              roles: ["destination"],
-              defaultStream: provider.defaultStream,
-              streams: provider.streams.map(s => ({ name: s.name, rowType: s.rowType })),
-            },
-          });
-        } else if (message.type === "start-stream") {
-          stream = provider.streams.find(s => s.name === message.payload.stream)!;
-          if (!stream) {
-            await channel.dispatchReplyMessage({
-              type: "halt",
-              payload: { message: `Stream ${message.payload.stream} not found in ${provider.name} manifest` },
-            });
-            return;
-          }
-          if (outputStream) {
-            await channel.dispatchReplyMessage({
-              type: "halt",
-              payload: { message: `Stream ${message.payload.stream} already started in ${provider.name}` },
-            });
-            return;
-          }
-          outputStream = await stream.createOutputStream(
-            {
-              streamId: message.payload.stream,
-              options: message.payload.streamOptions,
-              credentials: message.payload.connectionCredentials,
-              syncId: message.payload.syncId,
-              fullRefresh: message.payload.fullRefresh,
-            },
-            ctx,
-          );
-        } else if (message.type === "end-stream") {
-          if (!outputStream) {
-            await channel.dispatchReplyMessage({ type: "halt", payload: { message: `Stream not started in ${provider.name}` } });
-            return;
-          }
-          await outputStream.finish(ctx);
-          outputStream = undefined;
-        } else if (message.type === "row") {
-          if (!outputStream) {
-            await channel.dispatchReplyMessage({ type: "halt", payload: { message: `Stream not started in ${provider.name}` } });
-            return;
-          }
-          try {
-            message.payload = stream.rowType.parse(message.payload.row);
-          } catch (e) {
-            await channel.dispatchReplyMessage({
-              type: "halt",
-              payload: { message: `Row cannot be parsed`, data: { row: message.payload.row } },
-            });
-            return;
-          }
-
-          await outputStream.handleRow(message.payload, ctx);
-        }
-      } catch (e: any) {
-        console.error(`Unhandled error while handling message ${message.type}`, e);
-        await channel.dispatchReplyMessage({ type: "halt", payload: { message: e?.message } });
-      }
-    },
-  };
+export interface EnrichmentChannel  extends BaseChannel  {
+  startEnrichment: (startStreamMessage: EnrichmentConnect, ctx: ExecutionContext) => Promise<void>
+  row: (rowMessage: EnrichmentRequest) => Promise<EnrichmentResponse>
 }
