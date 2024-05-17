@@ -115,6 +115,22 @@ export class DockerContainer {
     if (this.containerStream) {
       console.warn(`Illegal state: container stream is set, but container is not running. Cleaning up...`);
     }
+    // Workaround for https://github.com/apocas/dockerode/issues/742
+    this.container.modem = new Proxy(this.container.modem, {
+      get(target, prop) {
+        const origMethod = target[prop];
+        if (prop === "dial") {
+            return function (...args) {
+              if (args[0].path.endsWith("/attach?")) {
+                args[0].file = new Buffer("")
+              }
+              return origMethod.apply(target, args)
+            }
+        } else {
+          return origMethod
+        }
+      }
+    })
     this.containerStream = await this.container.attach({
       stream: true,
       stdin: true,
@@ -122,8 +138,6 @@ export class DockerContainer {
       stderr: true,
       hijack: true,
     });
-    //separates first message from some technical data at the beginning
-    this.containerStream?.write("\n");
     this.lineReader = readline.createInterface({ input: this.containerStream });
     this.lineReader.on("line", async (data) => {
       //console.debug(`Got '${data}' from container ${this.container.id} of ${this.image}`);
@@ -217,7 +231,7 @@ export class DockerContainer {
   }
 
   async close() {
-    console.info(`Stopping container ${this.container.id} of ${this.image}...`);
+    console.info(`Closing container ${this.container.id} of ${this.image}...`);
     await this.stop()
     console.info(`Container stopped. Removing container ${this.container.id} of ${this.image}`);
     await this.runCleanup(() => this.container?.remove());

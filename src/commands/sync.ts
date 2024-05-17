@@ -68,7 +68,7 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
   };
 
   let halt = false
-  let haltError:any
+  let haltError: any
 
   const messageListener = message => {
     switch (message.type) {
@@ -82,9 +82,9 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
         halt = true
         if (haltMes.payload.status == "error") {
           haltError = new Error(haltMes.payload.message)
-          console.error(`HALT [${syncId}] ERROR ${haltMes.payload.message} data: ${haltMes.payload.data ?JSON.stringify(haltMes.payload.data): ""}`)
+          console.error(`HALT [${syncId}] ERROR ${haltMes.payload.message} data: ${haltMes.payload.data ? JSON.stringify(haltMes.payload.data) : ""}`)
         } else {
-          console.log(`HALT [${syncId}] OK ${haltMes.payload.message} data: ${haltMes.payload.data ?JSON.stringify(haltMes.payload.data): ""}`)
+          console.log(`HALT [${syncId}] OK ${haltMes.payload.message} data: ${haltMes.payload.data ? JSON.stringify(haltMes.payload.data) : ""}`)
         }
         break
       default:
@@ -95,7 +95,6 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
   const destinationChannel: DestinationChannel | undefined = getDestinationChannel(destination, messageListener);
   const enrichments: EnrichmentChannel[] = [];
   try {
-
     if (!destinationChannel) {
       throw new Error(`Destination provider ${destination.kind} referenced from ${syncId} not found`);
     }
@@ -131,7 +130,8 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
 
     for (const enrichmentRef of enrichmentSettings) {
       const connection = project.connection[enrichmentRef.connection]();
-      const enrichmentProvider = getEnrichmentProvider(connection, () => {});
+      // TODO: probably enrichments need to have their own messageListener. not sure yet
+      const enrichmentProvider = getEnrichmentProvider(connection, messageListener);
       if (!enrichmentProvider) {
         throw new Error(`Enrichment provider ${connection.kind} referenced from ${syncId} not found`);
       }
@@ -188,6 +188,8 @@ async function runSync(project: Project, syncId: string, projectDir: string, opt
     });
     const res = await destinationChannel.stopStream()
     console.info(`Sync ${syncId} is finished. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats: ${JSON.stringify(res.payload)}`);
+  } catch (e: any) {
+    console.error(e)
   } finally {
     console.debug(`Closing all communications channels of sync '${syncId}'. It might take a while`);
     await closeChannels([...enrichments, destinationChannel]);

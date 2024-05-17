@@ -52,15 +52,15 @@ export class DockerChannel implements DestinationChannel {
     const promise = new Promise<ConnectionSpecMessage>((resolve, reject) => {
       promiseResolve = resolve;
       promiseReject = reject;
+    }).finally(async () => {
+      await this.dockerContainer?.stop();
     });
     this.dockerContainer?.dispatchMessage({ type: "describe" }, async message => {
       switch (message.type) {
         case "spec":
-          await this.dockerContainer?.stop();
           promiseResolve(message as ConnectionSpecMessage);
           return "done";
         case "halt":
-          await this.dockerContainer?.stop();
           promiseReject(new Error((message as HaltMessage).payload.message));
           return "done";
       }
@@ -76,15 +76,15 @@ export class DockerChannel implements DestinationChannel {
     const promise = new Promise<StreamSpecMessage>((resolve, reject) => {
       promiseResolve = resolve;
       promiseReject = reject;
+    }).finally(async () => {
+      await this.dockerContainer?.stop();
     });
     this.dockerContainer?.dispatchMessage({ type: "describe-streams" }, async message => {
       switch (message.type) {
         case "stream-spec":
-          await this.dockerContainer?.stop();
           promiseResolve(message as StreamSpecMessage);
           return "done";
         case "halt":
-          await this.dockerContainer?.stop();
           promiseReject(new Error((message as HaltMessage).payload.message));
           return "done";
       }
@@ -106,15 +106,15 @@ export class DockerChannel implements DestinationChannel {
     const promise = new Promise<StreamResultMessage>((resolve, reject) => {
       promiseResolve = resolve;
       promiseReject = reject;
+    }).finally(async () => {
+      await this.dockerContainer?.stop();
     });
     this.dockerContainer?.dispatchMessage({ type: "end-stream", reason: "success" }, async message => {
       switch (message.type) {
         case "stream-result":
-          await this.dockerContainer?.stop();
           promiseResolve(message as StreamResultMessage);
           return "done";
         case "halt":
-          await this.dockerContainer?.stop();
           promiseReject(new Error((message as HaltMessage).payload.message));
           return "done";
       }
