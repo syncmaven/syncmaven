@@ -1,0 +1,58 @@
+{
+  "name": "syncmaven",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "main": "NODE_OPTIONS=--no-deprecation ts-node src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@swc/cli": "^0.3.12",
+    "@swc/core": "^1.5.5",
+    "@swc/helpers": "^0.5.10",
+    "@types/ajv": "^1.0.0",
+    "@types/better-sqlite3": "^7.6.10",
+    "@types/bun": "latest",
+    "@types/js-yaml": "^4.0.9",
+    "@types/lodash": "^4.17.0",
+    "@types/nunjucks": "^3.2.6",
+    "@types/pg": "^8.11.5",
+    "@types/pg-cursor": "^2.7.2",
+    "json5": "^2.2.3",
+    "monorel": "^0.5.0",
+    "prettier": "^3.2.5",
+    "ts-node-test": "^0.4.3",
+    "type-fest": "^4.16.0",
+    "@syncmaven/configs": "workspace:*"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@syncmaven/protocol": "workspace:*",
+    "@types/facebook-nodejs-business-sdk": "^18.0.0",
+    "ajv": "^8.13.0",
+    "axios": "^1.6.8",
+    "better-sqlite3": "^9.6.0",
+    "commander": "^12.0.0",
+    "dayjs": "^1.11.11",
+    "dockerode": "^4.0.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "google-ads-api": "^16.0.0-rest-beta3",
+    "google-auth-library": "^9.9.0",
+    "js-yaml": "^4.1.0",
+    "lodash": "^4.17.21",
+    "nunjucks": "^3.2.4",
+    "oauth-1.0a": "^2.2.6",
+    "pg": "^8.11.5",
+    "pg-cursor": "^2.10.5",
+    "pg-query-stream": "^4.5.5",
+    "ts-node": "^10.9.2",
+    "tslib": "^2.6.2",
+    "zod": "^3.23.4"
+  }}

@@ -4,135 +4,273 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-dependencies:
-  '@types/facebook-nodejs-business-sdk':
-    specifier: ^18.0.0
-    version: 18.0.0
-  ajv:
-    specifier: link:/ajv
-    version: link:../../../../ajv
-  axios:
-    specifier: ^1.6.8
-    version: 1.6.8
-  better-sqlite3:
-    specifier: ^9.6.0
-    version: 9.6.0
-  commander:
-    specifier: ^12.0.0
-    version: 12.0.0
-  dayjs:
-    specifier: ^1.11.11
-    version: 1.11.11
-  dockerode:
-    specifier: ^4.0.2
-    version: 4.0.2
-  dotenv:
-    specifier: ^16.4.5
-    version: 16.4.5
-  express:
-    specifier: ^4.19.2
-    version: 4.19.2
-  facebook-nodejs-business-sdk:
-    specifier: ^19.0.3
-    version: 19.0.3
-  google-ads-api:
-    specifier: ^16.0.0-rest-beta3
-    version: 16.0.0-rest-beta3
-  google-auth-library:
-    specifier: ^9.9.0
-    version: 9.9.0
-  js-yaml:
-    specifier: ^4.1.0
-    version: 4.1.0
-  lodash:
-    specifier: ^4.17.21
-    version: 4.17.21
-  nunjucks:
-    specifier: ^3.2.4
-    version: 3.2.4
-  oauth-1.0a:
-    specifier: ^2.2.6
-    version: 2.2.6
-  pg:
-    specifier: ^8.11.5
-    version: 8.11.5
-  pg-cursor:
-    specifier: ^2.10.5
-    version: 2.10.5(pg@8.11.5)
-  pg-query-stream:
-    specifier: ^4.5.5
-    version: 4.5.5(pg@8.11.5)
-  request:
-    specifier: ^2.88.2
-    version: 2.88.2
-  resend:
-    specifier: ^3.2.0
-    version: 3.2.0
-  ts-node:
-    specifier: ^10.9.2
-    version: 10.9.2(@swc/core@1.5.5)(@types/node@20.12.11)(typescript@5.4.5)
-  tslib:
-    specifier: ^2.6.2
-    version: 2.6.2
-  twitter-ads:
-    specifier: ^0.2.1
-    version: 0.2.1
-  typescript:
-    specifier: ^5.0.0
-    version: 5.4.5
-  zod:
-    specifier: ^3.23.4
-    version: 3.23.8
+importers:
 
-devDependencies:
-  '@swc/cli':
-    specifier: ^0.3.12
-    version: 0.3.12(@swc/core@1.5.5)
-  '@swc/core':
-    specifier: ^1.5.5
-    version: 1.5.5(@swc/helpers@0.5.11)
-  '@swc/helpers':
-    specifier: ^0.5.10
-    version: 0.5.11
-  '@types/ajv':
-    specifier: ^1.0.0
-    version: 1.0.0
-  '@types/better-sqlite3':
-    specifier: ^7.6.10
-    version: 7.6.10
-  '@types/bun':
-    specifier: latest
-    version: 1.1.1
-  '@types/js-yaml':
-    specifier: ^4.0.9
-    version: 4.0.9
-  '@types/lodash':
-    specifier: ^4.17.0
-    version: 4.17.1
-  '@types/nunjucks':
-    specifier: ^3.2.6
-    version: 3.2.6
-  '@types/pg':
-    specifier: ^8.11.5
-    version: 8.11.6
-  '@types/pg-cursor':
-    specifier: ^2.7.2
-    version: 2.7.2
-  json5:
-    specifier: ^2.2.3
-    version: 2.2.3
-  monorel:
-    specifier: ^0.5.0
-    version: 0.5.0
-  prettier:
-    specifier: ^3.2.5
-    version: 3.2.5
-  ts-node-test:
-    specifier: ^0.4.3
-    version: 0.4.3(@swc/core@1.5.5)(@types/node@20.12.11)(typescript@5.4.5)
-  type-fest:
-    specifier: ^4.16.0
-    version: 4.18.2
+  .: {}
+
+  packages/configs: {}
+
+  packages/connectors/facebook-ads:
+    dependencies:
+      '@syncmaven/node-cdk':
+        specifier: workspace:*
+        version: link:../../node-cdk
+      '@syncmaven/protocol':
+        specifier: workspace:*
+        version: link:../../protocol
+      facebook-nodejs-business-sdk:
+        specifier: ^19.0.3
+        version: 19.0.3
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
+    devDependencies:
+      '@syncmaven/configs':
+        specifier: workspace:*
+        version: link:../../configs
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.12.12
+      typescript:
+        specifier: ^5.4.5
+        version: 5.4.5
+
+  packages/connectors/people-data-labs:
+    dependencies:
+      '@syncmaven/node-cdk':
+        specifier: workspace:*
+        version: link:../../node-cdk
+      '@syncmaven/protocol':
+        specifier: workspace:*
+        version: link:../../protocol
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
+    devDependencies:
+      '@syncmaven/configs':
+        specifier: workspace:*
+        version: link:../../configs
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.12.12
+      typescript:
+        specifier: ^5.4.5
+        version: 5.4.5
+
+  packages/connectors/resend:
+    dependencies:
+      '@syncmaven/node-cdk':
+        specifier: workspace:*
+        version: link:../../node-cdk
+      '@syncmaven/protocol':
+        specifier: workspace:*
+        version: link:../../protocol
+      resend:
+        specifier: ^3.2.0
+        version: 3.2.0
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
+    devDependencies:
+      '@syncmaven/configs':
+        specifier: workspace:*
+        version: link:../../configs
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.12.12
+      typescript:
+        specifier: ^5.4.5
+        version: 5.4.5
+
+  packages/connectors/twitter-ads:
+    dependencies:
+      '@syncmaven/node-cdk':
+        specifier: workspace:*
+        version: link:../../node-cdk
+      '@syncmaven/protocol':
+        specifier: workspace:*
+        version: link:../../protocol
+      request:
+        specifier: ^2.88.2
+        version: 2.88.2
+      twitter-ads:
+        specifier: ^0.2.1
+        version: 0.2.1
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
+    devDependencies:
+      '@syncmaven/configs':
+        specifier: workspace:*
+        version: link:../../configs
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.12.12
+      typescript:
+        specifier: ^5.4.5
+        version: 5.4.5
+
+  packages/core:
+    dependencies:
+      '@syncmaven/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@types/facebook-nodejs-business-sdk':
+        specifier: ^18.0.0
+        version: 18.0.0
+      ajv:
+        specifier: ^8.13.0
+        version: 8.13.0
+      axios:
+        specifier: ^1.6.8
+        version: 1.6.8
+      better-sqlite3:
+        specifier: ^9.6.0
+        version: 9.6.0
+      commander:
+        specifier: ^12.0.0
+        version: 12.0.0
+      dayjs:
+        specifier: ^1.11.11
+        version: 1.11.11
+      dockerode:
+        specifier: ^4.0.2
+        version: 4.0.2
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.4.5
+      express:
+        specifier: ^4.19.2
+        version: 4.19.2
+      google-ads-api:
+        specifier: ^16.0.0-rest-beta3
+        version: 16.0.0-rest-beta3
+      google-auth-library:
+        specifier: ^9.9.0
+        version: 9.9.0
+      js-yaml:
+        specifier: ^4.1.0
+        version: 4.1.0
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
+      nunjucks:
+        specifier: ^3.2.4
+        version: 3.2.4
+      oauth-1.0a:
+        specifier: ^2.2.6
+        version: 2.2.6
+      pg:
+        specifier: ^8.11.5
+        version: 8.11.5
+      pg-cursor:
+        specifier: ^2.10.5
+        version: 2.10.5(pg@8.11.5)
+      pg-query-stream:
+        specifier: ^4.5.5
+        version: 4.5.5(pg@8.11.5)
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5)
+      tslib:
+        specifier: ^2.6.2
+        version: 2.6.2
+      typescript:
+        specifier: ^5.0.0
+        version: 5.4.5
+      zod:
+        specifier: ^3.23.4
+        version: 3.23.8
+    devDependencies:
+      '@swc/cli':
+        specifier: ^0.3.12
+        version: 0.3.12(@swc/core@1.5.5)
+      '@swc/core':
+        specifier: ^1.5.5
+        version: 1.5.5(@swc/helpers@0.5.11)
+      '@swc/helpers':
+        specifier: ^0.5.10
+        version: 0.5.11
+      '@syncmaven/configs':
+        specifier: workspace:*
+        version: link:../configs
+      '@types/ajv':
+        specifier: ^1.0.0
+        version: 1.0.0
+      '@types/better-sqlite3':
+        specifier: ^7.6.10
+        version: 7.6.10
+      '@types/bun':
+        specifier: latest
+        version: 1.1.2
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
+      '@types/lodash':
+        specifier: ^4.17.0
+        version: 4.17.1
+      '@types/nunjucks':
+        specifier: ^3.2.6
+        version: 3.2.6
+      '@types/pg':
+        specifier: ^8.11.5
+        version: 8.11.6
+      '@types/pg-cursor':
+        specifier: ^2.7.2
+        version: 2.7.2
+      json5:
+        specifier: ^2.2.3
+        version: 2.2.3
+      monorel:
+        specifier: ^0.5.0
+        version: 0.5.0
+      prettier:
+        specifier: ^3.2.5
+        version: 3.2.5
+      ts-node-test:
+        specifier: ^0.4.3
+        version: 0.4.3(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5)
+      type-fest:
+        specifier: ^4.16.0
+        version: 4.18.2
+
+  packages/node-cdk:
+    dependencies:
+      '@syncmaven/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
+    devDependencies:
+      '@syncmaven/configs':
+        specifier: workspace:*
+        version: link:../configs
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.12.12
+      tslib:
+        specifier: ^2.6.2
+        version: 2.6.2
+      typescript:
+        specifier: ^5.4.5
+        version: 5.4.5
+
+  packages/protocol:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
+    devDependencies:
+      '@syncmaven/configs':
+        specifier: workspace:*
+        version: link:../configs
+      type-fest:
+        specifier: ^4.18.2
+        version: 4.18.2
+      typescript:
+        specifier: ^5.4.5
+        version: 5.4.5
 
 packages:
 
@@ -483,19 +621,19 @@ packages:
     resolution: {integrity: sha512-yGSqw9/QKd5FXbTNrSANcJ6IHWeNhA+gokXqmlPquJgLDC87d4g2FGPs+AlCeGG0GuZXmPq42hOFA2hnPymCLw==}
     deprecated: This is a stub types definition for ajv (https://github.com/epoberezkin/ajv). ajv provides its own type definitions, so you don't need @types/ajv installed!
     dependencies:
-      ajv: 6.12.6
+      ajv: 8.13.0
     dev: true
 
   /@types/better-sqlite3@7.6.10:
     resolution: {integrity: sha512-TZBjD+yOsyrUJGmcUj6OS3JADk3+UZcNv3NOBqGkM09bZdi28fNZw8ODqbMOLfKCu7RYCO62/ldq1iHbzxqoPw==}
     dependencies:
-      '@types/node': 20.12.11
+      '@types/node': 20.12.12
     dev: true
 
-  /@types/bun@1.1.1:
-    resolution: {integrity: sha512-lUe9rLMhgDCViciZtgDj5CMl2u7uTq/IP149kSZH/Si6FWkCioximABFf+baRQgbm8QlH4bzT0qJRteQFNqeGA==}
+  /@types/bun@1.1.2:
+    resolution: {integrity: sha512-pRBDD3EDqPf83qe95i3EpYu5G2J8bbb78a3736vnCm2K8YWtEE5cvJUq2jkKvJhW07YTfQtbImywIwRhWL8z3Q==}
     dependencies:
-      bun-types: 1.1.6
+      bun-types: 1.1.8
     dev: true
 
   /@types/cacheable-request@6.0.3:
@@ -503,7 +641,7 @@ packages:
     dependencies:
       '@types/http-cache-semantics': 4.0.4
       '@types/keyv': 3.1.4
-      '@types/node': 20.12.11
+      '@types/node': 20.12.12
       '@types/responselike': 1.0.3
     dev: true
 
@@ -526,7 +664,7 @@ packages:
   /@types/keyv@3.1.4:
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
     dependencies:
-      '@types/node': 20.12.11
+      '@types/node': 20.12.12
     dev: true
 
   /@types/lodash@4.17.1:
@@ -537,14 +675,8 @@ packages:
     resolution: {integrity: sha512-MqTGEo5bj5t157U6fA/BiDynNkn0YknVdh48CMPkTSpFTVmvao5UQmm7uEF6xBEo7qIMAlY/JSleYaE6VOdpaA==}
     dev: false
 
-  /@types/node@20.11.30:
-    resolution: {integrity: sha512-dHM6ZxwlmuZaRmUPfv1p+KrdD1Dci04FbdEm/9wEMouFqxYoFl5aMkt0VMAUtYRQDyYvD41WJLukhq/ha3YuTw==}
-    dependencies:
-      undici-types: 5.26.5
-    dev: true
-
-  /@types/node@20.12.11:
-    resolution: {integrity: sha512-vDg9PZ/zi+Nqp6boSOT7plNuthRugEKixDv5sFTIpkE89MmNtEArAShI4mxuX2+UrLEe9pxC1vm2cjm9YlWbJw==}
+  /@types/node@20.12.12:
+    resolution: {integrity: sha512-eWLDGF/FOSPtAvEqeRAQ4C8LSA7M1I7i0ky1I8U7kD1J5ITyW3AsRhQrKVoWf5pFKZ2kILsEGJhsI9r93PYnOw==}
     dependencies:
       undici-types: 5.26.5
 
@@ -555,14 +687,14 @@ packages:
   /@types/pg-cursor@2.7.2:
     resolution: {integrity: sha512-m3xT8bVFCvx98LuzbvXyuCdT/Hjdd/v8ml4jL4K1QF70Y8clOfCFdgoaEB1FWdcSwcpoFYZTJQaMD9/GQ27efQ==}
     dependencies:
-      '@types/node': 20.12.11
+      '@types/node': 20.12.12
       '@types/pg': 8.11.6
     dev: true
 
   /@types/pg@8.11.6:
     resolution: {integrity: sha512-/2WmmBXHLsfRqzfHW7BNZ8SbYzE8OSk7i3WjFYvfgRHj7S1xj+16Je5fUKv3lVdVzk/zn9TXOqf+avFCFIE0yQ==}
     dependencies:
-      '@types/node': 20.12.11
+      '@types/node': 20.12.12
       pg-protocol: 1.6.1
       pg-types: 4.0.2
     dev: true
@@ -571,7 +703,7 @@ packages:
     resolution: {integrity: sha512-G3sY+NpsA9jnwm0ixhAFQSJ3Q9JkpLZpJbI3GMv0mIAT0y3mRabYeINzal5WOChIiaTEGQYlHOKgkaM9EisWHw==}
     dependencies:
       '@types/caseless': 0.12.5
-      '@types/node': 20.12.11
+      '@types/node': 20.12.12
       '@types/tough-cookie': 4.0.5
       form-data: 2.5.1
     dev: false
@@ -579,7 +711,7 @@ packages:
   /@types/responselike@1.0.3:
     resolution: {integrity: sha512-H/+L+UkTV33uf49PH5pCAUBVPNj2nDBXTN+qS1dOwyyg24l3CcicicCA7ca+HMvJBZcFgl5r8e+RR6elsb4Lyw==}
     dependencies:
-      '@types/node': 20.12.11
+      '@types/node': 20.12.12
     dev: true
 
   /@types/semver@7.5.8:
@@ -593,7 +725,7 @@ packages:
   /@types/ws@8.5.10:
     resolution: {integrity: sha512-vmQSUcfalpIq0R9q7uTo2lXs6eGIpt9wtnLdMv9LVpIjCA/+ufZRozlVoVelIYixx1ugCBKDhn89vnsEGOCx9A==}
     dependencies:
-      '@types/node': 20.11.30
+      '@types/node': 20.12.12
     dev: true
 
   /a-sync-waterfall@1.0.1:
@@ -653,6 +785,15 @@ packages:
       fast-deep-equal: 3.1.3
       fast-json-stable-stringify: 2.1.0
       json-schema-traverse: 0.4.1
+      uri-js: 4.4.1
+    dev: false
+
+  /ajv@8.13.0:
+    resolution: {integrity: sha512-PRA911Blj99jR5RMeTunVbNXMF6Lp4vZXnk5GQjcnUWUTsrXtekg/pnmFFI2u/I36Y/2bITGS30GZCXei6uNkA==}
+    dependencies:
+      fast-deep-equal: 3.1.3
+      json-schema-traverse: 1.0.0
+      require-from-string: 2.0.2
       uri-js: 4.4.1
 
   /ansi-escapes@4.3.2:
@@ -856,10 +997,10 @@ packages:
     dev: false
     optional: true
 
-  /bun-types@1.1.6:
-    resolution: {integrity: sha512-LK2aaJdBBTUkDyN+kRiJHLF3VGrAcdkEHrbBvbmTkccShPw6ZalxxKjWSBJwn4UkikhZdrdA87bZWmfUgkRUYg==}
+  /bun-types@1.1.8:
+    resolution: {integrity: sha512-dwhfuUKSGK8hm5Llcvb5+ejRh+4mIt8ibObJVKhZBsi0ScpXmt+AlaS1eDW6uRXCHj084Qt0kIqAJ08/7ZGC9Q==}
     dependencies:
-      '@types/node': 20.11.30
+      '@types/node': 20.12.12
       '@types/ws': 8.5.10
     dev: true
 
@@ -1452,6 +1593,7 @@ packages:
 
   /fast-json-stable-stringify@2.1.0:
     resolution: {integrity: sha512-lhd/wF+Lk98HZoTCtlVraHtfh5XYijIjalXck7saUtuanSDyLMxnHhSXEDJqHxD7msR8D0uCmqlkwjCV8xvwHw==}
+    dev: false
 
   /fast-text-encoding@1.0.6:
     resolution: {integrity: sha512-VhXlQgj9ioXCqGstD37E/HBeqEGV/qOD/kmbVG8h5xKBYvM1L3lR1Zn4555cQ8GkYbJa8aJSipLPndE1k6zK2w==}
@@ -2133,6 +2275,10 @@ packages:
 
   /json-schema-traverse@0.4.1:
     resolution: {integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==}
+    dev: false
+
+  /json-schema-traverse@1.0.0:
+    resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
 
   /json-schema@0.4.0:
     resolution: {integrity: sha512-es94M3nTIfsEPisRafak+HDLfHXnKBhV3vU5eqPcS3flIWqcxJWgXHXiey3YrpaNsanY5ei1VoYEbOzijuq9BA==}
@@ -2808,7 +2954,7 @@ packages:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 20.12.11
+      '@types/node': 20.12.12
       long: 5.2.3
     dev: false
 
@@ -2949,6 +3095,10 @@ packages:
 
   /require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
+    engines: {node: '>=0.10.0'}
+
+  /require-from-string@2.0.2:
+    resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
     engines: {node: '>=0.10.0'}
 
   /resend@3.2.0:
@@ -3400,14 +3550,14 @@ packages:
       escape-string-regexp: 5.0.0
     dev: true
 
-  /ts-node-test@0.4.3(@swc/core@1.5.5)(@types/node@20.12.11)(typescript@5.4.5):
+  /ts-node-test@0.4.3(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5):
     resolution: {integrity: sha512-AQ9RFxOHWsAGSefOUOkPw4334+NxWhwtuHeao3gaqnYTH2Y4/0ST5zpQEJVUVtbT/xM1YgndmO+n+gXsZ80GuQ==}
     engines: {node: '>=18.7.0'}
     hasBin: true
     peerDependencies:
       typescript: ^4.0.0 || ^5.0.0
     dependencies:
-      ts-node: 10.9.1(@swc/core@1.5.5)(@types/node@20.12.11)(typescript@5.4.5)
+      ts-node: 10.9.1(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5)
       typescript: 5.4.5
       yargs: 17.7.2
     transitivePeerDependencies:
@@ -3416,7 +3566,7 @@ packages:
       - '@types/node'
     dev: true
 
-  /ts-node@10.9.1(@swc/core@1.5.5)(@types/node@20.12.11)(typescript@5.4.5):
+  /ts-node@10.9.1(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5):
     resolution: {integrity: sha512-NtVysVPkxxrwFGUUxGYhfux8k78pQB3JqYBXlLRZgdGUqTO5wU/UyHop5p70iEbGhB7q5KmiZiU0Y3KlJrScEw==}
     hasBin: true
     peerDependencies:
@@ -3436,7 +3586,7 @@ packages:
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 20.12.11
+      '@types/node': 20.12.12
       acorn: 8.11.3
       acorn-walk: 8.3.2
       arg: 4.1.3
@@ -3448,7 +3598,7 @@ packages:
       yn: 3.1.1
     dev: true
 
-  /ts-node@10.9.2(@swc/core@1.5.5)(@types/node@20.12.11)(typescript@5.4.5):
+  /ts-node@10.9.2(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5):
     resolution: {integrity: sha512-f0FFpIdcHgn8zcPSbf1dRevwt047YMnaiJM3u2w2RewrB+fob/zePZcrOyQoLMMO7aBIddLcQIEK5dYjkLnGrQ==}
     hasBin: true
     peerDependencies:
@@ -3468,7 +3618,7 @@ packages:
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 20.12.11
+      '@types/node': 20.12.12
       acorn: 8.11.3
       acorn-walk: 8.3.2
       arg: 4.1.3

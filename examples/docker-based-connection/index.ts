@@ -3,7 +3,9 @@ import readline from "readline";
 import JSON5 from "json5";
 
 function log(level: "debug" | "info" | "warn" | "error", message: string, ...params: any[]) {
-  process.stdout.write(JSON.stringify({ type: "log", payload: { level, message, params: params.length > 0 ? params : undefined } }) + "\n");
+  process.stdout.write(
+    JSON.stringify({ type: "log", payload: { level, message, params: params.length > 0 ? params : undefined } }) + "\n"
+  );
 }
 
 function reply(type: string, payload: any) {
@@ -116,10 +118,10 @@ let success = 0;
         process.exit(0);
       }, 1000);
     } else if (message.type === "row") {
-      received++
+      received++;
       const row = message.payload.row;
       if (!row.email) {
-        failed++
+        failed++;
         log("error", "Row does not have an email", { row });
       } else {
         if (process.env.RPC_URL) {
@@ -129,14 +131,14 @@ let success = 0;
             if (json) {
               const { counter } = json;
               log("info", `Got counter for ${row.email}`, { counter });
-              rpc(`state.set`, { key: [key], value: { counter: (counter??0) + 1 } }).then(json => {
+              rpc(`state.set`, { key: [key], value: { counter: (counter ?? 0) + 1 } }).then(json => {
                 if (json) {
                   log("info", `Counter for ${row.email} has been incremented`);
                 }
               });
             }
           });
-          success++
+          success++;
         }
       }
     } else {

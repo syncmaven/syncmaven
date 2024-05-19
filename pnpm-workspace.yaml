@@ -1,0 +1,6 @@
+packages:
+  - "packages/core"
+  - "packages/configs"
+  - "packages/node-cdk"
+  - "packages/connectors/*"
+  - "packages/protocol"

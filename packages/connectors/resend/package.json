@@ -1,0 +1,23 @@
+{
+  "name": "@syncmaben/resend",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@syncmaven/node-cdk": "workspace:*",
+    "@syncmaven/protocol":"workspace:*",
+    "resend": "^3.2.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@syncmaven/configs":"workspace:*",
+    "@types/node": "^20.12.12",
+    "typescript": "^5.4.5"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

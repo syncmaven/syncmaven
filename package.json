@@ -6,6 +6,13 @@
   "publishConfig": {
     "access": "public"
   },
+  "workspaces": [
+    "packages/core",
+    "packages/configs",
+    "packages/node-cdk",
+    "packages/connectors/*",
+    "packages/protocol"
+  ],
   "bin": "./bin/syncmaven",
   "files": [
     "bin",
@@ -13,67 +20,18 @@
     "README.md"
   ],
   "scripts": {
-    "package": "pkg . --out-path bin-dist",
-    "main": "NODE_OPTIONS=--no-deprecation ts-node src/index.ts",
-    "release": "monorel --npm-tag latest --filter './packages/a'  --filter './packages/b'",
-    "canary:publish": "monorel --version '0.0.2-alpha.{rev}' --npm-tag canary --publish",
-    "compile": "tsc --noEmit",
-    "test": "tsc && node --test dist/__tests__/**/*.test.js\n",
-    "build": "tsc",
-    "format:check": "prettier --ignore-unknown --check --config ./.prettierrc.json --ignore-path ./.prettierignore $(git diff --name-only --diff-filter d | xargs)",
-    "format:check:all": "prettier --check --config ./.prettierrc.json --ignore-path ./.prettierignore .",
-    "format": "prettier --ignore-unknown --write --config ./.prettierrc.json --ignore-path ./.prettierignore $(git diff --name-only --diff-filter d | xargs)",
-    "format:all": "prettier --write --config ./.prettierrc.json --ignore-path ./.prettierignore ."
+    "main": "pnpm run --filter ./packages/core  -r main",
+    "release": "monorel --npm-tag latest --filter './packages/core'  --filter './packages/node-cdk'",
+    "canary:publish": "monorel --filter './packages/core'  --filter './packages/node-cdk' --version '0.0.2-alpha.{rev}' --npm-tag canary --publish",
+    "test": "pnpm run -r test",
+    "build": "pnpm run -r build",
+    "format:check": "prettier --ignore-unknown --check --config ./packages/configs./.prettierrc.json --ignore-path packages/configs/.prettierignore $(git diff --name-only --diff-filter d | xargs)",
+    "format:check:all": "prettier --check --config ./packages/configs/.prettierrc.json --ignore-path packages/configs/.prettierignore .",
+    "format": "prettier --ignore-unknown --write --config ./packages/configs/.prettierrc.json --ignore-path packages/configs/.prettierignore $(git diff --name-only --diff-filter d | xargs)",
+    "format:all": "prettier --write --config ./packages/configs/.prettierrc.json --ignore-path packages/configs/.prettierignore ."
   },
   "ts-node": {
     "swc": true
-  },
-  "devDependencies": {
-    "@swc/cli": "^0.3.12",
-    "@swc/core": "^1.5.5",
-    "@swc/helpers": "^0.5.10",
-    "@types/ajv": "^1.0.0",
-    "@types/better-sqlite3": "^7.6.10",
-    "@types/bun": "latest",
-    "@types/js-yaml": "^4.0.9",
-    "@types/lodash": "^4.17.0",
-    "@types/nunjucks": "^3.2.6",
-    "@types/pg": "^8.11.5",
-    "@types/pg-cursor": "^2.7.2",
-    "json5": "^2.2.3",
-    "monorel": "^0.5.0",
-    "prettier": "^3.2.5",
-    "ts-node-test": "^0.4.3",
-    "type-fest": "^4.16.0"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "@types/facebook-nodejs-business-sdk": "^18.0.0",
-    "ajv": "link:/ajv",
-    "axios": "^1.6.8",
-    "better-sqlite3": "^9.6.0",
-    "commander": "^12.0.0",
-    "dayjs": "^1.11.11",
-    "dockerode": "^4.0.2",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "facebook-nodejs-business-sdk": "^19.0.3",
-    "google-ads-api": "^16.0.0-rest-beta3",
-    "google-auth-library": "^9.9.0",
-    "js-yaml": "^4.1.0",
-    "lodash": "^4.17.21",
-    "nunjucks": "^3.2.4",
-    "oauth-1.0a": "^2.2.6",
-    "pg": "^8.11.5",
-    "pg-cursor": "^2.10.5",
-    "pg-query-stream": "^4.5.5",
-    "request": "^2.88.2",
-    "resend": "^3.2.0",
-    "ts-node": "^10.9.2",
-    "tslib": "^2.6.2",
-    "twitter-ads": "^0.2.1",
-    "zod": "^3.23.4"
   }
+
 }
