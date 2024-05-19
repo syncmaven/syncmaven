@@ -21,11 +21,3 @@ export function maskPassword(url: string): string {
 export function isTruish(x: any): boolean {
   return x === "true" || x === "1";
 }
-
-export function splitName(name: string): { first: string; last: string } {
-  const [first, ...rest] = name.split(" ");
-  return {
-    first,
-    last: rest.join(" "),
-  };
-}

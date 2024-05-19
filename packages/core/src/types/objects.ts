@@ -43,10 +43,9 @@ export type ConnectionDefinition = Simplify<z.infer<typeof ConnectionDefinition>
 export const ConnectionDefinition = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
-  kind: z.string().optional(),
   package: z.object({
-    type: z.enum(["npm", "docker"]),
-    image: z.string().optional(),
-  }).optional(),
+    type: z.string().default("docker").optional(),
+    image: z.string(),
+  }),
   credentials: z.any(),
 });
