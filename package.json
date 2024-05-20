@@ -19,6 +19,9 @@
     "dist",
     "README.md"
   ],
+  "devDependencies": {
+    "monorel": "^0.5.0"
+  },
   "scripts": {
     "main": "pnpm run --filter ./packages/core  -r main",
     "release": "monorel --npm-tag latest --filter './packages/core'  --filter './packages/node-cdk'",

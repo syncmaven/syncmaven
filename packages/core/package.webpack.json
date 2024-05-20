@@ -1,0 +1,13 @@
+{
+  "name": "syncmaven",
+  "version": "0.0.0",
+  "main": "main.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "4.19.2",
+    "nunjucks": "3.2.4",
+    "better-sqlite3": "9.6.0"
+  }
+}

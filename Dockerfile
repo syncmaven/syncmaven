@@ -1,3 +1,6 @@
+#docker buildx build --platform linux/amd64,linux/arm64 -t syncmaven/syncmaven:latest --push .
+
+
 FROM node:20-slim as base
 
 RUN apt-get update -y
@@ -10,15 +13,23 @@ WORKDIR /syncmaven
 FROM base AS builder
 RUN apt update && apt install -y python3 python3-pip make g++ sqlite3 libsqlite3-dev
 RUN npm -g install pnpm
+
 COPY . .
 RUN pnpm install
-RUN pnpm run test # verify once again so we are sure not to ship a broken image
-RUN pnpm run build
+RUN pnpm run --filter "syncmaven" test # verify once again so we are sure not to ship a broken image
+RUN pnpm run --filter "syncmaven" build
+
+# install deps that cannot be handled by webpack
+COPY /packages/core/package.webpack.json /syncmaven/packages/core/dist/package.json
+WORKDIR /syncmaven/packages/core/dist
+RUN npm install
+
 
 FROM base AS release
-COPY --from=builder /syncmaven/node_modules node_modules
-COPY --from=builder /syncmaven/dist/src .
-RUN mkdir /project
 
+COPY --from=builder /syncmaven/packages/core/dist/ .
+
+RUN mkdir /project
 ENV SYNCMAVEN_PROJECT_DIR=/project
-ENTRYPOINT [ "node", "index.js" ]
+
+ENTRYPOINT [ "node", "main.js" ]

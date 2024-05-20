@@ -1,8 +1,11 @@
 import { ZodError } from "zod";
 import { stringifyZodError } from "./zod";
 const Ajv = require("ajv");
+const addFormats = require("ajv-formats");
 
-type ParseResult<T = any> = { success: true; data: T; error?: never } | { success: false; data?: never; error: Error };
+type ParseResult<T = any> =
+  | { success: true; data: T; error?: never }
+  | { success: false; data?: never; error: Error };
 export type SchemaBasedParser<T = any> = {
   parse: (data: any) => T;
   safeParse: (data: any) => ParseResult<T>;
@@ -45,13 +48,17 @@ export function createParser<T>(schema: any): SchemaBasedParser<T> {
     };
   } else if (isJsonSchema(schema)) {
     const ajv = new Ajv();
+    addFormats(ajv);
     const validator = ajv.compile(schema);
-    const safeParse: (data: any) => ParseResult = data => {
+    const safeParse: (data: any) => ParseResult = (data) => {
       const valid = validator(data);
       if (valid) {
         return { success: true, data: data as T };
       } else {
-        return { success: false, error: new Error(ajv.errorsText(validator.errors)) };
+        return {
+          success: false,
+          error: new Error(ajv.errorsText(validator.errors)),
+        };
       }
     };
     return {
