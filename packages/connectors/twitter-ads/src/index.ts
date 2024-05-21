@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { BatchingOutputStream, DestinationProvider } from "@syncmaven/node-cdk/src";
+import {
+  BatchingOutputStream,
+  DestinationProvider,
+  stdProtocol,
+} from "@syncmaven/node-cdk";
 import TwitterAdsAPI from "twitter-ads";
 import { emailHash, normalizeEmail } from "@syncmaven/node-cdk";
 import request from "request";
@@ -20,7 +24,10 @@ type AudienceRowType = z.infer<typeof AudienceRowType>;
 
 export type TwitterCredentials = z.infer<typeof TwitterCredentials>;
 
-class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterCredentials> {
+class TwitterOutputStream extends BatchingOutputStream<
+  AudienceRowType,
+  TwitterCredentials
+> {
   private bearerToken: string = "";
   private api: any;
   private rowsCacheKey: string[];
@@ -29,7 +36,11 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
 
   constructor(config, ctx) {
     super(config, ctx);
-    this.rowsCacheKey = [`sync=${config.syncId}`, `stream=${config.streamId}`, "last-synced-rows"];
+    this.rowsCacheKey = [
+      `sync=${config.syncId}`,
+      `stream=${config.streamId}`,
+      "last-synced-rows",
+    ];
   }
 
   async init() {
@@ -43,22 +54,33 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
     });
 
     const audienceName =
-      this.config.options.audienceName || `AudienceSync: ${this.config.syncId}, stream=${this.config.streamId}`;
-    const audiences = await this.get(`/accounts/${this.config.credentials.accountId}/custom_audiences`);
-    console.debug(`Twitter audiences ${typeof audiences}. Will look for '${audienceName}'`, audiences.data);
+      this.config.options.audienceName ||
+      `AudienceSync: ${this.config.syncId}, stream=${this.config.streamId}`;
+    const audiences = await this.get(
+      `/accounts/${this.config.credentials.accountId}/custom_audiences`,
+    );
+    console.debug(
+      `Twitter audiences ${typeof audiences}. Will look for '${audienceName}'`,
+      audiences.data,
+    );
     for (const audience of audiences.data) {
       if (audience.name === audienceName) {
         this.audienceId = audience.id;
-        console.debug(`Found audience with name '${audienceName}' and id ${this.audienceId}`);
+        console.debug(
+          `Found audience with name '${audienceName}' and id ${this.audienceId}`,
+        );
         break;
       }
     }
     if (!this.audienceId) {
       console.log(`Audience with name ${audienceName} not found, creating...`);
-      const newAudience = await this.post(`/accounts/${this.config.credentials.accountId}/custom_audiences`, {
-        name: audienceName,
-        description: `Audience created by AudienceSync for stream ${this.config.streamId} with syncId ${this.config.syncId}. Don't change it's name!`,
-      });
+      const newAudience = await this.post(
+        `/accounts/${this.config.credentials.accountId}/custom_audiences`,
+        {
+          name: audienceName,
+          description: `Audience created by AudienceSync for stream ${this.config.streamId} with syncId ${this.config.syncId}. Don't change it's name!`,
+        },
+      );
       console.debug(`Created audience`, newAudience);
       this.audienceId = newAudience.data.id;
 
@@ -66,23 +88,27 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
     }
     if (!this.config.options.doNotClearAudience) {
       const size = await this.ctx.store.size(this.rowsCacheKey);
-      console.log(`Cleaning twitter audience = ${this.audienceId}. Previously synced audience size is ${size}`);
+      console.log(
+        `Cleaning twitter audience = ${this.audienceId}. Previously synced audience size is ${size}`,
+      );
       await this.ctx.store.streamBatch(
         this.rowsCacheKey,
-        async batch => {
+        async (batch) => {
           console.log(`Deleting ${batch.length} rows from audience`);
           await this.post(
             `/accounts/${this.config.credentials.accountId}/custom_audiences/${this.audienceId}/users`,
             [
               {
                 operation_type: "Delete",
-                users: batch.map(row => AudienceRowType.parse(row.value)).map(r => emailHash(normalizeEmail(r.email))),
+                users: batch
+                  .map((row) => AudienceRowType.parse(row.value))
+                  .map((r) => emailHash(normalizeEmail(r.email))),
               },
             ],
-            { forceJson: true }
+            { forceJson: true },
           );
         },
-        this.maxBatchSize
+        this.maxBatchSize,
       );
       await this.ctx.store.deleteByPrefix(this.rowsCacheKey);
     }
@@ -113,7 +139,11 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
     });
   }
 
-  private async post(url: string, body: any, opts: { forceJson?: boolean } = {}): Promise<any> {
+  private async post(
+    url: string,
+    body: any,
+    opts: { forceJson?: boolean } = {},
+  ): Promise<any> {
     if (opts.forceJson) {
       return new Promise((resolve, reject) => {
         request(
@@ -136,7 +166,7 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
             } else {
               resolve(body);
             }
-          }
+          },
         );
       });
     } else {
@@ -166,14 +196,23 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
           operation_type: "Update",
           params: {
             effective_at: fixISO(new Date().toISOString()),
-            expires_at: fixISO(new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 30).toISOString()), // 30 days
-            users: currentBatch.map(row => ({ email: [emailHash(normalizeEmail(row.email))] })),
+            expires_at: fixISO(
+              new Date(
+                new Date().getTime() + 1000 * 60 * 60 * 24 * 30,
+              ).toISOString(),
+            ), // 30 days
+            users: currentBatch.map((row) => ({
+              email: [emailHash(normalizeEmail(row.email))],
+            })),
           },
         },
       ],
-      { forceJson: true }
+      { forceJson: true },
     );
-    console.log(`Sent ${currentBatch.length} users to twitter API. Response:`, JSON.stringify(response, null, 2));
+    console.log(
+      `Sent ${currentBatch.length} users to twitter API. Response:`,
+      JSON.stringify(response, null, 2),
+    );
     console.log(`Saving ${currentBatch.length} rows to cache`);
     for (const row of currentBatch) {
       const key = [...this.rowsCacheKey, row.email];
@@ -190,7 +229,10 @@ export const twitterAdsProvider: DestinationProvider<TwitterCredentials> = {
     {
       name: "audience",
       rowType: AudienceRowType,
-      createOutputStream: (config, ctx) => new TwitterOutputStream(config, ctx).init(),
+      createOutputStream: (config, ctx) =>
+        new TwitterOutputStream(config, ctx).init(),
     },
   ],
 };
+
+stdProtocol(twitterAdsProvider);

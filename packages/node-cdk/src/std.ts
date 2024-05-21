@@ -65,7 +65,7 @@ export function stdProtocol(provider: DestinationProvider) {
     log("debug", `Received message ${message.type}`, { message });
     if (message.type === "describe") {
       reply("spec", {
-        description: "This is an example of a Docker-based connection",
+        description: provider.name,
         roles: ["destination"],
         connectionCredentials: zodToJsonSchema(provider.credentialsType),
       });
@@ -148,36 +148,38 @@ function createContext(): ExecutionContext {
   return {
     store: {
       async get(key: StorageKey): Promise<any> {
-        return rpcCall("state.get", { key: Array.isArray(key) ? key : [key] });
+        return rpcCall("state.get", { key });
       },
       async set(key: StorageKey, value: any): Promise<void> {
         return rpcCall("state.set", {
-          key: Array.isArray(key) ? key : [key],
+          key,
           value,
         });
       },
       async del(key: StorageKey): Promise<void> {
-        return rpcCall("state.del", { key: Array.isArray(key) ? key : [key] });
+        return rpcCall("state.del", { key });
       },
-      async size(key: StorageKey): Promise<number> {
-        return rpcCall("state.size", { key: Array.isArray(key) ? key : [key] });
+      async deleteByPrefix(prefix: StorageKey): Promise<void> {
+        return rpcCall("state.deleteByPrefix", {
+          prefix,
+        });
+      },
+      async size(prefix: StorageKey): Promise<number> {
+        const r = await rpcCall("state.size", { prefix });
+        return r.size;
       },
       async list(prefix: StorageKey): Promise<Entry[]> {
         return rpcCall("state.list", {
-          key: Array.isArray(prefix) ? prefix : [prefix],
+          prefix,
         });
       },
-      async deleteByPrefix(rowsKey: StorageKey): Promise<void> {
-        return rpcCall("state.delall", {
-          key: Array.isArray(rowsKey) ? rowsKey : [rowsKey],
-        });
-      },
+
       async stream(
         prefix: StorageKey,
         cb: (entry: Entry) => Promise<void> | void,
       ): Promise<any> {
-        const res = (await rpcCall("state.stream", {
-          key: Array.isArray(prefix) ? prefix : [prefix],
+        const res = (await rpcCall("state.list", {
+          prefix,
         })) as Entry[];
         for (const e of res) {
           await cb(e);
@@ -188,17 +190,24 @@ function createContext(): ExecutionContext {
         cb: (batch: Entry[]) => Promise<void> | void,
         maxBatchSize: number,
       ): Promise<any> {
-        // TODO: respect maxBatchSize
-        const res = (await rpcCall("state.stream", {
-          key: Array.isArray(prefix) ? prefix : [prefix],
+        const res = (await rpcCall("state.list", {
+          prefix,
         })) as Entry[];
+        let batch: Entry[] = [];
+        for (const e of res) {
+          batch.push(e);
+          if (batch.length >= maxBatchSize) {
+            await cb(batch);
+            batch = [];
+          }
+        }
         await cb(res);
       },
     },
   };
 }
 
-function rpcCall(method: string, body: any): Promise<any> {
+async function rpcCall(method: string, body: any): Promise<any> {
   return rpc(`${process.env.RPC_URL}/${method}`, {
     method: "POST",
     headers: {

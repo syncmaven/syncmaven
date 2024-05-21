@@ -28,9 +28,9 @@ export interface StreamPersistenceStore {
     maxBatchSize: number,
   ): Promise<any>;
 
-  deleteByPrefix(rowsKey: StorageKey): Promise<void>;
+  deleteByPrefix(prefix: StorageKey): Promise<void>;
 
-  size(rowsCacheKey: StorageKey): Promise<number>;
+  size(prefix: StorageKey): Promise<number>;
 }
 
 export type ExecutionContext = {
