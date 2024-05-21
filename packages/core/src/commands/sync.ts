@@ -13,7 +13,7 @@ import {
   MessageHandler,
 } from "@syncmaven/protocol";
 import { stringifyZodError } from "../lib/zod";
-import { readProject, untildify } from "../lib/project";
+import { configureEnvVars, readProject, untildify } from "../lib/project";
 import { executeQuery } from "../lib/datasource";
 import { createErrorThreshold } from "../lib/error-threshold";
 import { Project } from "../types/project";
@@ -36,6 +36,7 @@ export function getEnrichmentProvider(en: ConnectionDefinition, messagesHandler:
   throw new Error("Package-based enrichments are not yet supported");
 }
 
+
 export async function sync(
   projectDir: string,
   opts: {
@@ -48,13 +49,7 @@ export async function sync(
 ) {
   projectDir = untildify(projectDir || opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd());
   const envFileNames = [".env", ".env.local"];
-  dotenv.config({
-    path: [
-      ...envFileNames.map(file => path.join(projectDir, file)),
-      ...envFileNames.map(file => path.join(process.cwd(), file)),
-      ...(opts.env || []),
-    ].map(untildify),
-  });
+  configureEnvVars(envFileNames, projectDir, opts.env || []);
   const project = readProject(projectDir);
   const syncIds = opts.select ? opts.select.split(",") : Object.keys(project.syncs);
   for (const syncId of syncIds) {

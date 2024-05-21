@@ -8,7 +8,7 @@
     "compile": "tsc --noEmit -p . ",
     "build": "pnpm compile && webpack",
     "clean": "rm -r dist",
-    "main": "node dist/main.js"
+    "main": "ts-node src/index.ts"
   },
   "keywords": [],
   "author": "",

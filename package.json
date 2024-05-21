@@ -24,7 +24,7 @@
   },
   "scripts": {
     "main": "pnpm run --filter ./packages/core  -r main",
-    "release": "monorel --npm-tag latest --filter './packages/core'  --filter './packages/node-cdk'",
+    "release": "monorel --npm-tag latest --filter './packages/core' --filter './packages/node-cdk'",
     "canary:publish": "monorel --filter './packages/core'  --filter './packages/node-cdk' --version '0.0.2-alpha.{rev}' --npm-tag canary --publish",
     "test": "pnpm run -r test",
     "build": "pnpm run -r build",
