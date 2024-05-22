@@ -6,7 +6,13 @@ export const ModelDefinition = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
   query: z.string(),
-  datasource: z.string(),
+  datasource: z.union([
+    z.string(),
+    z.object({
+      type: z.string(),
+      credentials: z.any(),
+    }),
+  ]),
 });
 
 export type ModelDefinition = Simplify<z.infer<typeof ModelDefinition>>;
@@ -38,7 +44,9 @@ function getEnrichments(sync: SyncDefinition): EnrichmentSettings[] {
 
 export type SyncDefinition = Simplify<z.infer<typeof SyncDefinition>>;
 
-export type ConnectionDefinition = Simplify<z.infer<typeof ConnectionDefinition>>;
+export type ConnectionDefinition = Simplify<
+  z.infer<typeof ConnectionDefinition>
+>;
 
 export const ConnectionDefinition = z.object({
   id: z.string().optional(),

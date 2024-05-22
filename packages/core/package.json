@@ -63,6 +63,7 @@
     "pg": "^8.11.5",
     "pg-cursor": "^2.10.5",
     "pg-query-stream": "^4.5.5",
+    "@google-cloud/bigquery": "^7.7.0",
     "ts-node": "^10.9.2",
     "tslib": "^2.6.2",
     "zod": "^3.23.4"

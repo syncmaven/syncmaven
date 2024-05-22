@@ -1,4 +1,4 @@
-# docker build -t syncmaven/connection-mixpanel:dev --load .
+# docker build -t syncmaven/mixpanel:dev --load .
 
 FROM golang:1.22.3-alpine as build
 
