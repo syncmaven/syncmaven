@@ -1,7 +1,6 @@
 {
   "extends": "@syncmaven/configs/tsconfig.base.json",
   "compilerOptions": {
-    "declaration": true,
     "outDir": "./dist",
     "noEmit": false
   },

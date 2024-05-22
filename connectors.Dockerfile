@@ -14,19 +14,35 @@ RUN apt update && apt install -y python3 python3-pip make g++ sqlite3 libsqlite3
 RUN npm -g install pnpm
 
 COPY . .
-RUN pnpm install
-RUN pnpm run --filter "./packages/connectors/**" test # verify once again so we are sure not to ship a broken image
-RUN pnpm run --filter "./packages/connectors/**" build
 
+FROM builder AS twitter-ads-builder
+
+RUN pnpm install --config.dedupe-peer-dependents=false --filter ./packages/connectors/twitter-ads... --filter ./packages/node-cdk
+RUN pnpm run --filter "./packages/connectors/twitter-ads" test
+RUN pnpm run --filter "./packages/connectors/twitter-ads" build
 
 FROM base AS twitter-ads
-COPY --from=builder /syncmaven/packages/connectors/twitter-ads/dist .
-ENTRYPOINT [ "node", "main.js" ]
+COPY --from=twitter-ads-builder /syncmaven .
+WORKDIR /syncmaven/packages/connectors/twitter-ads
+
+ENTRYPOINT [ "node", "dist/index.js" ]
+
+FROM builder AS facebook-ads-builder
+
+RUN pnpm install --config.dedupe-peer-dependents=false --filter ./packages/connectors/facebook-ads... --filter ./packages/node-cdk
+RUN pnpm run --filter "./packages/connectors/facebook-ads" test
+RUN pnpm run --filter "./packages/connectors/facebook-ads" build
 
 FROM base AS facebook-ads
-COPY --from=builder /syncmaven/packages/connectors/facebook-ads/dist .
-ENTRYPOINT [ "node", "main.js" ]
+COPY --from=facebook-ads-builder /syncmaven/packages/connectors/facebook-ads/dist .
+ENTRYPOINT [ "node", "dist/main.js" ]
+
+FROM builder AS resend-builder
+
+RUN pnpm install --config.dedupe-peer-dependents=false --filter ./packages/connectors/resend... --filter ./packages/node-cdk
+RUN pnpm run --filter "./packages/connectors/resend" test
+RUN pnpm run --filter "./packages/connectors/resend" build
 
 FROM base AS resend
-COPY --from=builder /syncmaven/packages/connectors/resend/dist .
-ENTRYPOINT [ "node", "main.js" ]
+COPY --from=resend-builder /syncmaven/packages/connectors/resend/dist .
+ENTRYPOINT [ "node", "dist/main.js" ]

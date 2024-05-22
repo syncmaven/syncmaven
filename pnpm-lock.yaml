@@ -21,37 +21,25 @@ importers:
       facebook-nodejs-business-sdk:
         specifier: ^19.0.3
         version: 19.0.3
+      tslib:
+        specifier: ^2.6.2
+        version: 2.6.2
       zod:
         specifier: ^3.23.8
         version: 3.23.8
     devDependencies:
-      '@babel/preset-env':
-        specifier: ^7.24.5
-        version: 7.24.5(@babel/core@7.24.5)
-      '@babel/preset-typescript':
-        specifier: ^7.24.1
-        version: 7.24.1(@babel/core@7.24.5)
       '@syncmaven/configs':
         specifier: workspace:*
         version: link:../../configs
       '@types/node':
         specifier: ^20.12.12
         version: 20.12.12
-      babel-loader:
-        specifier: ^9.1.3
-        version: 9.1.3(@babel/core@7.24.5)(webpack@5.91.0)
-      node-loader:
-        specifier: ^2.0.0
-        version: 2.0.0(webpack@5.91.0)
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5)
       typescript:
         specifier: ^5.4.5
         version: 5.4.5
-      webpack:
-        specifier: ^5.91.0
-        version: 5.91.0(@swc/core@1.5.5)(webpack-cli@5.1.4)
-      webpack-cli:
-        specifier: ^5.1.4
-        version: 5.1.4(webpack@5.91.0)
 
   packages/connectors/people-data-labs:
     dependencies:
@@ -61,37 +49,25 @@ importers:
       '@syncmaven/protocol':
         specifier: workspace:*
         version: link:../../protocol
+      tslib:
+        specifier: ^2.6.2
+        version: 2.6.2
       zod:
         specifier: ^3.23.8
         version: 3.23.8
     devDependencies:
-      '@babel/preset-env':
-        specifier: ^7.24.5
-        version: 7.24.5(@babel/core@7.24.5)
-      '@babel/preset-typescript':
-        specifier: ^7.24.1
-        version: 7.24.1(@babel/core@7.24.5)
       '@syncmaven/configs':
         specifier: workspace:*
         version: link:../../configs
       '@types/node':
         specifier: ^20.12.12
         version: 20.12.12
-      babel-loader:
-        specifier: ^9.1.3
-        version: 9.1.3(@babel/core@7.24.5)(webpack@5.91.0)
-      node-loader:
-        specifier: ^2.0.0
-        version: 2.0.0(webpack@5.91.0)
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5)
       typescript:
         specifier: ^5.4.5
         version: 5.4.5
-      webpack:
-        specifier: ^5.91.0
-        version: 5.91.0(@swc/core@1.5.5)(webpack-cli@5.1.4)
-      webpack-cli:
-        specifier: ^5.1.4
-        version: 5.1.4(webpack@5.91.0)
 
   packages/connectors/resend:
     dependencies:
@@ -104,37 +80,28 @@ importers:
       resend:
         specifier: ^3.2.0
         version: 3.2.0
+      tslib:
+        specifier: ^2.6.2
+        version: 2.6.2
       zod:
         specifier: ^3.23.8
         version: 3.23.8
     devDependencies:
-      '@babel/preset-env':
-        specifier: ^7.24.5
-        version: 7.24.5(@babel/core@7.24.5)
-      '@babel/preset-typescript':
-        specifier: ^7.24.1
-        version: 7.24.1(@babel/core@7.24.5)
       '@syncmaven/configs':
         specifier: workspace:*
         version: link:../../configs
       '@types/node':
         specifier: ^20.12.12
         version: 20.12.12
-      babel-loader:
-        specifier: ^9.1.3
-        version: 9.1.3(@babel/core@7.24.5)(webpack@5.91.0)
-      node-loader:
-        specifier: ^2.0.0
-        version: 2.0.0(webpack@5.91.0)
+      syncmaven:
+        specifier: workspace:*
+        version: link:../../core
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5)
       typescript:
         specifier: ^5.4.5
         version: 5.4.5
-      webpack:
-        specifier: ^5.91.0
-        version: 5.91.0(@swc/core@1.5.5)(webpack-cli@5.1.4)
-      webpack-cli:
-        specifier: ^5.1.4
-        version: 5.1.4(webpack@5.91.0)
 
   packages/connectors/twitter-ads:
     dependencies:
@@ -147,6 +114,9 @@ importers:
       request:
         specifier: ^2.88.2
         version: 2.88.2
+      tslib:
+        specifier: ^2.6.2
+        version: 2.6.2
       twitter-ads:
         specifier: ^0.2.1
         version: 0.2.1
@@ -154,33 +124,18 @@ importers:
         specifier: ^3.23.8
         version: 3.23.8
     devDependencies:
-      '@babel/preset-env':
-        specifier: ^7.24.5
-        version: 7.24.5(@babel/core@7.24.5)
-      '@babel/preset-typescript':
-        specifier: ^7.24.1
-        version: 7.24.1(@babel/core@7.24.5)
       '@syncmaven/configs':
         specifier: workspace:*
         version: link:../../configs
       '@types/node':
         specifier: ^20.12.12
         version: 20.12.12
-      babel-loader:
-        specifier: ^9.1.3
-        version: 9.1.3(@babel/core@7.24.5)(webpack@5.91.0)
-      node-loader:
-        specifier: ^2.0.0
-        version: 2.0.0(webpack@5.91.0)
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5)
       typescript:
         specifier: ^5.4.5
         version: 5.4.5
-      webpack:
-        specifier: ^5.91.0
-        version: 5.91.0(@swc/core@1.5.5)(webpack-cli@5.1.4)
-      webpack-cli:
-        specifier: ^5.1.4
-        version: 5.1.4(webpack@5.91.0)
 
   packages/core:
     dependencies:
@@ -5887,7 +5842,6 @@ packages:
       typescript: 5.4.5
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
-    dev: false
 
   /tslib@2.6.2:
     resolution: {integrity: sha512-AEYxH93jGFPn/a2iVAwW87VuUIkR1FVUKB77NwMF7nBTDkDrrT/Hpt/IrCJ0QXhW27jTBDcf5ZY7w6RiqTMw2Q==}
