@@ -35,7 +35,7 @@ RUN pnpm run --filter "./packages/connectors/facebook-ads" build
 
 FROM base AS facebook-ads
 COPY --from=facebook-ads-builder /syncmaven/packages/connectors/facebook-ads/dist .
-ENTRYPOINT [ "node", "dist/main.js" ]
+ENTRYPOINT [ "node", "dist/index.js" ]
 
 FROM builder AS resend-builder
 
@@ -45,4 +45,4 @@ RUN pnpm run --filter "./packages/connectors/resend" build
 
 FROM base AS resend
 COPY --from=resend-builder /syncmaven/packages/connectors/resend/dist .
-ENTRYPOINT [ "node", "dist/main.js" ]
+ENTRYPOINT [ "node", "dist/index.js" ]

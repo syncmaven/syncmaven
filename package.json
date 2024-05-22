@@ -24,9 +24,9 @@
   },
   "scripts": {
     "main": "pnpm run --filter ./packages/core  -r main",
-    "release": "monorel --npm-tag latest --filter './packages/core' --publish",
-    "libs:canary": "monorel  --filter './packages/core' --version '0.0.1-alpha.{rev}' --npm-tag canary --publish",
-    "connectors:canary": "monorel --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/connectors/**'  --version '0.0.1-alpha.{rev}' --npm-tag canary --publish",
+    "release": "monorel --npm-tag latest --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/core' --publish",
+    "canary": "monorel --npm-tag canary --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/core' --version '0.0.5-alpha.{rev}' --publish",
+    "connectors:canary": "monorel --filter './packages/connectors/**'  --version '0.0.1-alpha.{rev}' --npm-tag canary --publish",
     "test": "pnpm run -r test",
     "build": "pnpm run -r build",
     "format:check": "prettier --ignore-unknown --check --config ./packages/configs./.prettierrc.json --ignore-path packages/configs/.prettierignore $(git diff --name-only --diff-filter d | xargs)",
