@@ -1,5 +1,9 @@
 lockfileVersion: '6.0'
 
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
 importers:
 
   .:
@@ -145,9 +149,15 @@ importers:
       express:
         specifier: 4.19.2
         version: 4.19.2
+      node-sql-parser:
+        specifier: ^5.1.0
+        version: 5.1.0
       nunjucks:
         specifier: 3.2.4
         version: 3.2.4
+      sqlstring:
+        specifier: ^2.3.3
+        version: 2.3.3
       typescript:
         specifier: ^5.0.0
         version: 5.4.5
@@ -195,8 +205,11 @@ importers:
         specifier: ^4.0.9
         version: 4.0.9
       '@types/lodash':
-        specifier: ^4.17.0
+        specifier: ^4.17.1
         version: 4.17.1
+      '@types/node-sql-parser':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@types/nunjucks':
         specifier: ^3.2.6
         version: 3.2.6
@@ -206,6 +219,9 @@ importers:
       '@types/pg-cursor':
         specifier: ^2.7.2
         version: 2.7.2
+      '@types/sqlstring':
+        specifier: ^2.3.2
+        version: 2.3.2
       ajv:
         specifier: ^8.13.0
         version: 8.13.0
@@ -2141,6 +2157,13 @@ packages:
     resolution: {integrity: sha512-/pyBZWSLD2n0dcHE3hq8s8ZvcETHtEuF+3E7XVt0Ig2nvsVQXdghHVcEkIWjy9A0wKfTn97a/PSDYohKIlnP/w==}
     dev: true
 
+  /@types/node-sql-parser@1.1.0:
+    resolution: {integrity: sha512-Y5hmrXH9+tVA/tJkel12XVMPPgv07UQv44oAt/8l/TI3raKlxbyFYPDLqo71HTQSN4hEbqlXA/ZAZy0AASsz6w==}
+    deprecated: This is a stub types definition. node-sql-parser provides its own type definitions, so you do not need this installed.
+    dependencies:
+      node-sql-parser: 5.1.0
+    dev: true
+
   /@types/node@20.12.12:
     resolution: {integrity: sha512-eWLDGF/FOSPtAvEqeRAQ4C8LSA7M1I7i0ky1I8U7kD1J5ITyW3AsRhQrKVoWf5pFKZ2kILsEGJhsI9r93PYnOw==}
     dependencies:
@@ -2150,6 +2173,9 @@ packages:
   /@types/nunjucks@3.2.6:
     resolution: {integrity: sha512-pHiGtf83na1nCzliuAdq8GowYiXvH5l931xZ0YEHaLMNFgynpEqx+IPStlu7UaDkehfvl01e4x/9Tpwhy7Ue3w==}
     dev: true
+
+  /@types/pegjs@0.10.6:
+    resolution: {integrity: sha512-eLYXDbZWXh2uxf+w8sXS8d6KSoXTswfps6fvCUuVAGN8eRpfe7h9eSRydxiSJvo9Bf+GzifsDOr9TMQlmJdmkw==}
 
   /@types/pg-cursor@2.7.2:
     resolution: {integrity: sha512-m3xT8bVFCvx98LuzbvXyuCdT/Hjdd/v8ml4jL4K1QF70Y8clOfCFdgoaEB1FWdcSwcpoFYZTJQaMD9/GQ27efQ==}
@@ -2206,6 +2232,10 @@ packages:
       '@types/http-errors': 2.0.4
       '@types/node': 20.12.12
       '@types/send': 0.17.4
+    dev: true
+
+  /@types/sqlstring@2.3.2:
+    resolution: {integrity: sha512-lVRe4Iz9UNgiHelKVo8QlC8fb5nfY8+p+jNQNE+UVsuuVlQnWhyWmQ/wF5pE8Ys6TdjfVpqTG9O9i2vi6E0+Sg==}
     dev: true
 
   /@types/tough-cookie@4.0.5:
@@ -2648,6 +2678,10 @@ packages:
       bindings: 1.5.0
       prebuild-install: 7.1.2
     dev: false
+
+  /big-integer@1.6.52:
+    resolution: {integrity: sha512-QxD8cf2eVqJOOz63z6JIN9BzvVs/dlySa5HGSBH5xtR8dPteIRQnBxxKqkNTiT6jbDTF6jAfrd4oMcND9RGbQg==}
+    engines: {node: '>=0.6'}
 
   /big.js@5.2.2:
     resolution: {integrity: sha512-vyL2OymJxmarO8gxMr0mhChsO9QGwhynfuu4+MHTAW6czfq9humCB7rKpUjDd9YUiDPU4mzpyupFSvOClAwbmQ==}
@@ -4636,6 +4670,13 @@ packages:
     resolution: {integrity: sha512-y10wOWt8yZpqXmOgRo77WaHEmhYQYGNA6y421PKsKYWEK8aW+cqAphborZDhqfyKrbZEN92CN1X2KbafY2s7Yw==}
     dev: true
 
+  /node-sql-parser@5.1.0:
+    resolution: {integrity: sha512-vrJ+Pl7fiWftEq7Tu/+kXQpDAx5c6YyQXB5/IINrjYR1we8HEkuSJtqCbsNrLwbnEVfzq4m0Nuo1CLMoeIenTA==}
+    engines: {node: '>=8'}
+    dependencies:
+      '@types/pegjs': 0.10.6
+      big-integer: 1.6.52
+
   /nopt@7.2.1:
     resolution: {integrity: sha512-taM24ViiimT/XntxbPyJQzCG+p4EKOpgD3mxFwW38mGjVUrfERQOeY4EDHjdnptttfHuHQXFx+lTP08Q+mLa/w==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
@@ -5582,6 +5623,11 @@ packages:
     engines: {node: '>= 10.x'}
     dev: true
 
+  /sqlstring@2.3.3:
+    resolution: {integrity: sha512-qC9iz2FlN7DQl3+wjwn3802RTyjCx7sDvfQEXchwa6CWOx07/WVfh91gBmQ9fahw8snwGEWU3xGzOt4tFyHLxg==}
+    engines: {node: '>= 0.6'}
+    dev: false
+
   /ssh2@1.15.0:
     resolution: {integrity: sha512-C0PHgX4h6lBxYx7hcXwu3QWdh4tg6tZZsTfXcdvc5caW/EMxaB4H9dWsl7qk+F7LAW762hp8VbXOX7x4xUYvEw==}
     engines: {node: '>=10.16.0'}
@@ -6295,7 +6341,3 @@ packages:
 
   /zod@3.23.8:
     resolution: {integrity: sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==}
-
-settings:
-  autoInstallPeers: true
-  excludeLinksFromLockfile: false

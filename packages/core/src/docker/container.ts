@@ -150,7 +150,7 @@ export class CommandContainer implements StdIoContainer {
   }
 
   close(): Promise<void> {
-    throw new Error("Method not implemented.");
+    return runCleanup(() => this.stop());
   }
 }
 

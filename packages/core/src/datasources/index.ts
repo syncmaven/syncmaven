@@ -1,10 +1,11 @@
 import { ModelDefinition } from "../types/objects";
 import { newPostgresDatasource } from "./pg";
 import { newBigQueryDatasource } from "./bigquery";
+import { ColumnType } from "./types";
 
 export type TableColumn = {
   name: string;
-  type: string;
+  type: ColumnType;
 };
 
 export type TableHeader = {
@@ -21,6 +22,7 @@ export type StreamingHandler = {
 
 export interface DataSource {
   id(): string;
+  type(): "postgres" | "bigquery";
   executeQuery(param: {
     handler: StreamingHandler;
     query: string;
@@ -44,7 +46,7 @@ export async function createDatasource(
     typeof modelDefinition.datasource === "object" &&
     !Array.isArray(modelDefinition.datasource)
   ) {
-    const { type, credentials } = modelDefinition.datasource;
+    const { type } = modelDefinition.datasource;
     switch (type) {
       case "bigquery":
         return newBigQueryDatasource(modelDefinition);

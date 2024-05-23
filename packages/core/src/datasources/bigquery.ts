@@ -26,6 +26,7 @@ export async function newBigQueryDatasource(
   const id = modelDefinition.id || modelDefinition.name || "postgres";
 
   return {
+    type: () => "bigquery",
     id: () => id,
     executeQuery: async (param: {
       handler: StreamingHandler;

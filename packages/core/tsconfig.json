@@ -4,7 +4,7 @@
     "rootDir": ".",
     "noEmit": false,
     "declaration": false,
-    "outDir": "./dist"
+    "outDir": "./compiled",
   },
   "include": ["src/**/*.ts", "__tests__/**/*.ts"]
 }

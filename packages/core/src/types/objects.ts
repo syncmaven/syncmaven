@@ -6,6 +6,8 @@ export const ModelDefinition = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
   query: z.string(),
+  cursor: z.string().optional(),
+  deleteField: z.string().optional(),
   datasource: z.union([
     z.string(),
     z.object({

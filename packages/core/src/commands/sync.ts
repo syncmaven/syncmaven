@@ -10,6 +10,8 @@ import { DockerChannel } from "../docker/docker-channel";
 import { createDatasource, DataSource } from "../datasources";
 import { PostgresStore, SqliteStore } from "../lib/store";
 import path from "path";
+import { SqlQuery } from "../lib/sql";
+import { GenericColumnType } from "../datasources/types";
 
 export function getDestinationChannel(
   destination: ConnectionDefinition,
@@ -81,6 +83,28 @@ export async function sync(
     console.error(`Some syncs failed`);
     process.exit(1);
   }
+}
+
+type CursorState = {
+  type: GenericColumnType
+  val: number | string | null
+}
+
+function inferCursorType(type: string): GenericColumnType {
+  return "string"
+}
+
+function compareCursors(type: CursorState["type"], val1: CursorState["val"], val2: CursorState["val"]): number {
+  if (val1 === val2) {
+    return 0;
+  }
+  if (val1 === null) {
+    return -1;
+  }
+  if (val2 === null) {
+    return 1;
+  }
+  return val1 < val2 ? -1 : 1;
 }
 
 export async function runSync(opts: {
@@ -199,19 +223,40 @@ export async function runSync(opts: {
       );
     }
 
+
     let totalRows = 0;
     let enrichedRows = 0;
     const errorThreshold = createErrorThreshold();
     datasource = await createDatasource(model);
+    const query = new SqlQuery(model.query, datasource.type());
+    if (model.cursor && !query.getUsedNamedParameters().includes("cursor")) {
+      throw new Error(`Cursor field (${model.cursor}) is defined in the model, but :cursor is not referenced from the query. Read more about cursors and incremental syncs at https://syncmaven.sh/incremental`);
+    }
+    let maxCursorVal: CursorState | undefined = undefined;
+    const cursorStoreKey = [`sync=${syncId}`, `$lastCursor`];
+    if (model.cursor && opts.fullRefresh) {
+      await store.del(cursorStoreKey);
+    }
+    const lastMaxCursor = model.cursor ? (await store.get(cursorStoreKey) as CursorState) : null;
     await datasource.executeQuery({
-      query: model.query,
+      query: model.cursor ? query.compile({ cursor: lastMaxCursor?.val || null }) : query.compile({}),
       handler: {
         header: async header => {
           console.debug(`Header: ${JSON.stringify(header)}`);
-          //await streamHandler.setup(header, context);
+          const cursorColumn = header.columns.find(c => c.name === model.cursor);
+          if (!cursorColumn) {
+            throw new Error(`Cursor field ${model.cursor} not found in the header of the query result`);
+          }
+          maxCursorVal = {type: cursorColumn.type.genericType, val: null};
         },
         row: async row => {
           const parseResult = rowSchemaParser.safeParse(row);
+          if (model.cursor) {
+            const cursorVal = row[model.cursor];
+            if (compareCursors(maxCursorVal!.type, cursorVal, maxCursorVal!.val) > 0) {
+              maxCursorVal!.val = cursorVal;
+            }
+          }
           if (parseResult.success) {
             let rows = [parseResult.data];
             for (const enrichment of enrichments) {
@@ -245,6 +290,10 @@ export async function runSync(opts: {
       },
     });
     const res = await destinationChannel.stopStream();
+    if (model.cursor) {
+      console.debug(`Max cursor value: ${maxCursorVal}`);
+      await store.set(cursorStoreKey, maxCursorVal);
+    }
     console.info(
       `Sync ${syncId} is finished. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats: ${JSON.stringify(res.payload)}`,
     );

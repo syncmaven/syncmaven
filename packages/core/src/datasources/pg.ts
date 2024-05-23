@@ -1,8 +1,35 @@
-import { Client, type QueryResult } from "pg";
+import { Client, FieldDef, type QueryResult } from "pg";
 import { maskPassword } from "../lib/util";
 import Cursor from "pg-cursor";
 import { ModelDefinition } from "../types/objects";
 import { DataSource, StreamingHandler } from "./index";
+import { ColumnType, GenericColumnType } from "./types";
+
+
+async function getDataTypesTable(client: Client): Promise<Record<number, string>> {
+  return (await client.query("SELECT oid, typname FROM pg_type")).rows.reduce((acc, row) => {
+    acc[row.oid] = row.typname;
+    return acc;
+  }, {});
+
+}
+
+
+function getGenericType(typeName: string): GenericColumnType {
+  if (typeName.toLowerCase() === "text") {
+    return "string";
+  } else if (typeName.toLowerCase().startsWith("int")) {
+    return "integer";
+  } else if (typeName.toLowerCase().startsWith("bool")) {
+    return "boolean";
+  } else if (typeName.toLowerCase().startsWith("timestamp")) {
+    return "date";
+  } else if (typeName.toLowerCase().startsWith("float")) {
+    return "float";
+  } else {
+    return "string";
+  }
+}
 
 export async function newPostgresDatasource(
   modelDefinition: ModelDefinition,
@@ -22,10 +49,23 @@ export async function newPostgresDatasource(
   await client.connect();
 
   console.debug(`Connected to database ${maskPassword(dsn)}.`);
+  const dataTypes: Record<number, string> = await getDataTypesTable(client);
 
   const id = modelDefinition.id || modelDefinition.name || "postgres";
 
+  function parseType(f: FieldDef): ColumnType {
+    const typeName = dataTypes[f.dataTypeID];
+    if (!typeName) {
+      throw new Error(`Column ${f.name} has unknown data type ${f.dataTypeID}`);
+    }
+    return {
+      nativeType: typeName,
+      genericType: getGenericType(typeName),
+    }
+  }
+
   return {
+    type: () => "postgres",
     id: () => id,
     executeQuery: async (param: {
       handler: StreamingHandler;
@@ -37,7 +77,7 @@ export async function newPostgresDatasource(
       let cursorBatchSize = 100;
       let result = await read(cursor, cursorBatchSize);
       await param.handler.header({
-        columns: result.fields.map((f) => ({ name: f.name, type: f.format })),
+        columns: result.fields.map((f) => ({ name: f.name, type: parseType(f) })),
       });
       while (result?.rows && result.rows.length > 0) {
         for (const row of result.rows) {
