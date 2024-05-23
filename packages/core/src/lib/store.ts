@@ -1,10 +1,71 @@
 import { Entry, StorageKey, StreamPersistenceStore } from "@syncmaven/protocol";
 import fs from "fs";
 import Sqlite, { Database } from "better-sqlite3";
+import { Client } from "pg";
 
 function stringifyKey(prefix: StorageKey) {
   const prefixArr = Array.isArray(prefix) ? prefix : [prefix];
   return prefixArr.join("::");
+}
+
+export class PostgresStore implements StreamPersistenceStore {
+  private client: Client;
+
+
+  constructor(url: string) {
+    this.client = new Client({
+      connectionString: url,
+    });
+
+  }
+
+  async init(): Promise<void> {
+    await this.client.connect();
+    await this.client.query(`create table if not exists syncmaven_store
+                             (
+                                 key   TEXT primary key,
+                                 value TEXT
+                             )`);
+    await this.client.query(`create table if not exists syncmaven_store
+                             (
+                                 key   TEXT primary key,
+                                 value TEXT
+                             )`);
+    await this.client.query(`create index if not exists key_index on store (key)`);
+  }
+
+  get(key: StorageKey): Promise<any> {
+    throw new Error("Method not implemented.");
+  }
+
+  set(key: StorageKey, value: any): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+
+  del(key: StorageKey): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+
+  list(prefix: StorageKey): Promise<Entry[]> {
+    throw new Error("Method not implemented.");
+  }
+
+  stream(prefix: StorageKey, cb: (entry: Entry) => void | Promise<void>): Promise<any> {
+    throw new Error("Method not implemented.");
+  }
+
+  streamBatch(prefix: StorageKey, cb: (batch: Entry[]) => void | Promise<void>, maxBatchSize: number): Promise<any> {
+    throw new Error("Method not implemented.");
+  }
+
+  deleteByPrefix(prefix: StorageKey): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+
+  size(prefix: StorageKey): Promise<number> {
+    throw new Error("Method not implemented.");
+  }
+
 }
 
 export class SqliteStore implements StreamPersistenceStore {
@@ -27,6 +88,10 @@ export class SqliteStore implements StreamPersistenceStore {
                             value TEXT
                         )`);
     this.database.exec(`create index if not exists key_index on store (key)`);
+  }
+
+  init(): Promise<void> {
+    return Promise.resolve();
   }
 
   del(key: StorageKey): Promise<void> {
@@ -61,7 +126,7 @@ export class SqliteStore implements StreamPersistenceStore {
   async streamBatch(
     prefix: StorageKey,
     cb: (batch: Entry[]) => Promise<void> | void,
-    maxBatchSize: number
+    maxBatchSize: number,
   ): Promise<any> {
     const batch: Entry[] = [];
     const flushBatch = async () => {

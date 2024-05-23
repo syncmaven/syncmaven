@@ -17,7 +17,7 @@ export async function newPostgresDatasource(
   const client = new Client({
     connectionString: dsn,
   });
-  console.debug(`Connecting`);
+  console.debug(`Connecting to database ${maskPassword(dsn)}.`);
 
   await client.connect();
 

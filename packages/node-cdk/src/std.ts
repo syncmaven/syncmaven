@@ -147,6 +147,9 @@ export function stdProtocol(provider: DestinationProvider) {
 function createContext(): ExecutionContext {
   return {
     store: {
+      init(): Promise<void> {
+        return Promise.resolve();
+      },
       async get(key: StorageKey): Promise<any> {
         return rpcCall("state.get", { key });
       },

@@ -1,5 +1,6 @@
 import { ZodError } from "zod";
 import { stringifyZodError } from "./zod";
+
 const Ajv = require("ajv");
 const addFormats = require("ajv-formats");
 
@@ -49,7 +50,7 @@ export function createParser<T>(schema: any): SchemaBasedParser<T> {
   } else if (isJsonSchema(schema)) {
     const ajv = new Ajv();
     addFormats(ajv);
-    const validator = ajv.compile(schema);
+    const validator = ajv.compile({ ...schema, additionalProperties: true });
     const safeParse: (data: any) => ParseResult = (data) => {
       const valid = validator(data);
       if (valid) {

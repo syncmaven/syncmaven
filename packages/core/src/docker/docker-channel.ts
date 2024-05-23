@@ -1,21 +1,9 @@
-import {
-  ConnectionSpecMessage,
-  DestinationChannel,
-  HaltMessage,
-  MessageHandler,
-  RowMessage,
-  StartStreamMessage,
-  StreamResultMessage,
-  StreamSpecMessage,
-  ExecutionContext,
-  Entry,
-} from "@syncmaven/protocol";
-import express from "express";
+import { ConnectionSpecMessage, DestinationChannel, ExecutionContext, HaltMessage, MessageHandler, RowMessage, StartStreamMessage, StreamResultMessage, StreamSpecMessage } from "@syncmaven/protocol";
 import type { Response } from "express";
+import express from "express";
 
 import http from "http";
-import { DockerContainer } from "./container";
-import { undefined } from "zod";
+import { CommandContainer, DockerContainer, StdIoContainer } from "./container";
 
 export type RpcHandler = (
   ctx: ExecutionContext | undefined,
@@ -29,25 +17,32 @@ export type RpcHandler = (
 
 type RpcServer = { port: number; close: () => Promise<void> | void };
 
+export type ChildProcessDef = { dockerImage: string; command?: never } | { command: { exec: string, dir: string }; dockerImage?: never };
+
 export class DockerChannel implements DestinationChannel {
-  private image: string;
+  private childProcessDef: ChildProcessDef;
   private rpcServer?: RpcServer;
-  private dockerContainer?: DockerContainer;
+  private dockerContainer?: StdIoContainer;
   private ctx?: ExecutionContext;
   private inited: boolean = false;
   private messagesListener?: MessageHandler;
 
-  constructor(image: string, messagesListener?: MessageHandler) {
-    this.image = image;
+  constructor(childProcess: ChildProcessDef, messagesListener?: MessageHandler) {
+    this.childProcessDef = childProcess;
     this.messagesListener = messagesListener;
   }
 
   async init() {
     if (!this.inited) {
       this.rpcServer = await this.createRpcServer();
-      this.dockerContainer = new DockerContainer(this.image, [
-        `RPC_URL=http://host.docker.internal:${this.rpcServer.port}`,
-      ]);
+      if (this.childProcessDef.dockerImage) {
+        this.dockerContainer = new DockerContainer(this.childProcessDef.dockerImage, [
+          `RPC_URL=http://host.docker.internal:${this.rpcServer.port}`,
+        ]);
+      } else {
+        const { exec, dir } = this.childProcessDef.command!;
+        this.dockerContainer = new CommandContainer(exec, dir, { RPC_URL: `http://localhost:${this.rpcServer.port}` });
+      }
       this.inited = true;
     }
   }
@@ -63,19 +58,16 @@ export class DockerChannel implements DestinationChannel {
     }).finally(async () => {
       await this.dockerContainer?.stop();
     });
-    this.dockerContainer?.dispatchMessage(
-      { type: "describe" },
-      async (message) => {
-        switch (message.type) {
-          case "spec":
-            promiseResolve(message as ConnectionSpecMessage);
-            return "done";
-          case "halt":
-            promiseReject(new Error((message as HaltMessage).payload.message));
-            return "done";
-        }
-      },
-    );
+    this.dockerContainer?.dispatchMessage({ type: "describe" }, async message => {
+      switch (message.type) {
+        case "spec":
+          promiseResolve(message as ConnectionSpecMessage);
+          return "done";
+        case "halt":
+          promiseReject(new Error((message as HaltMessage).payload.message));
+          return "done";
+      }
+    });
     return promise;
   }
 
@@ -90,26 +82,20 @@ export class DockerChannel implements DestinationChannel {
     }).finally(async () => {
       await this.dockerContainer?.stop();
     });
-    this.dockerContainer?.dispatchMessage(
-      { type: "describe-streams" },
-      async (message) => {
-        switch (message.type) {
-          case "stream-spec":
-            promiseResolve(message as StreamSpecMessage);
-            return "done";
-          case "halt":
-            promiseReject(new Error((message as HaltMessage).payload.message));
-            return "done";
-        }
-      },
-    );
+    this.dockerContainer?.dispatchMessage({ type: "describe-streams" }, async message => {
+      switch (message.type) {
+        case "stream-spec":
+          promiseResolve(message as StreamSpecMessage);
+          return "done";
+        case "halt":
+          promiseReject(new Error((message as HaltMessage).payload.message));
+          return "done";
+      }
+    });
     return promise;
   }
 
-  async startStream(
-    startStreamMessage: StartStreamMessage,
-    ctx: ExecutionContext,
-  ): Promise<void> {
+  async startStream(startStreamMessage: StartStreamMessage, ctx: ExecutionContext): Promise<void> {
     await this.init();
     this.ctx = ctx;
     await this.dockerContainer?.start(this.messagesListener);
@@ -125,19 +111,16 @@ export class DockerChannel implements DestinationChannel {
     }).finally(async () => {
       await this.dockerContainer?.stop();
     });
-    this.dockerContainer?.dispatchMessage(
-      { type: "end-stream", reason: "success" },
-      async (message) => {
-        switch (message.type) {
-          case "stream-result":
-            promiseResolve(message as StreamResultMessage);
-            return "done";
-          case "halt":
-            promiseReject(new Error((message as HaltMessage).payload.message));
-            return "done";
-        }
-      },
-    );
+    this.dockerContainer?.dispatchMessage({ type: "end-stream", reason: "success" }, async message => {
+      switch (message.type) {
+        case "stream-result":
+          promiseResolve(message as StreamResultMessage);
+          return "done";
+        case "halt":
+          promiseReject(new Error((message as HaltMessage).payload.message));
+          return "done";
+      }
+    });
     return promise;
   }
 
@@ -185,7 +168,7 @@ export class DockerChannel implements DestinationChannel {
         return { size: n };
       case "/state.list":
         res.setHeader("Content-Type", "application/x-ndjson");
-        await ctx.store.stream(opts.body.prefix, (e) => {
+        await ctx.store.stream(opts.body.prefix, e => {
           res.write(JSON.stringify(e));
           res.write("\n");
         });
@@ -196,7 +179,7 @@ export class DockerChannel implements DestinationChannel {
 
   async createRpcServer(): Promise<RpcServer> {
     const chan = this;
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const app = express();
       app.use(express.json());
       const server = http.createServer(app);
@@ -206,12 +189,12 @@ export class DockerChannel implements DestinationChannel {
         const query = req.query;
         chan
           .handleRpcRequest({ body, path, query }, res)
-          .then((result) => {
+          .then(result => {
             if (typeof result !== "undefined") {
               res.json(result);
             }
           })
-          .catch((error) => {
+          .catch(error => {
             console.error(error);
             res.status(500).json({ error: error.message });
           });
@@ -225,8 +208,8 @@ export class DockerChannel implements DestinationChannel {
         resolve({
           port,
           close: () => {
-            return new Promise((resolve) => {
-              server.close((err) => {
+            return new Promise(resolve => {
+              server.close(err => {
                 if (err) {
                   resolve();
                   console.error(`Failed to close server: ${err.message}`);

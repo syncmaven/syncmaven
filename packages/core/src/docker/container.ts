@@ -8,7 +8,153 @@ import Docker from "dockerode";
 import readline from "readline";
 import JSON5 from "json5";
 
-export class DockerContainer {
+import { exec, spawn, ChildProcessWithoutNullStreams, ChildProcess } from "child_process";
+import assert from "assert";
+
+export interface StdIoContainer {
+  init(): Promise<void>;
+
+  start(messagesHandler?: MessageHandler): Promise<any>;
+
+  dispatchMessage(incomingMessage: IncomingMessage, messagesHandler?: SingletonMessageHandler): Promise<void>;
+
+  /**
+   * Forcefully stops the container
+   */
+  stop(): Promise<void>;
+
+  close(): Promise<void>;
+}
+
+/**
+ * Parses message. If message malfromed, just ignores it
+ * @param json
+ */
+function parseRawMessage(json: any): Message | undefined {
+  try {
+    return Message.parse(json);
+  } catch (e) {
+    //just ignore invalid messages
+    console.error(`Failed to parse message: ${JSON.stringify(json)}`, { cause: e });
+    return undefined;
+  }
+}
+
+/**
+ * Parses incoming line into a message. Wraps non-valid JSON into
+ * log message
+ */
+function parseLine(data: string): any {
+  while (data.charAt(0) != "{" && data.length > 0) {
+    data = data.slice(1);
+  }
+  try {
+    return JSON5.parse(data);
+  } catch (e) {
+    return { type: "log", payload: { level: "info", message: data } };
+  }
+}
+
+async function runCleanup(cb?: () => Promise<void> | void) {
+  if (!cb) {
+    return;
+  }
+  try {
+    await cb();
+  } catch (e: any) {
+    //console.warn(`Cleanup error, can be ignored - ${e?.message || "unknown error"}`, { cause: e });
+  }
+}
+
+export class CommandContainer implements StdIoContainer {
+  private command: string;
+  private messageHandler: MessageHandler | undefined = undefined;
+  private oneTimeMessageHandler: SingletonMessageHandler | undefined = undefined;
+  private proc: ChildProcessWithoutNullStreams | undefined;
+  private lineReader?: readline.Interface;
+  private cwd: string;
+
+  constructor(command: string, cwd: string, envs: Record<string, string> = {}) {
+    this.command = command;
+    this.cwd = cwd;
+  }
+
+  init(): Promise<void> {
+    //nothing to init, just run the command
+    return Promise.resolve();
+  }
+
+  async start(messagesHandler?: MessageHandler | undefined) {
+    if (messagesHandler) {
+      this.messageHandler = messagesHandler;
+    }
+    console.debug(`Starting command container with command: ${this.command} in ${this.cwd}`);
+    //there's a bug here, if bin contains spaces, it will not work. need to take into account escaping
+    const [bin, ...args] = this.command.split(" ");
+    this.proc = spawn(bin, args, {
+      cwd: this.cwd,
+      //stdio: "inherit"
+    }) as ChildProcessWithoutNullStreams;
+    assert(this.proc.stdout, "spawned process stdout is not defined");
+    assert(this.proc.stdin, "spawned process stdout is not defined");
+    this.lineReader = readline.createInterface({ input: this.proc.stdout });
+    this.lineReader.on("line", async data => {
+      if (data.trim() !== "") {
+        const message = parseRawMessage(parseLine(data.trim()));
+        console.debug(
+          `Received message from container child process: ${JSON.stringify(message)}`
+        );
+        if (!message || (!this.messageHandler && !this.oneTimeMessageHandler)) {
+          return;
+        }
+        try {
+          if (this.oneTimeMessageHandler) {
+            const s = await this.oneTimeMessageHandler(message);
+            if (s === "done") {
+              this.oneTimeMessageHandler = undefined;
+              // oneTimeMessageHandler consumed message.
+              // No need to pass it to global messageHandler
+            } else if (this.messageHandler) {
+              await this.messageHandler(message);
+            }
+          } else if (this.messageHandler) {
+            await this.messageHandler(message);
+          }
+        } catch (e: any) {
+          console.error(`Error occurred while handling message`, e);
+        }
+      }
+    });
+  }
+
+  dispatchMessage(
+    incomingMessage: IncomingMessage,
+    messagesHandler?: SingletonMessageHandler | undefined
+  ): Promise<void> {
+    if (messagesHandler) {
+      this.oneTimeMessageHandler = messagesHandler;
+    }
+    if (!this.proc) {
+      throw new Error(`Illegal state: process is not running`);
+    }
+    console.debug(`Sending message to child process: ${JSON.stringify(incomingMessage)}`);
+    this.proc.stdin.write(JSON.stringify(incomingMessage) + "\n");
+    return Promise.resolve();
+  }
+
+  stop(): Promise<void> {
+    if (this.proc) {
+      this.proc.kill();
+    }
+    return Promise.resolve();
+  }
+
+  close(): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+}
+
+export class DockerContainer implements StdIoContainer {
   private image: string;
   private docker: Docker;
   private envs: string[];
@@ -60,8 +206,8 @@ export class DockerContainer {
       this.messageHandler = messagesHandler;
     }
 
-    return await this.startContainer(async (line) => {
-      const message = this.parseRawMessage(this.parseLine(line.trim()));
+    return await this.startContainer(async line => {
+      const message = parseRawMessage(parseLine(line.trim()));
       console.debug(
         `Received message from container ${this.container.id} of ${this.image}: ${JSON.stringify(message)}`,
       );
@@ -79,10 +225,10 @@ export class DockerContainer {
             await this.messageHandler(message);
           }
         } else if (this.messageHandler) {
-          const s = await this.messageHandler(message);
+          await this.messageHandler(message);
         }
       } catch (e: any) {
-        console.error(`Error occurred while handling message`, { cause: e });
+        console.error(`Error occurred while handling message`, e);
       }
     });
   }
@@ -178,20 +324,16 @@ export class DockerContainer {
    */
   async stop() {
     if (await this.isContainerRunning()) {
-      console.log(
-        `Stopping container ${this.container.id} of ${this.image}...`,
-      );
-      await this.runCleanup(() => this.container.stop());
-      console.log(
-        `Container ${this.container?.id} of ${this.image} has been stopped`,
-      );
+      console.log(`Stopping container ${this.container.id} of ${this.image}...`);
+      await runCleanup(() => this.container.stop());
+      console.log(`Container ${this.container?.id} of ${this.image} has been stopped`);
     } else {
       console.log(
         `Container ${this.container?.id} of ${this.image} is already stopped`,
       );
     }
-    await this.runCleanup(() => this.lineReader?.close());
-    await this.runCleanup(() => this.containerStream?.close());
+    await runCleanup(() => this.lineReader?.close());
+    await runCleanup(() => this.containerStream?.close());
     this.containerStream = undefined;
     this.lineReader = undefined;
   }
@@ -267,10 +409,8 @@ export class DockerContainer {
   async close() {
     console.info(`Closing container ${this.container.id} of ${this.image}...`);
     await this.stop();
-    console.info(
-      `Container stopped. Removing container ${this.container.id} of ${this.image}`,
-    );
-    await this.runCleanup(() => this.container?.remove());
+    console.info(`Container stopped. Removing container ${this.container.id} of ${this.image}`);
+    await runCleanup(() => this.container?.remove());
     console.info(`Docker cleanup done for ${this.image}`);
   }
 }

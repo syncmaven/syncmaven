@@ -44,16 +44,16 @@ function getEnrichments(sync: SyncDefinition): EnrichmentSettings[] {
 
 export type SyncDefinition = Simplify<z.infer<typeof SyncDefinition>>;
 
-export type ConnectionDefinition = Simplify<
-  z.infer<typeof ConnectionDefinition>
->;
+export type ConnectionDefinition = Simplify<z.infer<typeof ConnectionDefinition>>;
 
 export const ConnectionDefinition = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   package: z.object({
     type: z.string().default("docker").optional(),
-    image: z.string(),
+    image: z.string().optional(),
+    command: z.string().optional(),
+    commandDir: z.string().optional(),
   }),
   credentials: z.any(),
 });

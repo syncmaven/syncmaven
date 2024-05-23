@@ -9,6 +9,9 @@ export type Entry = {
 };
 
 export interface StreamPersistenceStore {
+
+  init(): Promise<void>;
+
   get(key: StorageKey): Promise<any>;
 
   set(key: StorageKey, value: any): Promise<void>;
