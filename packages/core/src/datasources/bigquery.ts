@@ -14,10 +14,10 @@ export async function newBigQueryDatasource(
   }
   const location = ds.credentials?.location || "US";
   const bigQuery = new BigQuery({
-    keyFile:
-      typeof ds.credentials?.keyFile === "string"
-        ? ds.credentials?.keyFile
-        : JSON.stringify(ds.credentials?.keyFile),
+    credentials:
+      typeof ds.credentials?.key === "string"
+        ? JSON.parse(ds.credentials.key)
+        : ds.credentials?.key,
     projectId: ds.credentials?.projectId,
   });
 
@@ -43,7 +43,6 @@ export async function newBigQueryDatasource(
       do {
         const jobResult = await job.getQueryResults({
           pageToken,
-          maxResults: 1,
           autoPaginate: false,
         });
         const rows = jobResult[0];

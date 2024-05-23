@@ -23,7 +23,7 @@
     "monorel": "^0.5.0"
   },
   "scripts": {
-    "main": "pnpm run --filter ./packages/core  -r main",
+    "main": "pnpm run --filter ./packages/core -r main",
     "release": "monorel --npm-tag latest --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/core' --publish",
     "canary": "monorel --npm-tag canary --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/core' --version '0.0.5-alpha.{rev}' --publish",
     "connectors:canary": "monorel --filter './packages/connectors/**'  --version '0.0.1-alpha.{rev}' --npm-tag canary --publish",

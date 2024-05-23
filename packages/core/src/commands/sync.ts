@@ -64,10 +64,21 @@ export async function sync(
   const syncIds = opts.select
     ? opts.select.split(",")
     : Object.keys(project.syncs);
+  let errors = false;
   for (const syncId of syncIds) {
-    await runSync(project, syncId, projectDir, opts);
+    try {
+      await runSync(project, syncId, projectDir, opts);
+    } catch (e: any) {
+      errors = true;
+      console.error(`Failed to run sync: ${syncId}`, e);
+    }
   }
-  console.debug(`All syncs finished`);
+  if (!errors) {
+    console.debug(`All syncs finished`);
+  } else {
+    console.error(`Some syncs failed`);
+    process.exit(1);
+  }
 }
 
 async function runSync(
@@ -269,7 +280,7 @@ async function runSync(
       `Sync ${syncId} is finished. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats: ${JSON.stringify(res.payload)}`,
     );
   } catch (e: any) {
-    console.error(e);
+    throw e;
   } finally {
     console.debug(
       `Closing all communications channels of sync '${syncId}'. It might take a while`,

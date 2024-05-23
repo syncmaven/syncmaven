@@ -1,4 +1,9 @@
-import { IncomingMessage, Message, MessageHandler, SingletonMessageHandler } from "@syncmaven/protocol";
+import {
+  IncomingMessage,
+  Message,
+  MessageHandler,
+  SingletonMessageHandler,
+} from "@syncmaven/protocol";
 import Docker from "dockerode";
 import readline from "readline";
 import JSON5 from "json5";
@@ -11,7 +16,8 @@ export class DockerContainer {
   private containerStream?: any;
   private lineReader?: readline.Interface;
   private messageHandler: MessageHandler | undefined = undefined;
-  private oneTimeMessageHandler: SingletonMessageHandler | undefined = undefined;
+  private oneTimeMessageHandler: SingletonMessageHandler | undefined =
+    undefined;
 
   constructor(image: string, envs: string[]) {
     this.image = image;
@@ -22,12 +28,11 @@ export class DockerContainer {
   }
 
   async init() {
-    await this.docker.pull(this.image, err => {
-      if (err) {
-        console.error(`Failed to pull image ${this.image}: ${err.message}`);
-        return;
-      }
-    });
+    const pullStream = await this.docker.pull(this.image);
+    await new Promise((res) =>
+      this.docker.modem.followProgress(pullStream, res),
+    );
+
     console.log(`Image ${this.image} pulled. Creating container...`);
     // Create and start the container
     // see https://docs.docker.com/engine/api/v1.45/#tag/Container/operation/ContainerCreate
@@ -55,10 +60,10 @@ export class DockerContainer {
       this.messageHandler = messagesHandler;
     }
 
-    return await this.startContainer(async line => {
+    return await this.startContainer(async (line) => {
       const message = this.parseRawMessage(this.parseLine(line.trim()));
       console.debug(
-        `Received message from container ${this.container.id} of ${this.image}: ${JSON.stringify(message)}`
+        `Received message from container ${this.container.id} of ${this.image}: ${JSON.stringify(message)}`,
       );
       if (!message || (!this.messageHandler && !this.oneTimeMessageHandler)) {
         return;
@@ -82,15 +87,20 @@ export class DockerContainer {
     });
   }
 
-  async dispatchMessage(incomingMessage: IncomingMessage, messagesHandler?: SingletonMessageHandler) {
+  async dispatchMessage(
+    incomingMessage: IncomingMessage,
+    messagesHandler?: SingletonMessageHandler,
+  ) {
     if (!this.containerStream) {
-      throw new Error(`Illegal state: container is running but container stream is not`);
+      throw new Error(
+        `Illegal state: container is running but container stream is not`,
+      );
     }
     if (messagesHandler) {
       this.oneTimeMessageHandler = messagesHandler;
     }
     console.debug(
-      `Sending message to container ${this.container.id} of ${this.image}: ${JSON.stringify(incomingMessage)}`
+      `Sending message to container ${this.container.id} of ${this.image}: ${JSON.stringify(incomingMessage)}`,
     );
     await this.containerStream.write(JSON.stringify(incomingMessage) + "\n");
   }
@@ -103,7 +113,7 @@ export class DockerContainer {
     } catch (e) {
       console.error(
         `Failed to inspect container ${this.container?.id} of ${this.image} to check if it's running. We assume it's not running`,
-        { cause: e }
+        { cause: e },
       );
       return false;
     }
@@ -115,11 +125,15 @@ export class DockerContainer {
       await this.init();
     }
     if (await this.isContainerRunning()) {
-      console.info(`Container ${this.container.id} of ${this.image} is already running.`);
+      console.info(
+        `Container ${this.container.id} of ${this.image} is already running.`,
+      );
       return;
     }
     if (this.containerStream) {
-      console.warn(`Illegal state: container stream is set, but container is not running. Cleaning up...`);
+      console.warn(
+        `Illegal state: container stream is set, but container is not running. Cleaning up...`,
+      );
     }
     // Workaround for https://github.com/apocas/dockerode/issues/742
     this.container.modem = new Proxy(this.container.modem, {
@@ -128,7 +142,7 @@ export class DockerContainer {
         if (prop === "dial") {
           return function (...args) {
             if (args[0].path.endsWith("/attach?")) {
-              args[0].file = new Buffer("");
+              args[0].file = Buffer.alloc(0);
             }
             return origMethod.apply(target, args);
           };
@@ -145,7 +159,7 @@ export class DockerContainer {
       hijack: true,
     });
     this.lineReader = readline.createInterface({ input: this.containerStream });
-    this.lineReader.on("line", async data => {
+    this.lineReader.on("line", async (data) => {
       //console.debug(`Got '${data}' from container ${this.container.id} of ${this.image}`);
       if (data.trim() !== "") {
         await stdoutHandler(data);
@@ -154,7 +168,9 @@ export class DockerContainer {
 
     console.log(`Starting container ${this.container.id} of ${this.image}...`);
     await this.container.start();
-    console.log(`Container ${this.container.id} of ${this.image} has been started`);
+    console.log(
+      `Container ${this.container.id} of ${this.image} has been started`,
+    );
   }
 
   /**
@@ -162,11 +178,17 @@ export class DockerContainer {
    */
   async stop() {
     if (await this.isContainerRunning()) {
-      console.log(`Stopping container ${this.container.id} of ${this.image}...`);
+      console.log(
+        `Stopping container ${this.container.id} of ${this.image}...`,
+      );
       await this.runCleanup(() => this.container.stop());
-      console.log(`Container ${this.container?.id} of ${this.image} has been stopped`);
+      console.log(
+        `Container ${this.container?.id} of ${this.image} has been stopped`,
+      );
     } else {
-      console.log(`Container ${this.container?.id} of ${this.image} is already stopped`);
+      console.log(
+        `Container ${this.container?.id} of ${this.image} is already stopped`,
+      );
     }
     await this.runCleanup(() => this.lineReader?.close());
     await this.runCleanup(() => this.containerStream?.close());
@@ -185,14 +207,18 @@ export class DockerContainer {
       timeoutMs?: number;
       //how often to check for a status
       pullIntervalMs?: number;
-    } = {}
+    } = {},
   ) {
-    const { interrupt = () => false, timeoutMs = Number.MAX_VALUE, pullIntervalMs = 1000 } = opts;
+    const {
+      interrupt = () => false,
+      timeoutMs = Number.MAX_VALUE,
+      pullIntervalMs = 1000,
+    } = opts;
     while (!interrupt()) {
       if (!(await this.isContainerRunning())) {
         return;
       }
-      await new Promise(resolve => setTimeout(resolve, pullIntervalMs));
+      await new Promise((resolve) => setTimeout(resolve, pullIntervalMs));
     }
   }
 
@@ -205,7 +231,9 @@ export class DockerContainer {
       return Message.parse(json);
     } catch (e) {
       //just ignore invalid messages
-      console.error(`Failed to parse message: ${JSON.stringify(json)}`, { cause: e });
+      console.error(`Failed to parse message: ${JSON.stringify(json)}`, {
+        cause: e,
+      });
       return undefined;
     }
   }
@@ -239,7 +267,9 @@ export class DockerContainer {
   async close() {
     console.info(`Closing container ${this.container.id} of ${this.image}...`);
     await this.stop();
-    console.info(`Container stopped. Removing container ${this.container.id} of ${this.image}`);
+    console.info(
+      `Container stopped. Removing container ${this.container.id} of ${this.image}`,
+    );
     await this.runCleanup(() => this.container?.remove());
     console.info(`Docker cleanup done for ${this.image}`);
   }
