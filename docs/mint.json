@@ -36,6 +36,8 @@
         "fundamentals/connection",
         "fundamentals/model",
         "fundamentals/sync",
+        "fundamentals/incremental",
+        "fundamentals/state",
         "fundamentals/protocol"
       ]
     },

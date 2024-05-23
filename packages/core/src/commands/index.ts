@@ -3,6 +3,7 @@ import { sync } from "./sync";
 import { defaultOauthRedirectURIPort, triggerOauthFlow } from "./auth-helper";
 import { init } from "./init";
 import { connectorDev } from "./connector-dev";
+import { streams } from "./streams";
 
 const commonOptions = {
   state: {
@@ -66,6 +67,15 @@ export function initCli(): Command {
     .option(commonOptions.debug.flag, commonOptions.debug.description)
     .argument("[project-dir]", "Alternative way to specify project directory")
     .action(init);
+
+  program
+    .command("streams")
+    .description("Describes streams available in the connection")
+    .option("-f, --connection-file <connection-file>", "File where connection is defined")
+    .option(commonOptions.env.flag, commonOptions.env.description)
+    .option(commonOptions.debug.flag, commonOptions.debug.description)
+    .action(streams);
+
 
   program
     .command("connector-dev")

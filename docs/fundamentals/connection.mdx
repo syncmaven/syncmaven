@@ -6,27 +6,53 @@ iconType: solid
 
 The "Connection" defines how Syncmaven should connect to an external service, which typically involves a set of credentials required for this connection.
 
-
-
-Connections are defined in the connections folder of a [Syncmaven project](/fundametals/project). Each connection is defined in a `.yml` or `.yaml` file and can reference environment variables through the `${env.VARNAME`} syntax:
+Connections are defined in the connections folder of a [Syncmaven project](/fundametals/project). Each connection is defined in a `.yml` or `.yaml`
+file and can reference environment variables through the `${env.VARNAME`} syntax:
 
 ```yaml
-kind: facebook
+package:
+  type: docker
+  image: syncmaven/facebook:latest
 credentials:
   accessToken: ${env.FACEBOOK_ADS_ACCESS_TOKEN}
   accountId: ${env.FACEBOOK_ADS_ACCOUNT_ID}
 ```
 
-Each file must specify two nodes: `kind`, which defines the connection type, and `credentials`, which contains the credentials.
+Each file must specify two nodes: `package`, which defines which package should be used, and `credentials`,
+which contains the credentials.
+
+At this moment, Syncmaven supports only Docker packages on dockerhub. `image` indicates the Docker image to be used.
+Syncmaven talks to the Docker image through the [Syncmaven Protocol](/fundametals/protocol).
 
 <Info> It is important not to store credentials in the connection file for security reasons. Refer to them through `${env.VARIABLE}` instead</Info>
 
 The connection does not specify how the connected service should be used; it merely defines how Syncmaven should establish the connection. Connections are used in [syncs](/fundamentals/syncs)
 to connect to destinations or enrichments.
 
-# Manifests
+# Connectors
 
-A connection can have one or several manifests, depending on how the connections may be used.
-If a connection can be used as a destination, it has a destination manifest. For more information about the manifest structure, please refer the [Protocol](/fundametals/protocol) section.
+Connector is a package that implements certain *connection*. At the moment, all connectors are packaged as Docker images
+and follow the [Syncmaven Protocol](/fundametals/protocol).
 
-In order to access a manifest of connection, execute `syncmaven manifest` to display all available connections and their manifest types. Then, run `syncmaven manifest -t <manifest-kind> -p <destination or enrichment>`.
+# Destination Streams
+
+Connector can implement [destination](/fundamentals/destination), [enrichment](/fundamentals/destination) of both.
+Here we are talking about connectors that implement destination.
+
+Destination defines one or more *Streams*. Each stream is a logical unit of data that can be written to the destination, and
+represented by multiple rows sharing the same schema. In a way, stream is an equivalent of a table in a relational database.
+
+For example, a connection to Hubspot defines a stream called `contacts` that represents a list of contacts in Hubspot. It
+also might define a stream called `companies` that represents a list of companies in Hubspot.
+
+To see all streams available for the destination, run the following command:
+
+```bash
+syncmaven streams -f project/connection/destination.yml
+```
+
+<Info>
+  *Why destination file is required, and I can't just get streams from docker image?*
+
+  Streams depends on provided credentials. For example, different API keys might have access to different data in the same service.
+</Info>

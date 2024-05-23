@@ -1,0 +1,25 @@
+---
+title: "State"
+icon: database
+iconType: solid
+---
+
+In order to implement [Incremental Sync](/fundametal/incremental-sync), Syncmaven need
+to persist state between sync runs. State also can be used by connectors internally to
+cache some data for optimization purposes.
+
+<Note>
+  State is always optional, and syncs can work without it. You can run every sync in a full refresh mode,
+  which means state will be ignored. Also, you can not provide state at all.
+
+  The internal structure of state can be found on [Protocol](/fundamentals/protocol) page.
+</Note>
+
+Syncmaven provides a several ways to store state
+
+# Local files
+
+By default, Syncmaven stores state in bunch of local files in `<project-dir>/.state` directory. This is convenient
+for local debugging.
+
+
