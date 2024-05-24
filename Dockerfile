@@ -16,7 +16,7 @@ RUN npm -g install pnpm
 
 COPY . .
 RUN pnpm install
-RUN pnpm run --filter "syncmaven" test # verify once again so we are sure not to ship a broken image
+RUN pnpm run --filter "syncmaven" test
 RUN pnpm run --filter "syncmaven" build
 
 # install deps that cannot be handled by webpack

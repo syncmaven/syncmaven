@@ -52,7 +52,8 @@ export function createParser<T>(schema: any): SchemaBasedParser<T> {
     addFormats(ajv);
     const validator = ajv.compile({ ...schema, additionalProperties: true });
     const safeParse: (data: any) => ParseResult = (data) => {
-      const valid = validator(data);
+      // stringify-parse to convert dates to ISO strings
+      const valid = validator(JSON.parse(JSON.stringify(data)));
       if (valid) {
         return { success: true, data: data as T };
       } else {

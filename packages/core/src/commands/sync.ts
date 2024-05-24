@@ -369,7 +369,7 @@ export async function runSync(opts: {
     });
     const res = await destinationChannel.stopStream();
     if (model.cursor) {
-      console.debug(`Max cursor value: ${maxCursorVal}`);
+      console.debug(`Max cursor value: ${JSON.stringify(maxCursorVal)}`);
       await store.set(cursorStoreKey, maxCursorVal);
     }
     console.info(
