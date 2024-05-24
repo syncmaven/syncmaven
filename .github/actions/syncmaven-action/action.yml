@@ -1,0 +1,26 @@
+# action.yml
+name: 'Syncmaven Action'
+description: 'Run a command in a new container'
+inputs:
+  dir:
+    description: 'Project subdirectory'
+    required: false
+  select:
+    description: 'Syncs to run'
+    required: false
+  state:
+    description: 'State DB location, e.g. postgres://user:password@host:port/dbname'
+    required: false
+  debug:
+    description: 'Enable extra logging for debugging purposes'
+    required: false
+  vars:
+    description: 'Environment variables to set in the container'
+    required: false
+  full:
+    description: 'If sync supports incremental mode, this option will force full refresh. Will apply to all selected syncs'
+    required: false
+runs:
+  using: 'docker'
+  image: '../../../Dockerfile'
+  entrypoint: 'action.sh'

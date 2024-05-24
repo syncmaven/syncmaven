@@ -1,0 +1,2 @@
+# Syncmaven Action
+
