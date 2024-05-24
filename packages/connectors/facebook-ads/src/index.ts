@@ -155,7 +155,9 @@ class FacebookAudienceOutputStream extends BaseOutputStream<
   }
 
   private async flushBatch(lastBatch: boolean = false) {
-    console.log(`Flushing batch of ${this.currentBatch.length} users`);
+    const batch = this.currentBatch;
+    this.currentBatch = [];
+    console.log(`Flushing batch of ${batch.length} users`);
 
     function sha256(email: string) {
       return crypto
@@ -166,7 +168,7 @@ class FacebookAudienceOutputStream extends BaseOutputStream<
 
     const payload = {
       schema: ["EMAIL_SHA256"],
-      data: this.currentBatch.map((r) => [sha256(r.email)]),
+      data: batch.map((r) => [sha256(r.email)]),
     };
 
     const body = {
@@ -193,18 +195,18 @@ class FacebookAudienceOutputStream extends BaseOutputStream<
         },
       );
       console.log(
-        `Batch of ${this.currentBatch.length} users flushed. Response`,
+        `Batch of ${batch.length} users flushed. Response`,
         batchFlushResponse,
       );
     } catch (e) {
       if (e instanceof RpcError) {
         console.error(
-          `Error flushing batch of ${this.currentBatch.length} users. Code ${e.statusCode}. Response`,
+          `Error flushing batch of ${batch.length} users. Code ${e.statusCode}. Response`,
           e.response,
         );
       }
     } finally {
-      this.currentBatch.length = 0;
+      batch.length = 0;
     }
   }
 }

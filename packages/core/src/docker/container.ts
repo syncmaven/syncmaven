@@ -8,7 +8,7 @@ import Docker from "dockerode";
 import readline from "readline";
 import JSON5 from "json5";
 
-import { exec, spawn, ChildProcessWithoutNullStreams, ChildProcess } from "child_process";
+import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import assert from "assert";
 
 export interface StdIoContainer {
@@ -16,7 +16,10 @@ export interface StdIoContainer {
 
   start(messagesHandler?: MessageHandler): Promise<any>;
 
-  dispatchMessage(incomingMessage: IncomingMessage, messagesHandler?: SingletonMessageHandler): Promise<void>;
+  dispatchMessage(
+    incomingMessage: IncomingMessage,
+    messagesHandler?: SingletonMessageHandler,
+  ): Promise<void>;
 
   /**
    * Forcefully stops the container
@@ -35,7 +38,9 @@ function parseRawMessage(json: any): Message | undefined {
     return Message.parse(json);
   } catch (e) {
     //just ignore invalid messages
-    console.error(`Failed to parse message: ${JSON.stringify(json)}`, { cause: e });
+    console.error(`Failed to parse message: ${JSON.stringify(json)}`, {
+      cause: e,
+    });
     return undefined;
   }
 }
@@ -45,9 +50,6 @@ function parseRawMessage(json: any): Message | undefined {
  * log message
  */
 function parseLine(data: string): any {
-  while (data.charAt(0) != "{" && data.length > 0) {
-    data = data.slice(1);
-  }
   try {
     return JSON5.parse(data);
   } catch (e) {
@@ -69,7 +71,8 @@ async function runCleanup(cb?: () => Promise<void> | void) {
 export class CommandContainer implements StdIoContainer {
   private command: string;
   private messageHandler: MessageHandler | undefined = undefined;
-  private oneTimeMessageHandler: SingletonMessageHandler | undefined = undefined;
+  private oneTimeMessageHandler: SingletonMessageHandler | undefined =
+    undefined;
   private proc: ChildProcessWithoutNullStreams | undefined;
   private lineReader?: readline.Interface;
   private cwd: string;
@@ -88,7 +91,9 @@ export class CommandContainer implements StdIoContainer {
     if (messagesHandler) {
       this.messageHandler = messagesHandler;
     }
-    console.debug(`Starting command container with command: ${this.command} in ${this.cwd}`);
+    console.debug(
+      `Starting command container with command: ${this.command} in ${this.cwd}`,
+    );
     //there's a bug here, if bin contains spaces, it will not work. need to take into account escaping
     const [bin, ...args] = this.command.split(" ");
     this.proc = spawn(bin, args, {
@@ -98,11 +103,11 @@ export class CommandContainer implements StdIoContainer {
     assert(this.proc.stdout, "spawned process stdout is not defined");
     assert(this.proc.stdin, "spawned process stdout is not defined");
     this.lineReader = readline.createInterface({ input: this.proc.stdout });
-    this.lineReader.on("line", async data => {
+    this.lineReader.on("line", async (data) => {
       if (data.trim() !== "") {
         const message = parseRawMessage(parseLine(data.trim()));
         console.debug(
-          `Received message from container child process: ${JSON.stringify(message)}`
+          `Received message from container child process: ${JSON.stringify(message)}`,
         );
         if (!message || (!this.messageHandler && !this.oneTimeMessageHandler)) {
           return;
@@ -129,7 +134,7 @@ export class CommandContainer implements StdIoContainer {
 
   dispatchMessage(
     incomingMessage: IncomingMessage,
-    messagesHandler?: SingletonMessageHandler | undefined
+    messagesHandler?: SingletonMessageHandler | undefined,
   ): Promise<void> {
     if (messagesHandler) {
       this.oneTimeMessageHandler = messagesHandler;
@@ -137,7 +142,9 @@ export class CommandContainer implements StdIoContainer {
     if (!this.proc) {
       throw new Error(`Illegal state: process is not running`);
     }
-    console.debug(`Sending message to child process: ${JSON.stringify(incomingMessage)}`);
+    console.debug(
+      `Sending message to child process: ${JSON.stringify(incomingMessage)}`,
+    );
     this.proc.stdin.write(JSON.stringify(incomingMessage) + "\n");
     return Promise.resolve();
   }
@@ -206,7 +213,7 @@ export class DockerContainer implements StdIoContainer {
       this.messageHandler = messagesHandler;
     }
 
-    return await this.startContainer(async line => {
+    return await this.startContainer(async (line) => {
       const message = parseRawMessage(parseLine(line.trim()));
       console.debug(
         `Received message from container ${this.container.id} of ${this.image}: ${JSON.stringify(message)}`,
@@ -324,9 +331,13 @@ export class DockerContainer implements StdIoContainer {
    */
   async stop() {
     if (await this.isContainerRunning()) {
-      console.log(`Stopping container ${this.container.id} of ${this.image}...`);
+      console.log(
+        `Stopping container ${this.container.id} of ${this.image}...`,
+      );
       await runCleanup(() => this.container.stop());
-      console.log(`Container ${this.container?.id} of ${this.image} has been stopped`);
+      console.log(
+        `Container ${this.container?.id} of ${this.image} has been stopped`,
+      );
     } else {
       console.log(
         `Container ${this.container?.id} of ${this.image} is already stopped`,
@@ -409,7 +420,9 @@ export class DockerContainer implements StdIoContainer {
   async close() {
     console.info(`Closing container ${this.container.id} of ${this.image}...`);
     await this.stop();
-    console.info(`Container stopped. Removing container ${this.container.id} of ${this.image}`);
+    console.info(
+      `Container stopped. Removing container ${this.container.id} of ${this.image}`,
+    );
     await runCleanup(() => this.container?.remove());
     console.info(`Docker cleanup done for ${this.image}`);
   }

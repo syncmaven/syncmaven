@@ -132,13 +132,14 @@ export abstract class BatchingOutputStream<
   }
 
   private async flushBatch(ctx: ExecutionContext) {
-    console.log(`Flushing batch of ${this.currentBatch.length} rows....`);
-    const start = Date.now();
-    await this.processBatch(this.currentBatch, ctx);
-    console.log(
-      `Batch of ${this.currentBatch.length} rows processed in ${Date.now() - start}ms`,
-    );
+    const batch = this.currentBatch;
     this.currentBatch = [];
+    console.log(`Flushing batch of ${batch.length} rows....`);
+    const start = Date.now();
+    await this.processBatch(batch, ctx);
+    console.log(
+      `Batch of ${batch.length} rows processed in ${Date.now() - start}ms`,
+    );
   }
 
   protected abstract processBatch(

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  BatchingOutputStream,
+  BaseOutputStream,
   DestinationProvider,
   normalizeEmail,
   OutputStreamConfiguration,
@@ -25,16 +25,18 @@ const ResendRow = z.object({
 
 type ResendRow = z.infer<typeof ResendRow>;
 
-class ResendStream extends BatchingOutputStream<ResendRow, ResendCredentials> {
+class ResendStream extends BaseOutputStream<ResendRow, ResendCredentials> {
   private resend: Resend;
   private audienceId: string = "";
+  private lastCallTime = Date.now();
+  // rateLimitRps
+  private rateLimit = 1000;
 
   constructor(
     config: OutputStreamConfiguration<ResendCredentials>,
     ctx: ExecutionContext,
-    maxBatchSize: number,
   ) {
-    super(config, ctx, maxBatchSize);
+    super(config, ctx);
     this.resend = new Resend(config.credentials.apiKey);
   }
 
@@ -65,11 +67,9 @@ class ResendStream extends BatchingOutputStream<ResendRow, ResendCredentials> {
     return this;
   }
 
-  protected async processBatch(
-    currentBatch: ResendRow[],
-    ctx: ExecutionContext,
-  ) {
-    for (const row of currentBatch) {
+  public async handleRow(row: ResendRow, ctx: ExecutionContext) {
+    let retry = false;
+    do {
       const email = normalizeEmail(row.email);
       const { first, last } = row.name
         ? splitName(row.name)
@@ -83,10 +83,32 @@ class ResendStream extends BatchingOutputStream<ResendRow, ResendCredentials> {
       };
       const creationResult = await this.resend.contacts.create(createPayload);
       if (creationResult.error) {
-        console.log(
+        console.error(
           `Error creating contact ${email}: ${creationResult.error.message}`,
         );
+        const rpsMatch = creationResult.error.message.match(
+          /(\d+) requests per second/,
+        );
+        if (rpsMatch) {
+          this.rateLimit = parseInt(rpsMatch[1]);
+          retry = !retry;
+          console.warn(
+            `Rate limit set to ${this.rateLimit} rps. Retrying: ${retry}`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
       }
+      await this.rateLimitDelay();
+    } while (retry);
+  }
+
+  private async rateLimitDelay() {
+    const delay = 1000 / this.rateLimit;
+    const dt = Date.now();
+    const elapsed = dt - this.lastCallTime;
+    this.lastCallTime = dt;
+    if (elapsed < delay) {
+      await new Promise((resolve) => setTimeout(resolve, delay - elapsed));
     }
   }
 }
@@ -98,8 +120,7 @@ export const resendProvider: DestinationProvider<ResendCredentials> = {
     {
       name: "audience",
       rowType: ResendRow,
-      createOutputStream: (config, ctx) =>
-        new ResendStream(config, ctx, 1000).init(),
+      createOutputStream: (config, ctx) => new ResendStream(config, ctx).init(),
     },
   ],
   defaultStream: "audience",

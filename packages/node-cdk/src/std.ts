@@ -33,21 +33,29 @@ function halt(reason: string) {
   reply("halt", { message: reason });
 }
 
-export function stdProtocol(provider: DestinationProvider) {
+export async function stdProtocol(provider: DestinationProvider) {
   let received = 0;
   let skipped = 0;
   let failed = 0;
   let success = 0;
-  let currentOutputStream: OutputStream;
-  let ctx: ExecutionContext;
+  let currentOutputStream: OutputStream | undefined = undefined;
+  let ctx: ExecutionContext | undefined = undefined;
+
+  const oldConsole = console;
+  console = {
+    ...console,
+    log: (...args: any[]) => log("info", args[0], ...args.slice(1)),
+    info: (...args: any[]) => log("info", args[0], ...args.slice(1)),
+    warn: (...args: any[]) => log("warn", args[0], ...args.slice(1)),
+    error: (...args: any[]) => log("error", args[0], ...args.slice(1)),
+  };
 
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     terminal: false,
   });
-
-  rl.on("line", async (line) => {
+  for await (const line of rl) {
     if (line.trim() === "") {
       return;
     }
@@ -105,7 +113,7 @@ export function stdProtocol(provider: DestinationProvider) {
       if (currentOutputStream) {
         log("info", "Received end-stream message. Bye!");
         if (currentOutputStream.finish) {
-          await currentOutputStream.finish(ctx);
+          await currentOutputStream.finish(ctx!);
         }
         setTimeout(() => {
           reply("stream-result", { received, skipped, success, failed });
@@ -119,7 +127,7 @@ export function stdProtocol(provider: DestinationProvider) {
       if (currentOutputStream) {
         const row = message.payload.row;
         try {
-          await currentOutputStream.handleRow(row, ctx);
+          await currentOutputStream.handleRow(row, ctx!);
           success++;
         } catch (e: any) {
           failed++;
@@ -134,14 +142,12 @@ export function stdProtocol(provider: DestinationProvider) {
     } else {
       log("warn", `Unknown message type ${message.type}`, { message });
     }
+  }
+
+  rl.once("close", () => {
+    console = oldConsole;
+    process.exit(0);
   });
-
-  // rl.once("close", () => {
-  //   log("info", "Received shutdown signal");
-  //   process.exit(0);
-  // });
-
-  //await new Promise((resolve) => setTimeout(resolve, 5000));
 }
 
 function createContext(): ExecutionContext {
