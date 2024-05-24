@@ -28,8 +28,9 @@ RUN npm install
 FROM base AS release
 
 COPY --from=builder /syncmaven/packages/core/dist/ .
+COPY --from=builder /syncmaven/packages/core/bin/entrypoint.sh .
 
 RUN mkdir /project
 ENV SYNCMAVEN_PROJECT_DIR=/project
 
-ENTRYPOINT [ "node", "main.js" ]
+ENTRYPOINT [ "./entrypoint.sh" ]

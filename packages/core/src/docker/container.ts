@@ -50,6 +50,12 @@ function parseRawMessage(json: any): Message | undefined {
  * log message
  */
 function parseLine(data: string): any {
+  const iof = data.indexOf("{");
+  if (iof === -1) {
+    return { type: "log", payload: { level: "info", message: data } };
+  } else if (iof > 0) {
+    data = data.substring(iof);
+  }
   try {
     return JSON5.parse(data);
   } catch (e) {
@@ -372,48 +378,6 @@ export class DockerContainer implements StdIoContainer {
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, pullIntervalMs));
-    }
-  }
-
-  /**
-   * Parses message. If message malfromed, just ignores it
-   * @param json
-   */
-  parseRawMessage(json: any): Message | undefined {
-    try {
-      return Message.parse(json);
-    } catch (e) {
-      //just ignore invalid messages
-      console.error(`Failed to parse message: ${JSON.stringify(json)}`, {
-        cause: e,
-      });
-      return undefined;
-    }
-  }
-
-  /**
-   * Parses incoming line into a message. Wraps non-valid JSON into
-   * log message
-   */
-  parseLine(data: string): any {
-    while (data.charAt(0) != "{" && data.length > 0) {
-      data = data.slice(1);
-    }
-    try {
-      return JSON5.parse(data);
-    } catch (e) {
-      return { type: "log", payload: { level: "info", message: data } };
-    }
-  }
-
-  async runCleanup(cb?: () => Promise<void> | void) {
-    if (!cb) {
-      return;
-    }
-    try {
-      await cb();
-    } catch (e: any) {
-      //console.warn(`Cleanup error, can be ignored - ${e?.message || "unknown error"}`, { cause: e });
     }
   }
 

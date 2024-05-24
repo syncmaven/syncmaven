@@ -57,21 +57,15 @@ export function getEnrichmentProvider(
 }
 
 export async function createStore(
-  projectDir: string,
-  state?: string,
+  state: string,
 ): Promise<StreamPersistenceStore> {
-  if (!state) {
-    const sqlite: StreamPersistenceStore = new SqliteStore(
-      path.join(projectDir, ".state/store.db"),
-    );
-    await sqlite.init();
-    return sqlite;
-  } else if (state.startsWith("postgres://")) {
+  console.log(`Creating store in ${state}`);
+  if (state.startsWith("postgres://")) {
     const pgStore = new PostgresStore(state);
     await pgStore.init();
     return pgStore;
   } else {
-    const sqliteStore = new SqliteStore(path.join(state, "/store.db"));
+    const sqliteStore = new SqliteStore(path.join(state));
     await sqliteStore.init();
     return sqliteStore;
   }
@@ -99,7 +93,14 @@ export async function sync(
   const syncIds = opts.select
     ? opts.select.split(",")
     : Object.keys(project.syncs);
-  const store = await createStore(projectDir, opts.state);
+  let store: StreamPersistenceStore;
+  const storeCfg = opts.state || path.join(projectDir, ".state");
+  try {
+    store = await createStore(storeCfg);
+  } catch (e: any) {
+    console.error(`Failed to init store: ${storeCfg}`, e);
+    process.exit(1);
+  }
   let errors = false;
   for (const syncId of syncIds) {
     try {

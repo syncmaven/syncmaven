@@ -1,26 +1,12 @@
 import { AST, Parser, Select } from "node-sql-parser";
 import { cloneDeep } from "lodash";
 
-function treeWalker(ast: AST, cb: {
-  (node: AST): void;
-}) {
-  const visitor = (node: any) => {
-    if (!node) {
-      return;
-    }
-    if (typeof node?.type === "string") {
-      cb(node);
-    } else if (Array.isArray(node)) {
-      node.forEach(visitor);
-    }
-    if (node && typeof node === "object") {
-      Object.values(node).filter(Boolean).forEach(visitor);
-    }
-  };
-  visitor(ast);
-}
-
 type SqlDialect = "postgres" | "bigquery";
+
+const dialectsMapping = {
+  postgres: "PostgresQL",
+  bigquery: "BigQuery",
+};
 
 export class SqlQuery {
   private query: string;
@@ -58,7 +44,7 @@ export class SqlQuery {
   }
 
   private static dialectToDatabaseType(dialect: "postgres" | "bigquery") {
-    return dialect === "postgres" ? "PostgresQL" : "PostgresQL";
+    return dialectsMapping[dialect] || "PostgresQL";
   }
 
   public getUsedNamedParameters(): string[] {
@@ -84,7 +70,7 @@ export class SqlQuery {
           node.type = "cast";
           node.keyword = "cast";
           node.expr = {
-            "type": "single_quote_string",
+            type: "single_quote_string",
             value: paramVal.toISOString(),
           };
           node.as = null;
@@ -99,7 +85,9 @@ export class SqlQuery {
           node.type = "null";
           node.value = null;
         } else {
-          throw new Error(`Unsupported '${paramName}' parameter type: ${typeof paramVal}`);
+          throw new Error(
+            `Unsupported '${paramName}' parameter type: ${typeof paramVal}`,
+          );
         }
       }
     });
@@ -107,4 +95,26 @@ export class SqlQuery {
       database: SqlQuery.dialectToDatabaseType(this.dialect),
     });
   }
+}
+
+function treeWalker(
+  ast: AST,
+  cb: {
+    (node: AST): void;
+  },
+) {
+  const visitor = (node: any) => {
+    if (!node) {
+      return;
+    }
+    if (typeof node?.type === "string") {
+      cb(node);
+    } else if (Array.isArray(node)) {
+      node.forEach(visitor);
+    }
+    if (node && typeof node === "object") {
+      Object.values(node).filter(Boolean).forEach(visitor);
+    }
+  };
+  visitor(ast);
 }
