@@ -9,7 +9,7 @@
     "build": "pnpm compile && webpack",
     "clean": "rm -r dist",
     "main:prod": "node dist/main.js",
-    "main": "ts-node src/index.ts",
+    "main": "NODE_OPTIONS=--no-deprecation ts-node --swc src/index.ts",
     "test": "tsc && node --test"
   },
   "keywords": [],
@@ -72,6 +72,7 @@
     "express": "4.19.2",
     "node-sql-parser": "^5.1.0",
     "nunjucks": "3.2.4",
+    "prismjs": "^1.29.0",
     "sqlstring": "^2.3.3"
   }
 }

@@ -14,51 +14,56 @@ import { stringifyZodError } from "../lib/zod";
 import { configureEnvVars, readProject, untildify } from "../lib/project";
 import { createErrorThreshold } from "../lib/error-threshold";
 import { Project } from "../types/project";
-import {
-  createParser,
-  SchemaBasedParser,
-  stringifyParseError,
-} from "../lib/uniparser";
+import { createParser, SchemaBasedParser, stringifyParseError } from "../lib/uniparser";
 import { DockerChannel } from "../docker/docker-channel";
 import { createDatasource, DataSource } from "../datasources";
 import { PostgresStore, SqliteStore } from "../lib/store";
 import path from "path";
 import { SqlQuery } from "../lib/sql";
 import { GenericColumnType } from "../datasources/types";
+import fs from "fs";
 
-export function getDestinationChannel(
+export function getDestinationChannelFromPackage(
+  { package: pkg, packageType = "docker" }: { package: string; packageType?: string },
+  messagesHandler: MessageHandler
+): DestinationChannel {
+  if (packageType === "docker") {
+    return new DockerChannel({ dockerImage: pkg }, messagesHandler);
+  } else if (packageType === "npm") {
+    const packageDir = pkg.split("@")[0];
+    const packageJson = JSON.parse(fs.readFileSync(path.join(packageDir, "package.json"), "utf-8"));
+    if (!packageJson.main) {
+      throw new Error(`Package ${pkg} does not have a main entry point`);
+    }
+    return new DockerChannel({ command: { exec: `node ${packageJson.main}`, dir: packageDir } }, messagesHandler);
+  } else {
+    throw new Error(`Unsupported package type ${packageType}`);
+  }
+}
+
+export function getDestinationChannelFromDefinition(
   destination: ConnectionDefinition,
-  messagesHandler: MessageHandler,
+  messagesHandler: MessageHandler
 ): DestinationChannel {
   if (destination.package.type === "sub-process") {
     const { command, commandDir } = destination.package;
     assert(command, "Command is required if package type is sub-process");
     assert(commandDir, "commandDir is required if package type is sub-process");
-    return new DockerChannel(
-      { command: { exec: command, dir: commandDir } },
-      messagesHandler,
-    );
+    return new DockerChannel({ command: { exec: command, dir: commandDir } }, messagesHandler);
   } else if (destination.package.type === "docker") {
     const image = destination.package.image;
     assert(image, "Docker image is required if package type is docker");
     return new DockerChannel({ dockerImage: image }, messagesHandler);
   } else {
-    throw new Error(
-      `Unsupported package type: ${destination.package.type} for destination ${destination.id}`,
-    );
+    throw new Error(`Unsupported package type: ${destination.package.type} for destination ${destination.id}`);
   }
 }
 
-export function getEnrichmentProvider(
-  en: ConnectionDefinition,
-  messagesHandler: MessageHandler,
-): EnrichmentChannel {
+export function getEnrichmentProvider(en: ConnectionDefinition, messagesHandler: MessageHandler): EnrichmentChannel {
   throw new Error("Package-based enrichments are not yet supported");
 }
 
-export async function createStore(
-  state: string,
-): Promise<StreamPersistenceStore> {
+export async function createStore(state: string): Promise<StreamPersistenceStore> {
   console.log(`Creating store in ${state}`);
   if (state.startsWith("postgres://")) {
     const pgStore = new PostgresStore(state);
@@ -79,20 +84,12 @@ export async function sync(
     select?: string;
     fullRefresh?: boolean;
     env?: string[];
-  },
+  }
 ) {
-  projectDir = untildify(
-    projectDir ||
-      opts.projectDir ||
-      process.env.SYNCMAVEN_PROJECT_DIR ||
-      process.cwd(),
-  );
-  const envFileNames = [".env", ".env.local"];
-  configureEnvVars(envFileNames, projectDir, opts.env || []);
+  projectDir = untildify(projectDir || opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd());
+  configureEnvVars([projectDir, "."], opts.env || []);
   const project = readProject(projectDir);
-  const syncIds = opts.select
-    ? opts.select.split(",")
-    : Object.keys(project.syncs);
+  const syncIds = opts.select ? opts.select.split(",") : Object.keys(project.syncs);
   let store: StreamPersistenceStore;
   const storeCfg = opts.state || path.join(projectDir, ".state");
   try {
@@ -127,11 +124,7 @@ function inferCursorType(type: string): GenericColumnType {
   return "string";
 }
 
-function compareCursors(
-  type: CursorState["type"],
-  val1: CursorState["val"],
-  val2: CursorState["val"],
-): number {
+function compareCursors(type: CursorState["type"], val1: CursorState["val"], val2: CursorState["val"]): number {
   if (val1 === val2) {
     return 0;
   }
@@ -154,7 +147,7 @@ export async function runSync(opts: {
   const syncFactory = project.syncs[syncId];
   if (!syncFactory) {
     throw new Error(
-      `Sync with id \`${syncId}\` not found in the project, or it's disabled. Available syncs: ${Object.keys(project.syncs).join(", ")}`,
+      `Sync with id \`${syncId}\` not found in the project, or it's disabled. Available syncs: ${Object.keys(project.syncs).join(", ")}`
     );
   }
   const sync: SyncDefinition = syncFactory();
@@ -162,17 +155,14 @@ export async function runSync(opts: {
   const modelId = sync.model;
 
   const modelFactory = project.models[modelId];
-  assert(
-    modelFactory,
-    `Model with id ${modelId} referenced from sync ${syncId} not found in the project`,
-  );
+  assert(modelFactory, `Model with id ${modelId} referenced from sync ${syncId} not found in the project`);
   const model = modelFactory();
 
   const destinationId = sync.destination;
   const destinationFactory = project.connection[destinationId];
   assert(
     destinationFactory,
-    `Destination with id \`${destinationId}\` referenced from sync \`${syncId}\` not found in the project`,
+    `Destination with id \`${destinationId}\` referenced from sync \`${syncId}\` not found in the project`
   );
   const destination = destinationFactory();
   const context: ExecutionContext = { store };
@@ -180,16 +170,14 @@ export async function runSync(opts: {
   let halt = false;
   let haltError: any;
 
-  const messageListener = (message) => {
+  const messageListener = message => {
     switch (message.type) {
       case "log":
         const logMes = message as LogMessage;
         const params = logMes.payload.params?.length
-          ? ` ${logMes.payload.params.map((p) => JSON.stringify(p)).join(", ")}`
+          ? ` ${logMes.payload.params.map(p => JSON.stringify(p)).join(", ")}`
           : "";
-        console.log(
-          `LOG [${syncId}] ${logMes.payload.level.toUpperCase()} ${logMes.payload.message}${params}`,
-        );
+        console.log(`LOG [${syncId}] ${logMes.payload.level.toUpperCase()} ${logMes.payload.message}${params}`);
         break;
       case "halt":
         const haltMes = message as HaltMessage;
@@ -197,48 +185,47 @@ export async function runSync(opts: {
         if (haltMes.payload.status == "error") {
           haltError = new Error(haltMes.payload.message);
           console.error(
-            `HALT [${syncId}] ERROR ${haltMes.payload.message} data: ${haltMes.payload.data ? JSON.stringify(haltMes.payload.data) : ""}`,
+            `HALT [${syncId}] ERROR ${haltMes.payload.message} data: ${haltMes.payload.data ? JSON.stringify(haltMes.payload.data) : ""}`
           );
         } else {
           console.log(
-            `HALT [${syncId}] OK ${haltMes.payload.message} data: ${haltMes.payload.data ? JSON.stringify(haltMes.payload.data) : ""}`,
+            `HALT [${syncId}] OK ${haltMes.payload.message} data: ${haltMes.payload.data ? JSON.stringify(haltMes.payload.data) : ""}`
           );
         }
         break;
       default:
         console.error(
-          `${message.type?.toUpperCase} [${syncId}] Unexpected message type: '${message.type}' payload: ${JSON.stringify(message)}`,
+          `${message.type?.toUpperCase} [${syncId}] Unexpected message type: '${message.type}' payload: ${JSON.stringify(message)}`
         );
     }
   };
 
-  const destinationChannel: DestinationChannel | undefined =
-    getDestinationChannel(destination, messageListener);
+  const destinationChannel: DestinationChannel | undefined = getDestinationChannelFromDefinition(
+    destination,
+    messageListener
+  );
   const enrichments: EnrichmentChannel[] = [];
   let datasource: DataSource | undefined = undefined;
   try {
     const connectionSpec = await destinationChannel.describe();
-    const streamsSpec = await destinationChannel.streams();
+    const connectionCredentialsParser = createParser(connectionSpec.payload.connectionCredentials);
+    const parsedCredentials = connectionCredentialsParser.safeParse(destination.credentials);
+    const streamsSpec = await destinationChannel.streams({
+      type: "describe-streams",
+      payload: {
+        credentials: parsedCredentials,
+      },
+    });
     const streamId = sync.stream || streamsSpec.payload.defaultStream;
-    const streamSpec = streamsSpec.payload.streams.find(
-      (s) => s.name === streamId,
-    );
+    const streamSpec = streamsSpec.payload.streams.find(s => s.name === streamId);
     if (!streamSpec) {
-      throw new Error(
-        `Stream ${streamId} not found in destination ${destinationId}`,
-      );
+      throw new Error(`Stream ${streamId} not found in destination ${destinationId}`);
     }
     console.debug(`Stream spec: ${JSON.stringify(streamSpec)}`);
     const rowSchemaParser = createParser(streamSpec.rowType);
-    const connectionCredentialsParser = createParser(
-      connectionSpec.payload.connectionCredentials,
-    );
-    const parsedCredentials = connectionCredentialsParser.safeParse(
-      destination.credentials,
-    );
     if (!parsedCredentials.success) {
       throw new Error(
-        `Invalid credentials for destination ${destinationId}: ${stringifyParseError(parsedCredentials.error)}`,
+        `Invalid credentials for destination ${destinationId}: ${stringifyParseError(parsedCredentials.error)}`
       );
     }
     await destinationChannel.startStream(
@@ -252,19 +239,15 @@ export async function runSync(opts: {
           fullRefresh: !!opts.fullRefresh,
         },
       },
-      context,
+      context
     );
 
-    const enrichmentSettings =
-      sync.enrichments || (sync.enrichment ? [sync.enrichment] : []);
+    const enrichmentSettings = sync.enrichments || (sync.enrichment ? [sync.enrichment] : []);
 
     for (const enrichmentRef of enrichmentSettings) {
       const connection = project.connection[enrichmentRef.connection]();
       // TODO: probably enrichments need to have their own messageListener. not sure yet
-      const enrichmentProvider = getEnrichmentProvider(
-        connection,
-        messageListener,
-      );
+      const enrichmentProvider = getEnrichmentProvider(connection, messageListener);
       enrichments.push(enrichmentProvider);
       await enrichmentProvider.startEnrichment(
         {
@@ -274,7 +257,7 @@ export async function runSync(opts: {
             options: enrichmentRef.options,
           },
         },
-        context,
+        context
       );
     }
 
@@ -285,7 +268,7 @@ export async function runSync(opts: {
     const query = new SqlQuery(model.query, datasource.type());
     if (model.cursor && !query.getUsedNamedParameters().includes("cursor")) {
       throw new Error(
-        `Cursor field (${model.cursor}) is defined in the model, but :cursor is not referenced from the query. Read more about cursors and incremental syncs at https://syncmaven.sh/incremental`,
+        `Cursor field (${model.cursor}) is defined in the model, but :cursor is not referenced from the query. Read more about cursors and incremental syncs at https://syncmaven.sh/incremental`
       );
     }
     let maxCursorVal: CursorState | undefined = undefined;
@@ -293,52 +276,36 @@ export async function runSync(opts: {
     if (model.cursor && opts.fullRefresh) {
       await store.del(cursorStoreKey);
     }
-    const lastMaxCursor = model.cursor
-      ? ((await store.get(cursorStoreKey)) as CursorState)
-      : null;
+    const lastMaxCursor = model.cursor ? ((await store.get(cursorStoreKey)) as CursorState) : null;
     await datasource.executeQuery({
-      query: model.cursor
-        ? query.compile({ cursor: lastMaxCursor?.val || null })
-        : query.compile({}),
+      query: model.cursor ? query.compile({ cursor: lastMaxCursor?.val || null }) : query.compile({}),
       handler: {
-        header: async (header) => {
+        header: async header => {
           console.debug(`Header: ${JSON.stringify(header)}`);
           if (model.cursor) {
-            const cursorColumn = header.columns.find(
-              (c) => c.name === model.cursor,
-            );
+            const cursorColumn = header.columns.find(c => c.name === model.cursor);
             if (!cursorColumn) {
-              throw new Error(
-                `Cursor field ${model.cursor} not found in the header of the query result`,
-              );
+              throw new Error(`Cursor field ${model.cursor} not found in the header of the query result`);
             }
             maxCursorVal = { type: cursorColumn.type.genericType, val: null };
           }
         },
-        row: async (row) => {
+        row: async row => {
           const parseResult = rowSchemaParser.safeParse(row);
           if (model.cursor) {
             const cursorVal = row[model.cursor];
-            if (
-              compareCursors(maxCursorVal!.type, cursorVal, maxCursorVal!.val) >
-              0
-            ) {
+            if (compareCursors(maxCursorVal!.type, cursorVal, maxCursorVal!.val) > 0) {
               maxCursorVal!.val = cursorVal;
             }
           }
           if (parseResult.success) {
             let rows = [parseResult.data];
             for (const enrichment of enrichments) {
-              rows = await applyEnrichment(
-                rowSchemaParser,
-                enrichment,
-                rows,
-                context,
-              );
+              rows = await applyEnrichment(rowSchemaParser, enrichment, rows, context);
             }
             if (rows.length > 1) {
               console.debug(
-                `Enrichment expanded row ${JSON.stringify(parseResult.data)} to ${rows.length} rows: ${JSON.stringify(rows)}`,
+                `Enrichment expanded row ${JSON.stringify(parseResult.data)} to ${rows.length} rows: ${JSON.stringify(rows)}`
               );
             }
             enrichedRows += rows.length;
@@ -352,14 +319,9 @@ export async function runSync(opts: {
             const zodError = stringifyZodError(parseResult.error);
             const errorMessage = `Invalid format of a row: ${zodError}. Row: ${JSON.stringify(row)}.`;
             if (errorThreshold.fail()) {
-              throw new Error(
-                errorMessage +
-                  `. Failed because of too many errors - ${errorThreshold.summary()}`,
-              );
+              throw new Error(errorMessage + `. Failed because of too many errors - ${errorThreshold.summary()}`);
             } else {
-              console.warn(
-                errorMessage + `. Skipping the row ${errorThreshold.summary()}`,
-              );
+              console.warn(errorMessage + `. Skipping the row ${errorThreshold.summary()}`);
             }
           }
           totalRows++;
@@ -369,18 +331,16 @@ export async function runSync(opts: {
     });
     const res = await destinationChannel.stopStream();
     if (model.cursor) {
-      console.debug(`Max cursor value: ${JSON.stringify(maxCursorVal)}`);
+      console.debug(`Max cursor value: ${maxCursorVal}`);
       await store.set(cursorStoreKey, maxCursorVal);
     }
     console.info(
-      `Sync ${syncId} is finished. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats: ${JSON.stringify(res.payload)}`,
+      `Sync ${syncId} is finished. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats: ${JSON.stringify(res.payload)}`
     );
   } catch (e: any) {
     throw e;
   } finally {
-    console.debug(
-      `Closing all communications channels of sync '${syncId}'. It might take a while`,
-    );
+    console.debug(`Closing all communications channels of sync '${syncId}'. It might take a while`);
     await closeChannels([...enrichments, destinationChannel]);
     console.debug(`All channels of '${syncId}' has been closed`);
     if (datasource && datasource.close) {
@@ -393,7 +353,7 @@ async function applyEnrichment(
   rowType: SchemaBasedParser,
   enrichment: EnrichmentChannel,
   rows: any[],
-  ctx: ExecutionContext,
+  ctx: ExecutionContext
 ): Promise<any[]> {
   const res: any[] = [];
   for (const row of rows) {
@@ -407,13 +367,11 @@ async function applyEnrichment(
         res.push(parseResult.data);
       } else {
         console.warn(
-          `Enrichment returned invalid row: ${stringifyZodError(parseResult.error)}. Will skip it. Row: ${JSON.stringify(item)}`,
+          `Enrichment returned invalid row: ${stringifyZodError(parseResult.error)}. Will skip it. Row: ${JSON.stringify(item)}`
         );
       }
     } catch (e: any) {
-      console.error(
-        `Enrichment error: ${e.message} on row: ${JSON.stringify(row)}`,
-      );
+      console.error(`Enrichment error: ${e.message} on row: ${JSON.stringify(row)}`);
     }
   }
   return res;

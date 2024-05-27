@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { initializeConsoleLogging } from "./log";
+import { initializeConsoleLogging, setEnabledDebugLogging } from "./log";
 import assert from "assert";
 import { OAuth2Client } from "google-auth-library";
 import { sync } from "./commands/sync";
@@ -12,6 +12,12 @@ export async function main(argv: string[] = process.argv) {
   const program = initCli();
 
   const debug = argv.includes("--debug");
+  if (debug) {
+    setEnabledDebugLogging(true);
+    console.debug("Debug logging enabled");
+  } else {
+    setEnabledDebugLogging(false);
+  }
   try {
     await program.parseAsync(argv);
     process.exit(0);

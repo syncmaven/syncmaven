@@ -4,6 +4,29 @@ import { defaultOauthRedirectURIPort, triggerOauthFlow } from "./auth-helper";
 import { init } from "./init";
 import { connectorDev } from "./connector-dev";
 import { streams } from "./streams";
+import { describeDestination } from "./destination";
+
+/**
+ * Options of every command
+ */
+export type CommonOpts = {
+  env?: string[];
+  debug?: boolean;
+};
+
+export type ProjectDirOpt = {
+  projectDir?: string;
+};
+
+export type StateOpt = {
+  state?: string;
+};
+
+export type PackageOpts = { package: string; packageType?: string };
+
+export type FullRefreshOpt = {
+  fullRefresh?: boolean;
+};
 
 const commonOptions = {
   state: {
@@ -24,6 +47,14 @@ const commonOptions = {
     flag: "-f, --full-refresh",
     description:
       "If sync supports incremental mode, this option will force full refresh. Will apply to all selected syncs",
+  },
+  packageName: {
+    flag: "-p, --package <package-name>",
+    description: "Name of the package. Can be a docker image",
+  },
+  packageType: {
+    flag: "-t, --package-type <package-name>",
+    description: "Type of the package. `docker` is default",
   },
 } as const;
 
@@ -71,11 +102,29 @@ export function initCli(): Command {
   program
     .command("streams")
     .description("Describes streams available in the connection")
-    .option("-f, --connection-file <connection-file>", "File where connection is defined")
+    .option(
+      "-f, --connection-file <connection-file>",
+      "File where connection is defined. Alternatively, you can package and credentials json"
+    )
+    .option(commonOptions.packageName.flag, commonOptions.packageName.description)
+    .option(commonOptions.packageType.flag, commonOptions.packageType.description)
+    .option(
+      "-c, --credentials <credentials>",
+      "If connection file is not provided, you can specify package (see above) and credentials json"
+    )
     .option(commonOptions.env.flag, commonOptions.env.description)
     .option(commonOptions.debug.flag, commonOptions.debug.description)
     .action(streams);
 
+  program
+    .command("destination")
+    .description("Describes destination parameters")
+    .requiredOption(commonOptions.packageName.flag, commonOptions.packageName.description)
+    .option(commonOptions.packageType.flag, commonOptions.packageType.description)
+    .option(commonOptions.env.flag, commonOptions.env.description)
+    .option("--json", "Output a JSON schema instead of a human readable format")
+    .option(commonOptions.debug.flag, commonOptions.debug.description)
+    .action(describeDestination);
 
   program
     .command("connector-dev")

@@ -12,7 +12,7 @@ import { Resend } from "resend";
 import assert from "assert";
 
 export const ResendCredentials = z.object({
-  apiKey: z.string(),
+  apiKey: z.string().describe("Resend API key. Can be found here: https://resend.com/api-keys"),
 });
 
 export type ResendCredentials = z.infer<typeof ResendCredentials>;
@@ -32,25 +32,21 @@ class ResendStream extends BaseOutputStream<ResendRow, ResendCredentials> {
   // rateLimitRps
   private rateLimit = 1000;
 
-  constructor(
-    config: OutputStreamConfiguration<ResendCredentials>,
-    ctx: ExecutionContext,
-  ) {
+  constructor(config: OutputStreamConfiguration<ResendCredentials>, ctx: ExecutionContext) {
     super(config, ctx);
     this.resend = new Resend(config.credentials.apiKey);
   }
 
   async init() {
     const audienceName =
-      this.config.options.audienceName ||
-      `AudienceSync: ${this.config.syncId}, stream=${this.config.streamId}`;
+      this.config.options.audienceName || `AudienceSync: ${this.config.syncId}, stream=${this.config.streamId}`;
     const audiences = await this.resend.audiences.list();
     if (audiences.error) {
       throw new Error(`Error getting audiences ${audiences.error.message}`);
     }
     assert(audiences.data);
 
-    const audience = audiences.data.data.find((a) => a.name === audienceName);
+    const audience = audiences.data.data.find(a => a.name === audienceName);
     if (!audience) {
       console.log(`Audience with name ${audienceName} not found, creating...`);
       const newAudience = await this.resend.audiences.create({
@@ -71,9 +67,7 @@ class ResendStream extends BaseOutputStream<ResendRow, ResendCredentials> {
     let retry = false;
     do {
       const email = normalizeEmail(row.email);
-      const { first, last } = row.name
-        ? splitName(row.name)
-        : { first: email.split("@")[0], last: "" };
+      const { first, last } = row.name ? splitName(row.name) : { first: email.split("@")[0], last: "" };
       const createPayload = {
         email: email,
         firstName: first,
@@ -83,19 +77,13 @@ class ResendStream extends BaseOutputStream<ResendRow, ResendCredentials> {
       };
       const creationResult = await this.resend.contacts.create(createPayload);
       if (creationResult.error) {
-        console.error(
-          `Error creating contact ${email}: ${creationResult.error.message}`,
-        );
-        const rpsMatch = creationResult.error.message.match(
-          /(\d+) requests per second/,
-        );
+        console.error(`Error creating contact ${email}: ${creationResult.error.message}`);
+        const rpsMatch = creationResult.error.message.match(/(\d+) requests per second/);
         if (rpsMatch) {
           this.rateLimit = parseInt(rpsMatch[1]);
           retry = !retry;
-          console.warn(
-            `Rate limit set to ${this.rateLimit} rps. Retrying: ${retry}`,
-          );
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          console.warn(`Rate limit set to ${this.rateLimit} rps. Retrying: ${retry}`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       await this.rateLimitDelay();
@@ -108,7 +96,7 @@ class ResendStream extends BaseOutputStream<ResendRow, ResendCredentials> {
     const elapsed = dt - this.lastCallTime;
     this.lastCallTime = dt;
     if (elapsed < delay) {
-      await new Promise((resolve) => setTimeout(resolve, delay - elapsed));
+      await new Promise(resolve => setTimeout(resolve, delay - elapsed));
     }
   }
 }

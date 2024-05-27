@@ -7,60 +7,82 @@ type SeverityLevel = (typeof severityLevels)[number];
 const maxSeverityLevelLength = Math.max(...severityLevels.map(s => s.length));
 
 const RESET = "\x1b[0m";
+let debugLoginEnabled = true;
 
-const streamFormatStacks: Record<number, string[]> = {
-  [process.stdout.fd]: [],
-  [process.stderr.fd]: [],
+const rewrites: Record<SeverityLevel, SeverityLevel | undefined> = {
+  INFO: undefined,
+  WARN: undefined,
+  ERROR: undefined,
+  DEBUG: undefined,
 };
 
 export const fmt = {
   bold: (x: any) => wrap("\x1b[1m", x),
   italic: (x: any) => wrap("\x1b[3m", x),
   underline: (x: any) => wrap("\x1b[4m", x),
+  red: (x: any) => wrap("\x1b[31m", x),
+  green: (x: any) => wrap("\x1b[32m", x),
+  yellow: (x: any) => wrap("\x1b[33m", x),
+  blue: (x: any) => wrap("\x1b[34m", x),
+  cyan: (x: any) => wrap("\x1b[36m", x),
+  gray: (x: any) => wrap("\x1b[90m", x),
+  brown: (x: any) => wrap("\x1b[33m", x),
+  violet: (x: any) => wrap("\x1b[35m", x),
 } as const;
 
 function wrap(fmt: string, str: any): string {
-  const stream = process.stdout;
-  const stack = streamFormatStacks[stream.fd]!;
-  return `${fmt}${str}\x1b[0m${stack.length}${stack.join("")}`;
+  return (
+    (str + "")
+      .split(RESET)
+      .map(s => `${fmt}${s}`)
+      .join(RESET) + RESET
+  );
 }
 
-function withFmt(fmt: string, cb: () => void) {
-  const stream = process.stdout;
-  const stack = streamFormatStacks[stream.fd]!;
-  const symbols = [...stack];
-  const supportsColor = stream.isTTY && !isTruish(process.env.DISABLE_TTY_COLOR);
-  if (supportsColor) {
-    stream.write(fmt);
-    stack.push(fmt);
-    try {
-      cb();
-    } finally {
-      stream.write(RESET);
-      stack.pop();
-      symbols.forEach(s => stream.write(s));
-    }
-  } else {
+function intercept(stream: typeof process.stdout | typeof process.stderr, cb: () => void): string {
+  const originalWrite = stream.write.bind(process.stdout);
+  try {
+    const output: string[] = [];
+    stream.write = chunk => {
+      const str = chunk.toString();
+      output.push(str);
+      return true;
+    };
     cb();
+    return output.join("");
+  } finally {
+    stream.write = originalWrite;
   }
 }
 
-const colors: Record<SeverityLevel, string> = {
-  INFO: "\x1b[32m",
-  WARN: "\x1b[33m",
-  ERROR: "\x1b[31m",
-  DEBUG: "\x1b[34m",
+const colors: Record<SeverityLevel, keyof typeof fmt> = {
+  INFO: "green",
+  WARN: "yellow",
+  ERROR: "red",
+  DEBUG: "blue",
 };
 
-function prefixConsoleLoggingMethod(method: LoggingMethod, severity: SeverityLevel): LoggingMethod {
+function prefixConsoleLoggingMethod(method: LoggingMethod, _severity: SeverityLevel): LoggingMethod {
   return (message?: any, ...optionalParams: any[]) => {
+    const severity = rewrites[_severity] || _severity;
     const timestamp = new Date().toISOString();
-    withFmt(colors[severity], () => {
+    const color = colors[severity];
+    if (severity === "DEBUG" && !debugLoginEnabled) {
+      return;
+    }
+    const content = intercept(severity === "DEBUG" || severity === "INFO" ? process.stdout : process.stderr, () => {
       method(`${timestamp} [${severity.padEnd(maxSeverityLevelLength)}]`, message, ...optionalParams);
     });
+    process.stdout.write(fmt[color](content));
   };
 }
 
+export function rewriteSeverityLevel(severity: SeverityLevel, newSeverity: SeverityLevel) {
+  rewrites[severity] = newSeverity;
+}
+export function setEnabledDebugLogging(enabled: boolean) {
+  debugLoginEnabled = enabled;
+}
 export function initializeConsoleLogging(c: typeof console = console) {
   if ((c as any).__pathched) {
     return;

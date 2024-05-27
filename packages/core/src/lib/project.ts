@@ -15,8 +15,6 @@ type MakeRequired<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
 
 type CallbackFunction = (varName: string, defaultVal?: string) => string;
 
-
-
 function splitFileName(fileName: string): [string, string | undefined] {
   const parts = fileName.split(".");
   if (parts.length === 1) {
@@ -101,9 +99,14 @@ function makeFactory<T extends WithId>(
   };
 }
 
-export function configureEnvVars(envFileNames: string[], dirs: string | string[], envFiles: string[]) {
+export function configureEnvVars(dirs: string | string[], envFiles: string[]) {
+  const envFileNames = [".env", ".env.local"];
+  if (process.env.NODE_ENV) {
+    envFileNames.push(`.env.${process.env.NODE_ENV}`);
+  }
   const dirsArr = Array.isArray(dirs) ? dirs : [dirs];
-  const paths: string[] = []
+
+  const paths: string[] = [];
   for (const dir of dirsArr) {
     for (const envFileName of envFileNames) {
       paths.push(path.join(dir, envFileName));
@@ -115,8 +118,11 @@ export function configureEnvVars(envFileNames: string[], dirs: string | string[]
   });
 }
 
-
-export function readProjectObjectFromFile<T>(filePath: string, zodSchema: ZodType<T>, opts: {ignoreDisabled?: boolean} = {}): {id: string, factory: Factory<T>} | undefined {
+export function readProjectObjectFromFile<T>(
+  filePath: string,
+  zodSchema: ZodType<T>,
+  opts: { ignoreDisabled?: boolean } = {}
+): { id: string; factory: Factory<T> } | undefined {
   const { name, dir, base, ext } = path.parse(filePath);
   if (ext === undefined || ext === "") {
     console.warn(`Only files with extensions are supported in ${dir}. Skipping file ${base}`);
@@ -124,7 +130,7 @@ export function readProjectObjectFromFile<T>(filePath: string, zodSchema: ZodTyp
     const content = fs.readFileSync(filePath, "utf-8");
     const templateEngine = new nunjucks.Environment();
     let config: any = {};
-    templateEngine.addGlobal("config", function(arg1, arg2) {
+    templateEngine.addGlobal("config", function (arg1, arg2) {
       if (arg2 === undefined && typeof arg1 === "object") {
         config = merge(config, arg1);
       }
@@ -147,7 +153,7 @@ export function readProjectObjectFromFile<T>(filePath: string, zodSchema: ZodTyp
       return {
         id,
         factory: makeFactory<any>(config, { fullPath: filePath, idFromName: name }, zodSchema) as any as any,
-      }
+      };
     }
   } else if (ext === ".yaml" || ext === ".yml") {
     const content = fs.readFileSync(filePath, "utf-8");
@@ -158,7 +164,7 @@ export function readProjectObjectFromFile<T>(filePath: string, zodSchema: ZodTyp
     if (!yamlRaw.disabled || opts.ignoreDisabled) {
       const id = yamlRaw.id || name;
 
-      return {id, factory: makeFactory<any>(yamlRaw, { fullPath: filePath, idFromName: name }, zodSchema) as any};
+      return { id, factory: makeFactory<any>(yamlRaw, { fullPath: filePath, idFromName: name }, zodSchema) as any };
     }
   } else if (ext === ".ts") {
     console.warn(`TypeScript models are not supported yet. Skipping ${filePath}`);
@@ -175,7 +181,7 @@ export function readObjectsFromDirectory<T>(dir: string, zodSchema: ZodSchema<T>
     if (pathStat.isDirectory()) {
       console.warn(`Only files are supported in ${dir}. Skipping directory ${child}`);
     }
-    const projectFileParsed =  readProjectObjectFromFile(fullPath, zodSchema);
+    const projectFileParsed = readProjectObjectFromFile(fullPath, zodSchema);
     if (projectFileParsed) {
       result[projectFileParsed.id] = projectFileParsed.factory;
     }

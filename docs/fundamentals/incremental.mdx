@@ -3,3 +3,38 @@ title: "Incremental Syncs"
 icon: calculator
 iconType: solid
 ---
+
+Syncmaven supports incremental syncs. This means that subsequent syncs will only fetch the data
+that has changed since the last sync. Plus, it supports checkpointing via same mechanism. If
+long-running sync fails in the middle, the next run will carry on from where it left off.
+
+# Cursors
+
+The main mechanism for incremental syncs is cursors. A cursor is a field in [model](/docs/models) that
+only grows over time. For example, `updated_at` field in a table is a good candidate for cursor, or
+`id` if it is auto-incrementing.
+
+Cursors are defined in [model](/fundamentals/models)
+
+```sql
+--{{ config("name", "Users" ) }}
+--{{ config("datasource", "${env.DATABASE_URL}") }}
+--{{ config("cursor", "updated_at") }}
+
+select * from users where :cursor is null or updated_at >= :cursor
+```
+
+In the model configuration above, cursor is defined as `updated_at`. The model will only fetch rows where `update_at`
+value is greater than the last `cursor` value, which is stored in the [sync state](/fundamentals/state) and
+referenced by `:cursor` in the query.
+
+<Info>
+  For the first runs, and full refreshes, the cursor value will be `null`. It means that all rows will be fetched.
+  So the query should be able to handle `null` cursor value properly, note the `:cursor is null` part in the query.
+</Info>
+
+## Checkpointing
+
+The same mechanism is used for checkpointing. Sync will save a cursor value periodically, after a batch of 100
+rows by default. If the sync fails in the middle, the next run will start from the last saved cursor value.
+

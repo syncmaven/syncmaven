@@ -1,0 +1,39 @@
+---
+title: Running in prod
+mode: "wide"
+---
+
+Since Syncmaven has a command-line interface, there are plenty of ways to run it in production starting from a
+simple Cron to a more sophisticated tools such as Dagster or Airflow.
+
+However, since typically Syncmaven project is kept in a
+git repository, the fastest way to setup scheduled sync is to use Github Actions.
+
+# Scheduled sync with Github Actions
+
+Here is an example of a Github Actions workflow that runs Syncmaven every day at 3am, and
+also on every push to the `main` branch.
+
+```yaml
+name: Sync Run
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  branches:
+    - main
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  MIXPANEL_PROJECT_TOKEN: ${{ secrets.MIXPANEL_PROJECT_TOKEN }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - uses: syncmaven/github-action@v1
+```
+
+All environment variables that are defined in the `env` section will be passed to the [Syncmaven project](/fundametals/project). They
+can be used as `${env.VAR_NAME}` in any of the Syncmaven configuration files.

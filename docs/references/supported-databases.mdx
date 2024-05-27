@@ -1,0 +1,53 @@
+---
+title: "Supported Databases"
+icon: "database"
+iconType: "solid"
+---
+
+Please see all supported databases with configuration examples. Database connection
+is defined by the datasource property group in the [model](/fundamentals/model) file
+in YAML or SQL comments.
+
+<AccordionGroup>
+  <Accordion title="Postrges">
+    Postgres is configured with a single `datasource` property. It should follow the following format:
+    `postgres://username:password@host:port/database`.
+
+    Example:
+    <Tabs>
+      <Tab title="model.yaml">
+        ```yaml
+        # DATABASE_URL defined as environment variable as postgres://username:password@host:port/database
+        datasource: ${env.DATABASE_URL}
+        query: select * from users;
+        ```
+      </Tab>
+      <Tab title="model.sql">
+        ```sql
+        ---DATABASE_URL defined as environment variable as postgres://username:password@host:port/database
+        --{{ config("datasource", "postgresql://${env.PG_USER}:${env.PG_PASS}@${env.PG_HOST}:${env.PG_PORT:5432}/${env.PG_DB}?sslmode=no-verify&schema=newjitsu") }}
+        select * from users;
+        ```
+      </Tab>
+    </Tabs>
+
+  </Accordion>
+  <Accordion title="BigQuery">
+
+  </Accordion>
+  <Accordion title="MySQL (soon)">
+    <Warning>
+      MySQL support is coming soon.
+    </Warning>
+  </Accordion>
+  <Accordion title="Clickhouse (soon)">
+    <Warning>
+      Clickhouse support is coming soon.
+    </Warning>
+  </Accordion>
+  <Accordion title="Snowflake (soon)">
+    <Warning>
+      Snowflake support is coming soon.
+    </Warning>
+  </Accordion>
+</AccordionGroup>

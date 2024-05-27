@@ -27,7 +27,13 @@
   "navigation": [
     {
       "group": "Get Started",
-      "pages": ["introduction", "quickstart", "production"]
+      "pages": [
+        "introduction",
+        {
+          "group": "Quickstart",
+          "pages": ["quickstart/install", "quickstart/production", "quickstart/examples"]
+        }
+      ]
     },
     {
       "group": "Fundamentals",
@@ -42,22 +48,12 @@
       ]
     },
     {
-      "group": "Catalog",
-      "pages": [
-        {
-          "group": "Connections",
-          "pages": [
-            "connections/twitter-ads",
-            "connections/google-ads",
-            "connections/facebook-ads",
-            "connections/resend"
-          ]
-        }
-      ]
+      "group": "Contributing",
+      "pages": ["contributing/progress", "contributing/node-cdk"]
     },
     {
-      "group": "Contributing",
-      "pages": ["contributing/progress", "contributing/destination"]
+      "group": "References",
+      "pages": ["references/supported-databases", "references/destinations"]
     }
   ],
   "footerSocials": {
