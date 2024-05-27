@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	daterange "github.com/felixenescu/date-range"
 	"github.com/mitchellh/mapstructure"
 	"github.com/mixpanel/mixpanel-go"
 	"os"
@@ -41,10 +42,21 @@ type RowPayload struct {
 	UtmContent  string  `mapstructure:"utm_content"`
 }
 
+var lookbackWindow = 2
+var initialSyncDays = 30
+var syncId string
+var stateKey []string
+
 var received int
 var success int
 var skipped int
 var failed int
+
+var rpcClient = NewRpcClient(os.Getenv("RPC_URL"))
+
+var processedRanges *daterange.DateRanges
+var startTime = time.Now()
+var lastDate = startTime
 
 func main() {
 	var mp *mixpanel.ApiClient
@@ -85,6 +97,7 @@ func main() {
 				})
 				os.Exit(1)
 			}
+			syncId, _ = message.Payload["syncId"].(string)
 			creds, ok := message.Payload["connectionCredentials"].(map[string]any)
 			if !ok {
 				lerror("No credentials provided: " + line)
@@ -94,12 +107,37 @@ func main() {
 			}
 			projectToken, _ := creds["projectToken"].(string)
 			residency, _ := creds["residency"].(string)
+			rInitialSyncDays, ok := creds["initialSyncDays"].(float64)
+			if ok {
+				initialSyncDays = int(rInitialSyncDays)
+			}
+			rLookbackWindow, ok := creds["lookbackWindow"].(float64)
+			if ok {
+				lookbackWindow = int(rLookbackWindow)
+			}
+			stateKey = []string{"syncId=" + syncId, "type=mixpanel.state"}
+			raw, err := rpcClient.Get(stateKey)
+			if err != nil {
+				lerror("Error getting state", err.Error())
+			} else {
+				processedRanges, err = dateRangesFromAny(raw)
+				if err != nil {
+					lerror("Error parsing state", err.Error())
+				} else if processedRanges != nil && !processedRanges.IsZero() {
+					info("State loaded", fmt.Sprint(processedRanges))
+					lastDate = processedRanges.LastDate()
+				}
+			}
+			if processedRanges == nil {
+				p := daterange.NewDateRanges()
+				processedRanges = &p
+			}
 			if residency == "EU" {
 				mp = mixpanel.NewApiClient(projectToken, mixpanel.EuResidency())
 			} else {
 				mp = mixpanel.NewApiClient(projectToken)
 			}
-			info(fmt.Sprintf("Stream '%s' started", stream))
+			info(fmt.Sprintf("Stream '%s' started. Residency: %s SyncId: %s InitialSyncDays: %d LookbackWindow: %d", stream, residency, syncId, initialSyncDays, lookbackWindow))
 		case "end-stream":
 			info("Received end-stream message. Bye!")
 			reply("stream-result", map[string]any{
@@ -140,6 +178,22 @@ func processRow(mp *mixpanel.ApiClient, payload *RowPayload) {
 		lerror("Error parsing time: "+payload.Time, err.Error())
 		return
 	}
+	tDate := toDateUTC(t)
+	initialSyncStart := startTime.Truncate(time.Hour * 24).Add(time.Hour * 24 * time.Duration(-initialSyncDays))
+	lookbackWindowStart := lastDate.Add(time.Hour * 24 * time.Duration(-lookbackWindow))
+
+	if t.Before(initialSyncStart) {
+		skipped++
+		info("Row skipped. Too old", t)
+		return
+	}
+	if processedRanges.Contains(tDate) {
+		if t.Before(lookbackWindowStart) {
+			skipped++
+			info("Row skipped. Already processed", tDate)
+			return
+		}
+	}
 	status, err := mp.Import(ctx, []*mixpanel.Event{mp.NewEvent("Ad Data", "", map[string]any{
 		"$insert_id":   fmt.Sprintf("G-%s-%v", t.Format(time.DateOnly), payload.CampaignId),
 		"time":         t,
@@ -163,6 +217,11 @@ func processRow(mp *mixpanel.ApiClient, payload *RowPayload) {
 			lerror(fmt.Sprintf("Error importing row. Code: %d Status: %+v", status.Code, status.Status))
 			failed++
 		} else {
+			processedRanges.Append(daterange.NewDateRange(t, t))
+			err = rpcClient.Set(stateKey, dateRangesToAny(processedRanges))
+			if err != nil {
+				lerror("Error saving state", err.Error())
+			}
 			success++
 			info("Row imported", status.Code, status.NumRecordsImported, status.Status)
 		}
@@ -217,4 +276,16 @@ func UnmarshalSchema(line string) map[string]any {
 		panic(err)
 	}
 	return m
+}
+
+// toDateUTC truncate a time to the date and set UTC location.
+func toDateUTC(t time.Time) time.Time {
+	// the correct way to truncate a time to the date is to use
+	// time.Date with the zero values for the time components.
+	// The commonly used time.Truncate(24 * time.Hour) method does not work
+	// correctly for all cases, for example it ignores DST.
+	return time.Date(
+		t.Year(), t.Month(), t.Day(),
+		0, 0, 0, 0,
+		time.UTC)
 }

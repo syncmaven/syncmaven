@@ -187,12 +187,19 @@ export class DockerContainer implements StdIoContainer {
   }
 
   async init() {
-    const pullStream = await this.docker.pull(this.image);
-    await new Promise((res) =>
-      this.docker.modem.followProgress(pullStream, res),
-    );
+    try {
+      const pullStream = await this.docker.pull(this.image);
+      await new Promise((res) =>
+        this.docker.modem.followProgress(pullStream, res),
+      );
+      console.log(`Image ${this.image} pulled. Creating container...`);
+    } catch (e) {
+      console.error(
+        `Failed to pull image ${this.image} Trying with local one.`,
+        { cause: e },
+      );
+    }
 
-    console.log(`Image ${this.image} pulled. Creating container...`);
     // Create and start the container
     // see https://docs.docker.com/engine/api/v1.45/#tag/Container/operation/ContainerCreate
     this.container = await this.docker.createContainer({
@@ -382,10 +389,10 @@ export class DockerContainer implements StdIoContainer {
   }
 
   async close() {
-    console.info(`Closing container ${this.container.id} of ${this.image}...`);
+    console.info(`Closing container ${this.container?.id} of ${this.image}...`);
     await this.stop();
     console.info(
-      `Container stopped. Removing container ${this.container.id} of ${this.image}`,
+      `Container stopped. Removing container ${this.container?.id} of ${this.image}`,
     );
     await runCleanup(() => this.container?.remove());
     console.info(`Docker cleanup done for ${this.image}`);

@@ -11,12 +11,10 @@ function stringifyKey(prefix: StorageKey) {
 export class PostgresStore implements StreamPersistenceStore {
   private client: Client;
 
-
   constructor(url: string) {
     this.client = new Client({
       connectionString: url,
     });
-
   }
 
   async init(): Promise<void> {
@@ -31,7 +29,9 @@ export class PostgresStore implements StreamPersistenceStore {
                                  key   TEXT primary key,
                                  value TEXT
                              )`);
-    await this.client.query(`create index if not exists key_index on store (key)`);
+    await this.client.query(
+      `create index if not exists key_index on store (key)`,
+    );
   }
 
   get(key: StorageKey): Promise<any> {
@@ -50,11 +50,18 @@ export class PostgresStore implements StreamPersistenceStore {
     throw new Error("Method not implemented.");
   }
 
-  stream(prefix: StorageKey, cb: (entry: Entry) => void | Promise<void>): Promise<any> {
+  stream(
+    prefix: StorageKey,
+    cb: (entry: Entry) => void | Promise<void>,
+  ): Promise<any> {
     throw new Error("Method not implemented.");
   }
 
-  streamBatch(prefix: StorageKey, cb: (batch: Entry[]) => void | Promise<void>, maxBatchSize: number): Promise<any> {
+  streamBatch(
+    prefix: StorageKey,
+    cb: (batch: Entry[]) => void | Promise<void>,
+    maxBatchSize: number,
+  ): Promise<any> {
     throw new Error("Method not implemented.");
   }
 
@@ -65,7 +72,6 @@ export class PostgresStore implements StreamPersistenceStore {
   size(prefix: StorageKey): Promise<number> {
     throw new Error("Method not implemented.");
   }
-
 }
 
 export class SqliteStore implements StreamPersistenceStore {
@@ -109,7 +115,7 @@ export class SqliteStore implements StreamPersistenceStore {
 
   async list(prefix: StorageKey): Promise<Entry[]> {
     const res: Entry[] = [];
-    await this.stream(prefix, entry => {
+    await this.stream(prefix, (entry) => {
       res.push(entry);
     });
     return res;
@@ -147,19 +153,29 @@ export class SqliteStore implements StreamPersistenceStore {
     });
   }
 
-  async stream(prefix: StorageKey, cb: (entry: Entry) => Promise<void> | void): Promise<any> {
+  async stream(
+    prefix: StorageKey,
+    cb: (entry: Entry) => Promise<void> | void,
+  ): Promise<any> {
     const keyString = stringifyKey(prefix);
-    const stmt = this.database.prepare(`SELECT key, value FROM store WHERE key LIKE ? or key = ? ORDER BY key ASC`);
+    const stmt = this.database.prepare(
+      `SELECT key, value FROM store WHERE key LIKE ? or key = ? ORDER BY key ASC`,
+    );
     const stream = stmt.iterate(`${keyString}::%`, keyString);
     for (const row of stream) {
-      await cb({ key: (row as any).key.split("::"), value: JSON.parse((row as any).value) });
+      await cb({
+        key: (row as any).key.split("::"),
+        value: JSON.parse((row as any).value),
+      });
     }
   }
 
   size(prefix: StorageKey): Promise<number> {
     // const result = this.database.prepare(`SELECT count(*) as count FROM store WHERE key LIKE ? OR key = ?`).get(`${key}::%`, key);
 
-    const stmt = this.database.prepare(`SELECT count(*) as count FROM store WHERE key LIKE ? OR key = ?`);
+    const stmt = this.database.prepare(
+      `SELECT count(*) as count FROM store WHERE key LIKE ? OR key = ?`,
+    );
     const prefixArr = Array.isArray(prefix) ? prefix : [prefix];
     const key = prefixArr.join("::");
     const keyPattern = `${key}::%`;
@@ -170,7 +186,9 @@ export class SqliteStore implements StreamPersistenceStore {
   deleteByPrefix(prefix: StorageKey): Promise<void> {
     const prefixArr = Array.isArray(prefix) ? prefix : [prefix];
     const keyString = prefixArr.join("::");
-    this.database.prepare(`DELETE FROM store WHERE key LIKE ? OR key = ?`).run(`${keyString}::%`, keyString);
+    this.database
+      .prepare(`DELETE FROM store WHERE key LIKE ? OR key = ?`)
+      .run(`${keyString}::%`, keyString);
     return Promise.resolve();
   }
 
@@ -178,7 +196,9 @@ export class SqliteStore implements StreamPersistenceStore {
     const segments = Array.isArray(key) ? key : [key];
     for (const segment of segments) {
       if (segment.indexOf("::") >= 0) {
-        throw new Error(`Invalid key segment: '${segment}'. Key segments cannot contain '::'`);
+        throw new Error(
+          `Invalid key segment: '${segment}'. Key segments cannot contain '::'`,
+        );
       }
     }
   }
