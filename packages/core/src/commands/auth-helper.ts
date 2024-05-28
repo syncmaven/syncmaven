@@ -7,7 +7,7 @@ export const defaultOauthRedirectURIPort = 4512;
 
 export async function triggerOauthFlow(
   projectDir: string,
-  opts: { projectDir?: string; connection: string; port: string }
+  opts: { projectDir?: string; connection: string; port: string },
 ) {
   // const port = opts.port ? parseInt(opts.port) : defaultOauthRedirectURIPort;
   // projectDir = projectDir || opts.projectDir || process.cwd();
