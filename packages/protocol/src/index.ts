@@ -19,9 +19,16 @@ export interface StreamPersistenceStore {
 
   list(prefix: StorageKey): Promise<Entry[]>;
 
-  stream(prefix: StorageKey, cb: (entry: Entry) => Promise<void> | void): Promise<any>;
+  stream(
+    prefix: StorageKey,
+    cb: (entry: Entry) => Promise<void> | void,
+  ): Promise<any>;
 
-  streamBatch(prefix: StorageKey, cb: (batch: Entry[]) => Promise<void> | void, maxBatchSize: number): Promise<any>;
+  streamBatch(
+    prefix: StorageKey,
+    cb: (batch: Entry[]) => Promise<void> | void,
+    maxBatchSize: number,
+  ): Promise<any>;
 
   deleteByPrefix(prefix: StorageKey): Promise<void>;
 
@@ -44,10 +51,12 @@ export const DescribeConnectionMessage = MessageBase.merge(
     type: z.literal("describe"),
     direction: z.literal("incoming").default("incoming").optional(),
     payload: z.never().optional(),
-  })
+  }),
 );
 
-export type DescribeConnectionMessage = z.infer<typeof DescribeConnectionMessage>;
+export type DescribeConnectionMessage = z.infer<
+  typeof DescribeConnectionMessage
+>;
 
 export const ConnectionSpecMessage = MessageBase.merge(
   z.object({
@@ -57,7 +66,7 @@ export const ConnectionSpecMessage = MessageBase.merge(
       roles: z.array(z.enum(["enrichment", "destination"])),
       connectionCredentials: z.any(),
     }),
-  })
+  }),
 );
 
 export type ConnectionSpecMessage = z.infer<typeof ConnectionSpecMessage>;
@@ -69,7 +78,7 @@ export const DescribeStreamsMessage = MessageBase.merge(
     payload: z.object({
       credentials: z.any(),
     }),
-  })
+  }),
 );
 
 export type DescribeStreamsMessage = z.infer<typeof DescribeStreamsMessage>;
@@ -88,10 +97,10 @@ export const StreamSpecMessage = MessageBase.merge(
         z.object({
           name: z.string(),
           rowType: z.any(),
-        })
+        }),
       ),
     }),
-  })
+  }),
 );
 
 export type StreamSpecMessage = z.infer<typeof StreamSpecMessage>;
@@ -107,7 +116,7 @@ export const StartStreamMessage = MessageBase.merge(
       syncId: z.string(),
       fullRefresh: z.boolean().optional().default(false),
     }),
-  })
+  }),
 );
 
 export type StartStreamMessage = z.infer<typeof StartStreamMessage>;
@@ -119,7 +128,7 @@ export const RowMessage = MessageBase.merge(
     payload: z.object({
       row: z.any(),
     }),
-  })
+  }),
 );
 
 export type RowMessage = z.infer<typeof RowMessage>;
@@ -129,22 +138,24 @@ export const EndStreamMessage = MessageBase.merge(
     type: z.literal("end-stream"),
     direction: z.literal("incoming").default("incoming").optional(),
     reason: z.enum(["success", "error"]),
-  })
+  }),
 );
 
 export type EndStreamMessage = z.infer<typeof EndStreamMessage>;
+
+const StatusObject = z.object({
+  received: z.number(),
+  success: z.number(),
+  skipped: z.number(),
+  failed: z.number(),
+});
 
 export const StreamResultMessage = MessageBase.merge(
   z.object({
     type: z.literal("stream-result"),
     direction: z.literal("reply").default("reply").optional(),
-    payload: z.object({
-      received: z.number(),
-      success: z.number(),
-      skipped: z.number(),
-      failed: z.number(),
-    }),
-  })
+    payload: z.union([z.record(StatusObject), StatusObject]).optional(),
+  }),
 );
 
 export type StreamResultMessage = z.infer<typeof StreamResultMessage>;
@@ -158,7 +169,7 @@ export const LogMessage = MessageBase.merge(
       message: z.string(),
       params: z.array(z.any()).optional(),
     }),
-  })
+  }),
 );
 
 export type LogMessage = z.infer<typeof LogMessage>;
@@ -172,7 +183,7 @@ export const HaltMessage = MessageBase.merge(
       message: z.string().optional(),
       data: z.any().optional(),
     }),
-  })
+  }),
 );
 
 export type HaltMessage = z.infer<typeof HaltMessage>;
@@ -184,7 +195,7 @@ export const EnrichmentRequest = MessageBase.merge(
     payload: z.object({
       row: z.any(),
     }),
-  })
+  }),
 );
 
 export type EnrichmentRequest = z.infer<typeof EnrichmentRequest>;
@@ -196,7 +207,7 @@ export const EnrichmentResponse = MessageBase.merge(
     payload: z.object({
       row: z.any(),
     }),
-  })
+  }),
 );
 
 export type EnrichmentResponse = z.infer<typeof EnrichmentResponse>;
@@ -209,7 +220,7 @@ export const EnrichmentConnect = MessageBase.merge(
       credentials: z.any(),
       options: z.any(),
     }),
-  })
+  }),
 );
 
 export type EnrichmentConnect = z.infer<typeof EnrichmentConnect>;
@@ -274,7 +285,9 @@ export const systemMessageTypes: ReplyMessage["type"][] = ["halt", "log"];
 export type Message = Simplify<z.infer<typeof Message>>;
 
 export type MessageHandler = (message: Message) => Promise<void> | void;
-export type SingletonMessageHandler = (message: Message) => Promise<"done" | void> | "done" | void;
+export type SingletonMessageHandler = (
+  message: Message,
+) => Promise<"done" | void> | "done" | void;
 
 export type ReplyChannel = {
   dispatchReplyMessage: (message: Message) => Promise<void>;
@@ -289,7 +302,10 @@ export interface BaseChannel {
 
 export interface DestinationChannel extends BaseChannel {
   streams: (msg: DescribeStreamsMessage) => Promise<StreamSpecMessage>;
-  startStream: (startStreamMessage: StartStreamMessage, ctx: ExecutionContext) => Promise<void>;
+  startStream: (
+    startStreamMessage: StartStreamMessage,
+    ctx: ExecutionContext,
+  ) => Promise<void>;
   row: (rowMessage: RowMessage) => Promise<void>;
   stopStream: () => Promise<StreamResultMessage>;
 
@@ -297,6 +313,9 @@ export interface DestinationChannel extends BaseChannel {
 }
 
 export interface EnrichmentChannel extends BaseChannel {
-  startEnrichment: (startStreamMessage: EnrichmentConnect, ctx: ExecutionContext) => Promise<void>;
+  startEnrichment: (
+    startStreamMessage: EnrichmentConnect,
+    ctx: ExecutionContext,
+  ) => Promise<void>;
   row: (rowMessage: EnrichmentRequest) => Promise<EnrichmentResponse>;
 }

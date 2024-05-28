@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -23,40 +24,54 @@ var rowSchemaString string
 var rowSchema = UnmarshalSchema(rowSchemaString)
 
 type Message struct {
-	Type      string         `json:"type"`
-	Direction string         `json:"direction"`
-	Payload   map[string]any `json:"payload"`
+	Type      string `json:"type"`
+	Direction string `json:"direction"`
+	Payload   any    `json:"payload"`
 }
 
 type RowPayload struct {
-	Time        string  `mapstructure:"time"`
-	Source      string  `mapstructure:"source"`
-	CampaignId  any     `mapstructure:"campaign_id"`
-	Cost        float64 `mapstructure:"cost"`
-	Clicks      float64 `mapstructure:"clicks"`
-	Impressions float64 `mapstructure:"impressions"`
-	UtmSource   string  `mapstructure:"utm_source"`
-	UtmCampaign string  `mapstructure:"utm_campaign"`
-	UtmMedium   string  `mapstructure:"utm_medium"`
-	UtmTerm     string  `mapstructure:"utm_term"`
-	UtmContent  string  `mapstructure:"utm_content"`
+	Date         string  `mapstructure:"date"`
+	Source       string  `mapstructure:"source"`
+	CampaignId   any     `mapstructure:"campaign_id"`
+	CampaignName string  `mapstructure:"campaign_name"`
+	GroupId      any     `mapstructure:"group_id"`
+	AdId         any     `mapstructure:"ad_id"`
+	Cost         float64 `mapstructure:"cost"`
+	Clicks       float64 `mapstructure:"clicks"`
+	Impressions  float64 `mapstructure:"impressions"`
+	Conversions  float64 `mapstructure:"conversions"`
+	UtmSource    string  `mapstructure:"utm_source"`
+	UtmCampaign  string  `mapstructure:"utm_campaign"`
+	UtmMedium    string  `mapstructure:"utm_medium"`
+	UtmTerm      string  `mapstructure:"utm_term"`
+	UtmContent   string  `mapstructure:"utm_content"`
+}
+
+type Status struct {
+	Received int `json:"received"`
+	Success  int `json:"success"`
+	Skipped  int `json:"skipped"`
+	Failed   int `json:"failed"`
 }
 
 var lookbackWindow = 2
 var initialSyncDays = 30
+var batchSize = 2000
 var syncId string
 var stateKey []string
 
-var received int
-var success int
-var skipped int
-var failed int
-
 var rpcClient = NewRpcClient(os.Getenv("RPC_URL"))
 
-var processedRanges *daterange.DateRanges
+var batch []*mixpanel.Event
+var initialState daterange.DateRanges
+var commitedState daterange.DateRanges
+var processedRanges daterange.DateRanges
 var startTime = time.Now()
 var lastDate = startTime
+var statuses = make(map[string]*Status)
+
+var lastProcessedDate string
+var currentStatus *Status
 
 func main() {
 	var mp *mixpanel.ApiClient
@@ -89,7 +104,8 @@ func main() {
 				"streams":       []any{map[string]any{"name": "AdData", "rowType": rowSchema}},
 			})
 		case "start-stream":
-			stream, ok := message.Payload["stream"]
+			payload := message.Payload.(map[string]any)
+			stream, ok := payload["stream"]
 			if !ok || stream != "AdData" {
 				lerror("Unknown stream", stream)
 				reply("halt", map[string]any{
@@ -97,8 +113,8 @@ func main() {
 				})
 				os.Exit(1)
 			}
-			syncId, _ = message.Payload["syncId"].(string)
-			creds, ok := message.Payload["connectionCredentials"].(map[string]any)
+			syncId, _ = payload["syncId"].(string)
+			creds, ok := payload["connectionCredentials"].(map[string]any)
 			if !ok {
 				lerror("No credentials provided: " + line)
 				reply("halt", map[string]any{
@@ -115,22 +131,24 @@ func main() {
 			if ok {
 				lookbackWindow = int(rLookbackWindow)
 			}
+			rBatchSize, ok := creds["batchSize"].(float64)
+			if ok {
+				batchSize = int(rBatchSize)
+			}
 			stateKey = []string{"syncId=" + syncId, "type=mixpanel.state"}
 			raw, err := rpcClient.Get(stateKey)
 			if err != nil {
 				lerror("Error getting state", err.Error())
 			} else {
-				processedRanges, err = dateRangesFromAny(raw)
+				initialState, err = dateRangesFromAny(raw)
 				if err != nil {
 					lerror("Error parsing state", err.Error())
-				} else if processedRanges != nil && !processedRanges.IsZero() {
-					info("State loaded", fmt.Sprint(processedRanges))
-					lastDate = processedRanges.LastDate()
+				} else if !initialState.IsZero() {
+					processedRanges = daterange.NewDateRanges(initialState.ToSlice()...)
+					commitedState = daterange.NewDateRanges(initialState.ToSlice()...)
+					info("State loaded", fmt.Sprint(initialState))
+					lastDate = initialState.LastDate()
 				}
-			}
-			if processedRanges == nil {
-				p := daterange.NewDateRanges()
-				processedRanges = &p
 			}
 			if residency == "EU" {
 				mp = mixpanel.NewApiClient(projectToken, mixpanel.EuResidency())
@@ -139,23 +157,20 @@ func main() {
 			}
 			info(fmt.Sprintf("Stream '%s' started. Residency: %s SyncId: %s InitialSyncDays: %d LookbackWindow: %d", stream, residency, syncId, initialSyncDays, lookbackWindow))
 		case "end-stream":
-			info("Received end-stream message. Bye!")
-			reply("stream-result", map[string]any{
-				"received": received,
-				"skipped":  skipped,
-				"failed":   failed,
-				"success":  success,
-			})
+			info("Received end-stream message.")
+			sendBatch(mp)
+			reply("stream-result", statuses)
 			time.AfterFunc(1000, func() {
+				info("Bye!")
 				os.Exit(0)
 			})
 		case "row":
-			received++
+			payload := message.Payload.(map[string]any)
 			var rowPayload RowPayload
-			err = mapstructure.Decode(message.Payload["row"], &rowPayload)
+			err = mapstructure.Decode(payload["row"], &rowPayload)
 			if err != nil {
-				failed++
 				lerror("Cannot parse row payload: "+line, err.Error())
+				os.Exit(1)
 			} else {
 				processRow(mp, &rowPayload)
 			}
@@ -170,62 +185,119 @@ func main() {
 }
 
 func processRow(mp *mixpanel.ApiClient, payload *RowPayload) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
-	defer cancel()
-	t, err := time.Parse(time.RFC3339Nano, payload.Time)
+	if lastProcessedDate != payload.Date {
+		if lastProcessedDate != "" {
+			sendBatch(mp)
+		}
+		lastProcessedDate = payload.Date
+		currentStatus = getStatus(payload.Date)
+	}
+	currentStatus.Received++
+	t, err := time.Parse(time.DateOnly, payload.Date)
 	if err != nil {
-		failed++
-		lerror("Error parsing time: "+payload.Time, err.Error())
+		currentStatus.Failed++
+		lerror("Error parsing time: "+payload.Date, err.Error())
 		return
 	}
-	tDate := toDateUTC(t)
 	initialSyncStart := startTime.Truncate(time.Hour * 24).Add(time.Hour * 24 * time.Duration(-initialSyncDays))
 	lookbackWindowStart := lastDate.Add(time.Hour * 24 * time.Duration(-lookbackWindow))
 
 	if t.Before(initialSyncStart) {
-		skipped++
-		info("Row skipped. Too old", t)
+		currentStatus.Skipped++
+		//debug("Row skipped. Too old", t)
 		return
 	}
-	if processedRanges.Contains(tDate) {
+	if initialState.Contains(t) {
 		if t.Before(lookbackWindowStart) {
-			skipped++
-			info("Row skipped. Already processed", tDate)
+			currentStatus.Skipped++
+			//debug("Row skipped. Already processed", t)
 			return
 		}
 	}
-	status, err := mp.Import(ctx, []*mixpanel.Event{mp.NewEvent("Ad Data", "", map[string]any{
-		"$insert_id":   fmt.Sprintf("G-%s-%v", t.Format(time.DateOnly), payload.CampaignId),
-		"time":         t,
-		"source":       payload.Source,
-		"campaign_id":  payload.CampaignId,
-		"cost":         payload.Cost,
-		"clicks":       payload.Clicks,
-		"impressions":  payload.Impressions,
-		"utm_campaign": payload.UtmCampaign,
-		"utm_source":   payload.UtmSource,
-		"utm_medium":   payload.UtmMedium,
-		"utm_term":     payload.UtmTerm,
-		"utm_content":  payload.UtmContent,
-	})}, mixpanel.ImportOptions{Compression: mixpanel.Gzip, Strict: false})
-	if err != nil {
-		failed++
-		s, _ := json.Marshal(err)
-		lerror("Error importing row:", string(s))
-	} else {
-		if status.Code != 200 || status.NumRecordsImported == 0 {
-			lerror(fmt.Sprintf("Error importing row. Code: %d Status: %+v", status.Code, status.Status))
-			failed++
-		} else {
-			processedRanges.Append(daterange.NewDateRange(t, t))
-			err = rpcClient.Set(stateKey, dateRangesToAny(processedRanges))
-			if err != nil {
-				lerror("Error saving state", err.Error())
-			}
-			success++
-			info("Row imported", status.Code, status.NumRecordsImported, status.Status)
-		}
+	event := mp.NewEvent("$ad_spend", "", map[string]any{
+		"$insert_id":      makeInsertId(payload),
+		"time":            t,
+		"$ad_platform":    payload.Source,
+		"campaign_id":     payload.CampaignId,
+		"$ad_cost":        payload.Cost,
+		"$ad_clicks":      payload.Clicks,
+		"$ad_impressions": payload.Impressions,
+		"conversions":     payload.Conversions,
+		"ad_group_id":     payload.GroupId,
+		"ad_id":           payload.AdId,
+		"campaign_name":   payload.CampaignName,
+		"utm_campaign":    payload.UtmCampaign,
+		"utm_source":      payload.UtmSource,
+		"utm_medium":      payload.UtmMedium,
+		"utm_term":        payload.UtmTerm,
+		"utm_content":     payload.UtmContent,
+	})
+	batch = append(batch, event)
+	processedRanges.Append(daterange.NewDateRange(t, t))
+	if len(batch) >= batchSize {
+		sendBatch(mp)
 	}
+}
+
+func sendBatch(mp *mixpanel.ApiClient) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	defer cancel()
+	if len(batch) > 0 {
+		res, err := mp.Import(ctx, batch, mixpanel.ImportOptions{Compression: mixpanel.Gzip, Strict: false})
+		if err != nil {
+			currentStatus.Failed += len(batch)
+			s, _ := json.Marshal(err)
+			lerror(fmt.Sprintf("[%s] wrror importing %d rows.", lastProcessedDate, len(batch)), string(s))
+		} else {
+			if res.Code != 200 || res.NumRecordsImported == 0 {
+				lerror(fmt.Sprintf("[%s] error importing %d rows. Code: %d Status: %+v", lastProcessedDate, len(batch), res.Code, res.Status))
+				currentStatus.Failed += len(batch)
+			} else {
+				if !processedRanges.Equal(commitedState) {
+					err = rpcClient.Set(stateKey, dateRangesToAny(processedRanges))
+					if err != nil {
+						lerror("Error saving state", err.Error())
+					}
+					commitedState = daterange.NewDateRanges(processedRanges.ToSlice()...)
+				}
+				currentStatus.Success += len(batch)
+				info(fmt.Sprintf("[%s] %d rows sent", lastProcessedDate, len(batch)), res.Code, res.NumRecordsImported, res.Status)
+			}
+		}
+		batch = nil
+	}
+}
+
+func getStatus(date string) *Status {
+	if _, ok := statuses[date]; !ok {
+		statuses[date] = &Status{}
+	}
+	return statuses[date]
+}
+
+func makeInsertId(payload *RowPayload) string {
+	builder := strings.Builder{}
+	builder.WriteString(strings.ToUpper(payload.Source[0:1]))
+	builder.WriteString("-")
+	builder.WriteString(payload.Date)
+	builder.WriteString("-")
+	builder.WriteString(fmt.Sprint(payload.CampaignId))
+	if payload.GroupId != nil {
+		builder.WriteString("-")
+		builder.WriteString(fmt.Sprint(payload.GroupId))
+	}
+	if payload.AdId != nil {
+		builder.WriteString("-")
+		builder.WriteString(fmt.Sprint(payload.AdId))
+	}
+	if builder.Len() > 36 {
+		hasher := crypto.MD5.New()
+		_, _ = hasher.Write([]byte(builder.String()))
+		return strings.ToUpper(payload.Source[0:1]) + "-" + payload.Date + "-" + fmt.Sprintf("%x", hasher.Sum(nil))[0:23]
+	} else {
+		return builder.String()
+	}
+
 }
 
 func logErr(err error) {
@@ -259,7 +331,7 @@ func log(level string, message string, params ...any) {
 	reply("log", l)
 }
 
-func reply(msgType string, payload map[string]any) {
+func reply(msgType string, payload any) {
 	msg := Message{
 		Type:      msgType,
 		Direction: "reply",
@@ -276,16 +348,4 @@ func UnmarshalSchema(line string) map[string]any {
 		panic(err)
 	}
 	return m
-}
-
-// toDateUTC truncate a time to the date and set UTC location.
-func toDateUTC(t time.Time) time.Time {
-	// the correct way to truncate a time to the date is to use
-	// time.Date with the zero values for the time components.
-	// The commonly used time.Truncate(24 * time.Hour) method does not work
-	// correctly for all cases, for example it ignores DST.
-	return time.Date(
-		t.Year(), t.Month(), t.Day(),
-		0, 0, 0, 0,
-		time.UTC)
 }

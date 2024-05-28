@@ -7,7 +7,11 @@ import { merge, omit, set } from "lodash";
 import { load } from "js-yaml";
 import { stringifyZodError } from "./zod";
 import type { Factory, Project } from "../types/project";
-import { ConnectionDefinition, ModelDefinition, SyncDefinition } from "../types/objects";
+import {
+  ConnectionDefinition,
+  ModelDefinition,
+  SyncDefinition,
+} from "../types/objects";
 import dotenv from "dotenv";
 
 type WithId = { id: string };
@@ -32,7 +36,7 @@ function replaceExpressions(obj: any, callback: CallbackFunction): any {
   function processValue(value: any): any {
     if (Array.isArray(value)) {
       // Process each item in the array
-      return value.map(item => processValue(item));
+      return value.map((item) => processValue(item));
     } else if (value !== null && typeof value === "object") {
       // Process each property in the object
       const processedObject: Record<string, any> = {};
@@ -65,7 +69,7 @@ export function untildify(filePath: string): string {
 function makeFactory<T extends WithId>(
   obj: any,
   file: { fullPath: string; idFromName: string },
-  zodSchema: ZodSchema<T>
+  zodSchema: ZodSchema<T>,
 ): () => MakeRequired<T, "id"> {
   let cached: MakeRequired<T, "id"> | undefined = undefined;
 
@@ -79,7 +83,9 @@ function makeFactory<T extends WithId>(
         const value = process.env[rest.join(".")];
         if (value === undefined) {
           if (defaultVal === undefined) {
-            throw new Error(`Environment variable ${varName} is not set. It's used in ${file.fullPath}`);
+            throw new Error(
+              `Environment variable ${varName} is not set. It's used in ${file.fullPath}`,
+            );
           } else {
             return defaultVal;
           }
@@ -87,13 +93,15 @@ function makeFactory<T extends WithId>(
         return value;
       } else {
         throw new Error(
-          `Unsupported placeholder \${${varName}} in ${file.fullPath}. Only \${env.NAME} placeholders are supported. Did you mean \${env.${varName}}?`
+          `Unsupported placeholder \${${varName}} in ${file.fullPath}. Only \${env.NAME} placeholders are supported. Did you mean \${env.${varName}}?`,
         );
       }
     });
     const { success, error, data } = zodSchema.safeParse(obj);
     if (!success) {
-      throw new Error(`Error parsing ${file.fullPath}: ${stringifyZodError(error)}`);
+      throw new Error(
+        `Error parsing ${file.fullPath}: ${stringifyZodError(error)}`,
+      );
     }
     return (cached = { id: data.id || file.idFromName, ...omit(data, "id") });
   };
@@ -121,11 +129,13 @@ export function configureEnvVars(dirs: string | string[], envFiles: string[]) {
 export function readProjectObjectFromFile<T>(
   filePath: string,
   zodSchema: ZodType<T>,
-  opts: { ignoreDisabled?: boolean } = {}
+  opts: { ignoreDisabled?: boolean } = {},
 ): { id: string; factory: Factory<T> } | undefined {
   const { name, dir, base, ext } = path.parse(filePath);
   if (ext === undefined || ext === "") {
-    console.warn(`Only files with extensions are supported in ${dir}. Skipping file ${base}`);
+    console.warn(
+      `Only files with extensions are supported in ${dir}. Skipping file ${base}`,
+    );
   } else if (ext === ".sql") {
     const content = fs.readFileSync(filePath, "utf-8");
     const templateEngine = new nunjucks.Environment();
@@ -137,49 +147,79 @@ export function readProjectObjectFromFile<T>(
       if (typeof arg1 === "string" && typeof arg2 === "string") {
         set(config, arg1, arg2);
       } else {
-        throw new Error(`Unsupported config() call with arguments ${typeof arg1}, ${typeof arg2}`);
+        throw new Error(
+          `Unsupported config() call for '${arg1}' with arguments ${typeof arg1}, ${typeof arg2}`,
+        );
       }
     });
     try {
       config.query = templateEngine.renderString(content, { env: process.env });
     } catch (e: any) {
-      const message = (e?.message || "unknown error").replace("(unknown path)", filePath);
+      const message = (e?.message || "unknown error").replace(
+        "(unknown path)",
+        filePath,
+      );
 
-      throw new Error(`Unable to parse template expression in ${filePath} model file: ${message}`, { cause: e });
+      throw new Error(
+        `Unable to parse template expression in ${filePath} model file: ${message}`,
+        { cause: e },
+      );
     }
 
     if (!config.disabled || opts.ignoreDisabled) {
       const id = config.id || name;
       return {
         id,
-        factory: makeFactory<any>(config, { fullPath: filePath, idFromName: name }, zodSchema) as any as any,
+        factory: makeFactory<any>(
+          config,
+          { fullPath: filePath, idFromName: name },
+          zodSchema,
+        ) as any as any,
       };
     }
   } else if (ext === ".yaml" || ext === ".yml") {
     const content = fs.readFileSync(filePath, "utf-8");
     const yamlRaw = load(content, { filename: filePath, json: true }) as any;
     if (!content || !yamlRaw) {
-      throw new Error(`Error parsing ${path}. File seems to be empty or invalid`);
+      throw new Error(
+        `Error parsing ${path}. File seems to be empty or invalid`,
+      );
     }
     if (!yamlRaw.disabled || opts.ignoreDisabled) {
       const id = yamlRaw.id || name;
 
-      return { id, factory: makeFactory<any>(yamlRaw, { fullPath: filePath, idFromName: name }, zodSchema) as any };
+      return {
+        id,
+        factory: makeFactory<any>(
+          yamlRaw,
+          { fullPath: filePath, idFromName: name },
+          zodSchema,
+        ) as any,
+      };
     }
   } else if (ext === ".ts") {
-    console.warn(`TypeScript models are not supported yet. Skipping ${filePath}`);
+    console.warn(
+      `TypeScript models are not supported yet. Skipping ${filePath}`,
+    );
   } else {
-    console.warn(`Unsupported file extension ${ext} in ${filePath}. Skipping file`);
+    console.warn(
+      `Unsupported file extension ${ext} in ${filePath}. Skipping file`,
+    );
   }
 }
 
-export function readObjectsFromDirectory<T>(dir: string, zodSchema: ZodSchema<T>): Record<string, () => T> {
+export function readObjectsFromDirectory<T>(
+  dir: string,
+  zodSchema: ZodSchema<T>,
+): Record<string, () => T> {
   const result: Record<string, () => T> = {};
   for (const child of fs.readdirSync(dir)) {
     const fullPath = path.join(dir, child);
     const pathStat = fs.statSync(fullPath);
     if (pathStat.isDirectory()) {
-      console.warn(`Only files are supported in ${dir}. Skipping directory ${child}`);
+      console.warn(
+        `Only files are supported in ${dir}. Skipping directory ${child}`,
+      );
     }
     const projectFileParsed = readProjectObjectFromFile(fullPath, zodSchema);
     if (projectFileParsed) {
@@ -198,17 +238,29 @@ export function readProject(dir: string): Project {
   const syncDir = path.join(dir, "syncs");
   const connectionsDir = path.join(dir, "connections");
   if (!fs.existsSync(modelDir)) {
-    throw new Error(`Model directory ./model does not exist in the project directory ${dir}`);
+    throw new Error(
+      `Model directory ./model does not exist in the project directory ${dir}`,
+    );
   }
   if (!fs.existsSync(syncDir)) {
-    throw new Error(`Model directory ./sync does not exist in the project directory ${dir}`);
+    throw new Error(
+      `Model directory ./sync does not exist in the project directory ${dir}`,
+    );
   }
   if (!fs.existsSync(connectionsDir)) {
-    throw new Error(`Model directory ./destinations does not exist in the project directory ${dir}`);
+    throw new Error(
+      `Model directory ./destinations does not exist in the project directory ${dir}`,
+    );
   }
   return {
     syncs: readObjectsFromDirectory<SyncDefinition>(syncDir, SyncDefinition),
-    models: readObjectsFromDirectory<ModelDefinition>(modelDir, ModelDefinition),
-    connection: readObjectsFromDirectory<ConnectionDefinition>(connectionsDir, ConnectionDefinition),
+    models: readObjectsFromDirectory<ModelDefinition>(
+      modelDir,
+      ModelDefinition,
+    ),
+    connection: readObjectsFromDirectory<ConnectionDefinition>(
+      connectionsDir,
+      ConnectionDefinition,
+    ),
   };
 }

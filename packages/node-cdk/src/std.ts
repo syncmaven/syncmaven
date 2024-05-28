@@ -210,7 +210,7 @@ function createContext(): ExecutionContext {
             batch = [];
           }
         }
-        await cb(res);
+        await cb(batch);
       },
     },
   };
