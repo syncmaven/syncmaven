@@ -27,10 +27,7 @@ const AudienceRowType = z.object({
 type AudienceRowType = z.infer<typeof AudienceRowType>;
 const maxBatchSize = 1000;
 
-class FacebookAudienceOutputStream extends BaseOutputStream<
-  AudienceRowType,
-  FacebookAdsCredentials
-> {
+class FacebookAudienceOutputStream extends BaseOutputStream<AudienceRowType, FacebookAdsCredentials> {
   private accountId: string;
   private currentBatch: AudienceRowType[] = [];
   private sessionId: number = Math.round(Math.random() * 100_000_000_000);
@@ -40,10 +37,7 @@ class FacebookAudienceOutputStream extends BaseOutputStream<
   private client: RpcFunc;
   private rowsKey: string[];
 
-  constructor(
-    config: OutputStreamConfiguration<FacebookAdsCredentials>,
-    ctx: ExecutionContext,
-  ) {
+  constructor(config: OutputStreamConfiguration<FacebookAdsCredentials>, ctx: ExecutionContext) {
     super(config, ctx);
     this.accountId = config.credentials.accountId.startsWith("act_")
       ? config.credentials.accountId
@@ -55,25 +49,15 @@ class FacebookAudienceOutputStream extends BaseOutputStream<
       },
       urlBase: `https://graph.facebook.com/${this.apiVersion}/${this.accountId}`,
     });
-    this.rowsKey = [
-      `sync=${config.syncId}`,
-      `stream=${config.streamId}`,
-      "last-synced-rows",
-    ];
+    this.rowsKey = [`sync=${config.syncId}`, `stream=${config.streamId}`, "last-synced-rows"];
   }
 
   async init() {
     const { streamId, syncId } = this.config;
-    const currentAudiences = await this.client(
-      `/customaudiences?fields=id,name,description`,
-    );
-    const audienceName =
-      this.config.options?.audienceName ||
-      `audience-sync?syncId=${syncId}&streamId=` + streamId;
+    const currentAudiences = await this.client(`/customaudiences?fields=id,name,description`);
+    const audienceName = this.config.options?.audienceName || `audience-sync?syncId=${syncId}&streamId=` + streamId;
     const description = `This audience is created by Jitsu for stream ${streamId} with syncId ${syncId}. Don't change it's name!`;
-    this.audienceId = currentAudiences.data.find(
-      (a) => a.name === audienceName,
-    )?.id;
+    this.audienceId = currentAudiences.data.find(a => a.name === audienceName)?.id;
     if (!this.audienceId) {
       console.log(`Audience with ${audienceName} not found, creating...`);
       const audience = await this.client(`/customaudiences`, {
@@ -100,24 +84,16 @@ class FacebookAudienceOutputStream extends BaseOutputStream<
         console.log(`Removing batch of ${toRemoveBatch.length} users`);
         const payload = {
           schema: ["EMAIL_SHA256"],
-          data: toRemoveBatch.map((r) =>
-            crypto
-              .createHash("sha256")
-              .update(r.email.toLowerCase())
-              .digest("hex"),
-          ),
+          data: toRemoveBatch.map(r => crypto.createHash("sha256").update(r.email.toLowerCase()).digest("hex")),
         };
-        await rpc(
-          `https://graph.facebook.com/${this.apiVersion}/${this.audienceId}/users`,
-          {
-            method: "DELETE",
-            headers: {
-              Authorization: `Bearer ${this.config.credentials.accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: { payload },
+        await rpc(`https://graph.facebook.com/${this.apiVersion}/${this.audienceId}/users`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${this.config.credentials.accessToken}`,
+            "Content-Type": "application/json",
           },
-        );
+          body: { payload },
+        });
         toRemoveBatch.length = 0;
       };
 
@@ -160,15 +136,12 @@ class FacebookAudienceOutputStream extends BaseOutputStream<
     console.log(`Flushing batch of ${batch.length} users`);
 
     function sha256(email: string) {
-      return crypto
-        .createHash("sha256")
-        .update(email.toLowerCase())
-        .digest("hex");
+      return crypto.createHash("sha256").update(email.toLowerCase()).digest("hex");
     }
 
     const payload = {
       schema: ["EMAIL_SHA256"],
-      data: batch.map((r) => [sha256(r.email)]),
+      data: batch.map(r => [sha256(r.email)]),
     };
 
     const body = {
@@ -183,27 +156,18 @@ class FacebookAudienceOutputStream extends BaseOutputStream<
 
     try {
       //console.log(`Batch payload`, body);
-      const batchFlushResponse = await rpc(
-        `https://graph.facebook.com/${this.apiVersion}/${this.audienceId}/users`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.config.credentials.accessToken}`,
-            "Content-Type": "application/json",
-          },
-          method: "POST",
-          body: body,
+      const batchFlushResponse = await rpc(`https://graph.facebook.com/${this.apiVersion}/${this.audienceId}/users`, {
+        headers: {
+          Authorization: `Bearer ${this.config.credentials.accessToken}`,
+          "Content-Type": "application/json",
         },
-      );
-      console.log(
-        `Batch of ${batch.length} users flushed. Response`,
-        batchFlushResponse,
-      );
+        method: "POST",
+        body: body,
+      });
+      console.log(`Batch of ${batch.length} users flushed. Response`, batchFlushResponse);
     } catch (e) {
       if (e instanceof RpcError) {
-        console.error(
-          `Error flushing batch of ${batch.length} users. Code ${e.statusCode}. Response`,
-          e.response,
-        );
+        console.error(`Error flushing batch of ${batch.length} users. Code ${e.statusCode}. Response`, e.response);
       }
     } finally {
       batch.length = 0;
@@ -211,22 +175,17 @@ class FacebookAudienceOutputStream extends BaseOutputStream<
   }
 }
 
-const audienceStream: DestinationStream<
-  FacebookAdsCredentials,
-  AudienceRowType
-> = {
+const audienceStream: DestinationStream<FacebookAdsCredentials, AudienceRowType> = {
   name: "audience",
   rowType: AudienceRowType,
-  createOutputStream: async (config, ctx) =>
-    await new FacebookAudienceOutputStream(config, ctx).init(),
+  createOutputStream: async (config, ctx) => await new FacebookAudienceOutputStream(config, ctx).init(),
 };
 
-export const facebookAdsProvider: DestinationProvider<FacebookAdsCredentials> =
-  {
-    name: "facebook-ads",
-    credentialsType: FacebookAdsCredentials,
-    streams: [audienceStream],
-    defaultStream: "audience",
-  };
+export const facebookAdsProvider: DestinationProvider<FacebookAdsCredentials> = {
+  name: "facebook-ads",
+  credentialsType: FacebookAdsCredentials,
+  streams: [audienceStream],
+  defaultStream: "audience",
+};
 
 stdProtocol(facebookAdsProvider);

@@ -7,9 +7,7 @@ function validateKey(key: StorageKey) {
   const segments = Array.isArray(key) ? key : [key];
   for (const segment of segments) {
     if (segment.indexOf("::") >= 0) {
-      throw new Error(
-        `Invalid key segment: '${segment}'. Key segments cannot contain '::'`,
-      );
+      throw new Error(`Invalid key segment: '${segment}'. Key segments cannot contain '::'`);
     }
   }
 }
@@ -39,10 +37,7 @@ export class PostgresStore implements StreamPersistenceStore {
   }
 
   async get(key: StorageKey) {
-    const res = await this.client.query(
-      `SELECT value FROM syncmaven_store WHERE key = $1`,
-      [stringifyKey(key)],
-    );
+    const res = await this.client.query(`SELECT value FROM syncmaven_store WHERE key = $1`, [stringifyKey(key)]);
     if (res.rowCount === 0) {
       return undefined;
     }
@@ -52,19 +47,17 @@ export class PostgresStore implements StreamPersistenceStore {
   async set(key: StorageKey, value: any) {
     await this.client.query(
       `INSERT INTO syncmaven_store (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2`,
-      [stringifyKey(key), JSON.stringify(value)],
+      [stringifyKey(key), JSON.stringify(value)]
     );
   }
 
   async del(key: StorageKey) {
-    await this.client.query(`DELETE FROM syncmaven_store WHERE key = $1`, [
-      stringifyKey(key),
-    ]);
+    await this.client.query(`DELETE FROM syncmaven_store WHERE key = $1`, [stringifyKey(key)]);
   }
 
   async list(prefix: StorageKey) {
     const res: Entry[] = [];
-    await this.stream(prefix, (entry) => {
+    await this.stream(prefix, entry => {
       res.push(entry);
     });
     return res;
@@ -75,7 +68,7 @@ export class PostgresStore implements StreamPersistenceStore {
     const keyPattern = `${key}::%`;
     const res = await this.client.query(
       `SELECT key, value FROM syncmaven_store WHERE key LIKE $1 or key = $2 ORDER BY key ASC`,
-      [keyPattern, key],
+      [keyPattern, key]
     );
     for (const row of res.rows) {
       await cb({
@@ -85,11 +78,7 @@ export class PostgresStore implements StreamPersistenceStore {
     }
   }
 
-  async streamBatch(
-    prefix: StorageKey,
-    cb: (batch: Entry[]) => void | Promise<void>,
-    maxBatchSize: number,
-  ) {
+  async streamBatch(prefix: StorageKey, cb: (batch: Entry[]) => void | Promise<void>, maxBatchSize: number) {
     const batch: Entry[] = [];
     const flushBatch = async () => {
       if (batch.length > 0) {
@@ -113,19 +102,16 @@ export class PostgresStore implements StreamPersistenceStore {
   async deleteByPrefix(prefix: StorageKey) {
     const key = stringifyKey(prefix);
     const keyPattern = `${key}::%`;
-    await this.client.query(
-      `DELETE FROM syncmaven_store WHERE key LIKE $1 OR key = $2`,
-      [keyPattern, key],
-    );
+    await this.client.query(`DELETE FROM syncmaven_store WHERE key LIKE $1 OR key = $2`, [keyPattern, key]);
   }
 
   async size(prefix: StorageKey) {
     const key = stringifyKey(prefix);
     const keyPattern = `${key}::%`;
-    const res = await this.client.query(
-      `SELECT count(*) as count FROM syncmaven_store WHERE key LIKE $1 OR key = $2`,
-      [keyPattern, key],
-    );
+    const res = await this.client.query(`SELECT count(*) as count FROM syncmaven_store WHERE key LIKE $1 OR key = $2`, [
+      keyPattern,
+      key,
+    ]);
     if (res.rowCount === 0) {
       return 0;
     }
@@ -155,9 +141,7 @@ export class SqliteStore implements StreamPersistenceStore {
   }
 
   del(key: StorageKey): Promise<void> {
-    this.database
-      .prepare(`DELETE FROM store WHERE key = ?`)
-      .run(stringifyKey(key));
+    this.database.prepare(`DELETE FROM store WHERE key = ?`).run(stringifyKey(key));
     return Promise.resolve();
   }
 
@@ -170,7 +154,7 @@ export class SqliteStore implements StreamPersistenceStore {
 
   async list(prefix: StorageKey): Promise<Entry[]> {
     const res: Entry[] = [];
-    await this.stream(prefix, (entry) => {
+    await this.stream(prefix, entry => {
       res.push(entry);
     });
     return res;
@@ -186,7 +170,7 @@ export class SqliteStore implements StreamPersistenceStore {
   async streamBatch(
     prefix: StorageKey,
     cb: (batch: Entry[]) => Promise<void> | void,
-    maxBatchSize: number,
+    maxBatchSize: number
   ): Promise<any> {
     const batch: Entry[] = [];
     const flushBatch = async () => {
@@ -209,15 +193,10 @@ export class SqliteStore implements StreamPersistenceStore {
     await flushBatch();
   }
 
-  async stream(
-    prefix: StorageKey,
-    cb: (entry: Entry) => Promise<void> | void,
-  ): Promise<any> {
+  async stream(prefix: StorageKey, cb: (entry: Entry) => Promise<void> | void): Promise<any> {
     const key = stringifyKey(prefix);
     const keyPattern = `${key}::%`;
-    const stmt = this.database.prepare(
-      `SELECT key, value FROM store WHERE key LIKE ? or key = ? ORDER BY key ASC`,
-    );
+    const stmt = this.database.prepare(`SELECT key, value FROM store WHERE key LIKE ? or key = ? ORDER BY key ASC`);
     const stream = stmt.iterate(keyPattern, key);
     for (const row of stream) {
       await cb({
@@ -230,9 +209,7 @@ export class SqliteStore implements StreamPersistenceStore {
   size(prefix: StorageKey): Promise<number> {
     // const result = this.database.prepare(`SELECT count(*) as count FROM store WHERE key LIKE ? OR key = ?`).get(`${key}::%`, key);
 
-    const stmt = this.database.prepare(
-      `SELECT count(*) as count FROM store WHERE key LIKE ? OR key = ?`,
-    );
+    const stmt = this.database.prepare(`SELECT count(*) as count FROM store WHERE key LIKE ? OR key = ?`);
     const key = stringifyKey(prefix);
     const keyPattern = `${key}::%`;
     const result = stmt.get(keyPattern, key);
@@ -242,9 +219,7 @@ export class SqliteStore implements StreamPersistenceStore {
   deleteByPrefix(prefix: StorageKey): Promise<void> {
     const key = stringifyKey(prefix);
     const keyPattern = `${key}::%`;
-    this.database
-      .prepare(`DELETE FROM store WHERE key LIKE ? OR key = ?`)
-      .run(keyPattern, key);
+    this.database.prepare(`DELETE FROM store WHERE key LIKE ? OR key = ?`).run(keyPattern, key);
     return Promise.resolve();
   }
 }

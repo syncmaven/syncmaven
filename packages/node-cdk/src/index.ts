@@ -5,22 +5,16 @@ import crypto from "crypto";
 type AnyRow = Record<string, any>;
 type AnyCredentials = any;
 
-export type DestinationStream<
-  Cred extends AnyCredentials = AnyCredentials,
-  RowType extends AnyRow = AnyRow,
-> = {
+export type DestinationStream<Cred extends AnyCredentials = AnyCredentials, RowType extends AnyRow = AnyRow> = {
   name: string;
   rowType: ZodType<RowType>;
   createOutputStream: (
     config: OutputStreamConfiguration<Cred>,
-    ctx: ExecutionContext,
+    ctx: ExecutionContext
   ) => OutputStream<RowType> | Promise<OutputStream<RowType>>;
 };
 
-export type OutputStreamConfiguration<
-  T extends AnyCredentials = AnyCredentials,
-  O = any,
-> = {
+export type OutputStreamConfiguration<T extends AnyCredentials = AnyCredentials, O = any> = {
   streamId: string;
   options: O;
   credentials: T;
@@ -40,10 +34,7 @@ export type DestinationProvider<T extends AnyCredentials = AnyCredentials> = {
   defaultStream: string;
 };
 
-export type EnrichmentConfig<
-  Cred extends AnyCredentials = AnyCredentials,
-  Opts = any,
-> = {
+export type EnrichmentConfig<Cred extends AnyCredentials = AnyCredentials, Opts = any> = {
   credentials: Cred;
   options: Opts;
 };
@@ -51,36 +42,23 @@ export type EnrichmentConfig<
 type EnrichmentResult<T> = T[] | T | undefined | void;
 
 export type StreamEnrichment<RowType extends AnyRow = AnyRow> = {
-  enrichRow: (
-    row: RowType,
-    ctx: ExecutionContext,
-  ) => Promise<EnrichmentResult<RowType>> | EnrichmentResult<RowType>;
+  enrichRow: (row: RowType, ctx: ExecutionContext) => Promise<EnrichmentResult<RowType>> | EnrichmentResult<RowType>;
 };
 
-export type EnrichmentProvider<
-  Cred extends AnyCredentials = AnyCredentials,
-  RowType extends AnyRow = AnyRow,
-> = {
+export type EnrichmentProvider<Cred extends AnyCredentials = AnyCredentials, RowType extends AnyRow = AnyRow> = {
   credentialsType: ZodType<Cred>;
   name: string;
   createEnrichment: (
     config: EnrichmentConfig<Cred>,
-    ctx: ExecutionContext,
+    ctx: ExecutionContext
   ) => StreamEnrichment<RowType> | Promise<StreamEnrichment<RowType>>;
 };
 
-export abstract class BaseOutputStream<
-  RowT extends Record<string, any>,
-  ConfigT,
-> implements OutputStream<RowT>
-{
+export abstract class BaseOutputStream<RowT extends Record<string, any>, ConfigT> implements OutputStream<RowT> {
   protected readonly config: OutputStreamConfiguration<ConfigT>;
   protected ctx: ExecutionContext;
 
-  protected constructor(
-    config: OutputStreamConfiguration<ConfigT>,
-    ctx: ExecutionContext,
-  ) {
+  protected constructor(config: OutputStreamConfiguration<ConfigT>, ctx: ExecutionContext) {
     this.config = config;
     this.ctx = ctx;
   }
@@ -93,11 +71,7 @@ export abstract class BaseOutputStream<
   abstract handleRow(row: RowT, ctx: ExecutionContext): Promise<void> | void;
 }
 
-export abstract class BatchingOutputStream<
-  RowT extends Record<string, any>,
-  ConfigT,
-> implements OutputStream<RowT>
-{
+export abstract class BatchingOutputStream<RowT extends Record<string, any>, ConfigT> implements OutputStream<RowT> {
   protected readonly config: OutputStreamConfiguration<ConfigT>;
   protected ctx: ExecutionContext;
   protected currentBatch: RowT[] = [];
@@ -106,7 +80,7 @@ export abstract class BatchingOutputStream<
   protected constructor(
     config: OutputStreamConfiguration<ConfigT>,
     ctx: ExecutionContext,
-    maxBatchSize: number = 1000,
+    maxBatchSize: number = 1000
   ) {
     this.config = config;
     this.ctx = ctx;
@@ -137,15 +111,10 @@ export abstract class BatchingOutputStream<
     console.log(`Flushing batch of ${batch.length} rows....`);
     const start = Date.now();
     await this.processBatch(batch, ctx);
-    console.log(
-      `Batch of ${batch.length} rows processed in ${Date.now() - start}ms`,
-    );
+    console.log(`Batch of ${batch.length} rows processed in ${Date.now() - start}ms`);
   }
 
-  protected abstract processBatch(
-    currentBatch: RowT[],
-    ctx: ExecutionContext,
-  ): Promise<void> | void;
+  protected abstract processBatch(currentBatch: RowT[], ctx: ExecutionContext): Promise<void> | void;
 }
 
 export function splitName(name: string): { first: string; last: string } {

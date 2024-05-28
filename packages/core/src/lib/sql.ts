@@ -85,9 +85,7 @@ export class SqlQuery {
           node.type = "null";
           node.value = null;
         } else {
-          throw new Error(
-            `Unsupported '${paramName}' parameter type: ${typeof paramVal}`,
-          );
+          throw new Error(`Unsupported '${paramName}' parameter type: ${typeof paramVal}`);
         }
       }
     });
@@ -101,7 +99,7 @@ function treeWalker(
   ast: AST,
   cb: {
     (node: AST): void;
-  },
+  }
 ) {
   const visitor = (node: any) => {
     if (!node) {

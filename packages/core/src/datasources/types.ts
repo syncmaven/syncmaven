@@ -1,8 +1,8 @@
-export type GenericColumnType = "integer" | "string" | "boolean" | "date" | "float"
+export type GenericColumnType = "integer" | "string" | "boolean" | "date" | "float";
 
 export type ColumnType = {
   //native DB type
-  nativeType: string
+  nativeType: string;
   //common type for the platform
-  genericType: GenericColumnType
-}
+  genericType: GenericColumnType;
+};

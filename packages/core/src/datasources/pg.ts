@@ -5,15 +5,12 @@ import { ModelDefinition } from "../types/objects";
 import { DataSource, StreamingHandler } from "./index";
 import { ColumnType, GenericColumnType } from "./types";
 
-
 async function getDataTypesTable(client: Client): Promise<Record<number, string>> {
   return (await client.query("SELECT oid, typname FROM pg_type")).rows.reduce((acc, row) => {
     acc[row.oid] = row.typname;
     return acc;
   }, {});
-
 }
-
 
 function getGenericType(typeName: string): GenericColumnType {
   if (typeName.toLowerCase() === "text") {
@@ -31,9 +28,7 @@ function getGenericType(typeName: string): GenericColumnType {
   }
 }
 
-export async function newPostgresDatasource(
-  modelDefinition: ModelDefinition,
-): Promise<DataSource> {
+export async function newPostgresDatasource(modelDefinition: ModelDefinition): Promise<DataSource> {
   const dsn = modelDefinition.datasource;
   if (typeof dsn !== "string") {
     throw new Error(`Invalid datasource: ${dsn}`);
@@ -61,23 +56,20 @@ export async function newPostgresDatasource(
     return {
       nativeType: typeName,
       genericType: getGenericType(typeName),
-    }
+    };
   }
 
   return {
     type: () => "postgres",
     id: () => id,
-    executeQuery: async (param: {
-      handler: StreamingHandler;
-      query: string;
-    }) => {
+    executeQuery: async (param: { handler: StreamingHandler; query: string }) => {
       console.debug(`[${id}] Executing query: ${param.query}`);
 
       const cursor = client.query(new Cursor(param.query));
       let cursorBatchSize = 100;
       let result = await read(cursor, cursorBatchSize);
       await param.handler.header({
-        columns: result.fields.map((f) => ({ name: f.name, type: parseType(f) })),
+        columns: result.fields.map(f => ({ name: f.name, type: parseType(f) })),
       });
       while (result?.rows && result.rows.length > 0) {
         for (const row of result.rows) {

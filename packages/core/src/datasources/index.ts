@@ -23,16 +23,11 @@ export type StreamingHandler = {
 export interface DataSource {
   id(): string;
   type(): "postgres" | "bigquery";
-  executeQuery(param: {
-    handler: StreamingHandler;
-    query: string;
-  }): Promise<void>;
+  executeQuery(param: { handler: StreamingHandler; query: string }): Promise<void>;
   close(): Promise<void>;
 }
 
-export async function createDatasource(
-  modelDefinition: ModelDefinition,
-): Promise<DataSource> {
+export async function createDatasource(modelDefinition: ModelDefinition): Promise<DataSource> {
   if (typeof modelDefinition.datasource === "string") {
     const dsn = modelDefinition.datasource;
     const protocol = dsn.split("://")[0];
@@ -42,10 +37,7 @@ export async function createDatasource(
       default:
         throw new Error(`Unsupported protocol: ${protocol}`);
     }
-  } else if (
-    typeof modelDefinition.datasource === "object" &&
-    !Array.isArray(modelDefinition.datasource)
-  ) {
+  } else if (typeof modelDefinition.datasource === "object" && !Array.isArray(modelDefinition.datasource)) {
     const { type } = modelDefinition.datasource;
     switch (type) {
       case "bigquery":

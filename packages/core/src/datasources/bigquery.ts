@@ -2,9 +2,7 @@ import { BigQuery } from "@google-cloud/bigquery";
 import { ModelDefinition } from "../types/objects";
 import { DataSource, StreamingHandler } from "./index";
 
-export async function newBigQueryDatasource(
-  modelDefinition: ModelDefinition,
-): Promise<DataSource> {
+export async function newBigQueryDatasource(modelDefinition: ModelDefinition): Promise<DataSource> {
   const ds = modelDefinition.datasource;
   if (typeof ds !== "object") {
     throw new Error(`Invalid datasource: ${ds}`);
@@ -14,10 +12,7 @@ export async function newBigQueryDatasource(
   }
   const location = ds.credentials?.location || "US";
   const bigQuery = new BigQuery({
-    credentials:
-      typeof ds.credentials?.key === "string"
-        ? JSON.parse(ds.credentials.key)
-        : ds.credentials?.key,
+    credentials: typeof ds.credentials?.key === "string" ? JSON.parse(ds.credentials.key) : ds.credentials?.key,
     projectId: ds.credentials?.projectId,
   });
 
@@ -28,10 +23,7 @@ export async function newBigQueryDatasource(
   return {
     type: () => "bigquery",
     id: () => id,
-    executeQuery: async (param: {
-      handler: StreamingHandler;
-      query: string;
-    }) => {
+    executeQuery: async (param: { handler: StreamingHandler; query: string }) => {
       console.debug(`[${id}] Executing query: ${param.query}`);
       const query = param.query;
       const handler = param.handler;
@@ -52,7 +44,7 @@ export async function newBigQueryDatasource(
           //send header only on the first page
           await handler.header({
             columns:
-              meta?.schema?.fields?.map((f) => ({
+              meta?.schema?.fields?.map(f => ({
                 name: f.name || "",
                 type: f.type || "",
               })) || [],

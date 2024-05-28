@@ -4,9 +4,7 @@ import { stringifyZodError } from "./zod";
 const Ajv = require("ajv");
 const addFormats = require("ajv-formats");
 
-type ParseResult<T = any> =
-  | { success: true; data: T; error?: never }
-  | { success: false; data?: never; error: Error };
+type ParseResult<T = any> = { success: true; data: T; error?: never } | { success: false; data?: never; error: Error };
 export type SchemaBasedParser<T = any> = {
   parse: (data: any) => T;
   safeParse: (data: any) => ParseResult<T>;
@@ -51,7 +49,7 @@ export function createParser<T>(schema: any): SchemaBasedParser<T> {
     const ajv = new Ajv();
     addFormats(ajv);
     const validator = ajv.compile({ ...schema, additionalProperties: true });
-    const safeParse: (data: any) => ParseResult = (data) => {
+    const safeParse: (data: any) => ParseResult = data => {
       // stringify-parse to convert dates to ISO strings
       const valid = validator(JSON.parse(JSON.stringify(data)));
       if (valid) {

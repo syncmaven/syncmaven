@@ -1,18 +1,9 @@
 import readline from "readline";
 import { DestinationProvider, OutputStream, rpc } from "./index";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import {
-  Entry,
-  ExecutionContext,
-  StartStreamMessage,
-  StorageKey,
-} from "@syncmaven/protocol";
+import { Entry, ExecutionContext, StartStreamMessage, StorageKey } from "@syncmaven/protocol";
 
-function log(
-  level: "debug" | "info" | "warn" | "error",
-  message: string,
-  ...params: any[]
-) {
+function log(level: "debug" | "info" | "warn" | "error", message: string, ...params: any[]) {
   process.stdout.write(
     JSON.stringify({
       type: "log",
@@ -21,7 +12,7 @@ function log(
         message,
         params: params.length > 0 ? params : undefined,
       },
-    }) + "\n",
+    }) + "\n"
   );
 }
 
@@ -81,14 +72,14 @@ export async function stdProtocol(provider: DestinationProvider) {
       reply("stream-spec", {
         roles: ["destination"],
         defaultStream: provider.defaultStream,
-        streams: provider.streams.map((s) => ({
+        streams: provider.streams.map(s => ({
           name: s.name,
           rowType: zodToJsonSchema(s.rowType),
         })),
       });
     } else if (message.type === "start-stream") {
       const streamName = message.payload.stream;
-      const stream = provider.streams.find((s) => s.name === streamName);
+      const stream = provider.streams.find(s => s.name === streamName);
       if (!stream) {
         log("error", "Unknown stream", { streamName });
         reply("halt", { message: `Unknown stream ${streamName}` });
@@ -106,7 +97,7 @@ export async function stdProtocol(provider: DestinationProvider) {
             fullRefresh: payload.fullRefresh,
             options: payload.streamOptions,
           },
-          ctx,
+          ctx
         );
       }
     } else if (message.type === "end-stream") {
@@ -131,10 +122,7 @@ export async function stdProtocol(provider: DestinationProvider) {
           success++;
         } catch (e: any) {
           failed++;
-          log(
-            "error",
-            `Failed to process row: ${JSON.stringify(row)} error: ${e.toString()}`,
-          );
+          log("error", `Failed to process row: ${JSON.stringify(row)} error: ${e.toString()}`);
         }
       } else {
         log("error", "There is no started stream.");
@@ -183,10 +171,7 @@ function createContext(): ExecutionContext {
         });
       },
 
-      async stream(
-        prefix: StorageKey,
-        cb: (entry: Entry) => Promise<void> | void,
-      ): Promise<any> {
+      async stream(prefix: StorageKey, cb: (entry: Entry) => Promise<void> | void): Promise<any> {
         const res = (await rpcCall("state.list", {
           prefix,
         })) as Entry[];
@@ -197,7 +182,7 @@ function createContext(): ExecutionContext {
       async streamBatch(
         prefix: StorageKey,
         cb: (batch: Entry[]) => Promise<void> | void,
-        maxBatchSize: number,
+        maxBatchSize: number
       ): Promise<any> {
         const res = (await rpcCall("state.list", {
           prefix,

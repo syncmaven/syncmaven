@@ -29,10 +29,10 @@
     "connectors:canary": "monorel --filter './packages/connectors/**'  --version '0.0.1-alpha.{rev}' --npm-tag canary --publish",
     "test": "pnpm run -r test",
     "build": "pnpm run -r build",
-    "format:check": "prettier --ignore-unknown --check --config ./packages/configs./.prettierrc.json --ignore-path packages/configs/.prettierignore $(git diff --name-only --diff-filter d | xargs)",
-    "format:check:all": "prettier --check --config ./packages/configs/.prettierrc.json --ignore-path packages/configs/.prettierignore .",
-    "format": "prettier --ignore-unknown --write --config ./packages/configs/.prettierrc.json --ignore-path packages/configs/.prettierignore $(git diff --name-only --diff-filter d | xargs)",
-    "format:all": "prettier --write --config ./packages/configs/.prettierrc.json --ignore-path packages/configs/.prettierignore ."
+    "format:check": "prettier --ignore-unknown --check $(git diff --name-only --diff-filter d | xargs)",
+    "format:check:all": "prettier --check .",
+    "format": "prettier --ignore-unknown --write $(git diff --name-only --diff-filter d | xargs)",
+    "format:all": "prettier --write ."
   },
   "ts-node": {
     "swc": true
