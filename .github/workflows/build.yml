@@ -17,6 +17,7 @@ jobs:
   build:
     name: "Build project and publish NPMs"
     runs-on: ubuntu-latest
+    if: false
     steps:
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -129,5 +130,5 @@ jobs:
 
       - name: Create and push manifest list for canary
         if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == ''
-        run: ./build-scripts/create-manifest.sh canary canary-v${{ needs.build-docker.outputs.build_id }}
+        run: ./build-scripts/publish-docker-tags.sh canary canary-v${{ needs.build-docker.outputs.build_id }}
 
