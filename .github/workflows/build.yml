@@ -116,9 +116,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: [DEBUG] Show current directory
+        run: ls .
+
       - name: Build and push release docker images
         if: github.event.inputs.release-version != ''
         run: docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:v${{ github.event.inputs.release-version }} --tag syncmaven/syncmaven:latest --push .
+
       - name: Build and push canary docker images
         if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == ''
         run: docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-v${{ needs.checkout.outputs.build_number }}  --tag syncmaven/syncmaven:canary --push .
