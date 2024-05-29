@@ -3,6 +3,7 @@
 # This scripts accept array of tags prefixs, and assumes that every $tag has
 # $tag-amd64 and $tag-arm64 images. It will create a manifest for each $tag and
 # push it to Docker Hub.
+# It's used in github actions
 
 function publish() {
   local tag=$1

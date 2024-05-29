@@ -17,7 +17,6 @@ jobs:
   build:
     name: "Build project and publish NPMs"
     runs-on: ubuntu-latest
-    if: false
     steps:
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -68,6 +67,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   build-docker:
+    if: false #disabled for now
     runs-on: ubuntu-latest
     outputs:
       build_id: ${{ steps.versions.outputs.build_id }}
@@ -118,6 +118,7 @@ jobs:
 
 
   manifest:
+    if: false #disabled for now
     runs-on: ubuntu-latest
     needs: build-docker
     name: "Create and push manifest list"

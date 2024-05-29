@@ -14,14 +14,20 @@ function build() {
 
 
 function main() {
+  local version="$1"
   local rev="$(git rev-list --count HEAD).$(git rev-parse --short HEAD)"
   local script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
-  build arm64 canary canary-v$rev
-  build amd64 canary canary-v$rev
-
-  "$script_dir"/docker-publish-tags.sh canary-$rev canary
+  local tags
+  if [ -z "$version" ]; then
+    build arm64 canary canary-v$rev
+    build amd64 canary canary-v$rev
+    "$script_dir"/docker-publish-tags.sh canary-$rev canary
+  else
+    build arm64 latest v$version
+    build amd64 latest v$version
+    "$script_dir"/docker-publish-tags.sh canary-$rev canary
+  fi
 }
 
-main
+main "$@"
 
