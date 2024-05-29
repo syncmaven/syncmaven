@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       build_number: ${{ steps.get-build-number.outputs.build_number }}
-      branch_name: ${{ steps.get-build-number.outputs.branch_name }}
 
     steps:
       - name: Checkout repository
@@ -27,16 +26,13 @@ jobs:
         with:
           fetch-depth: 0  # We need this to get (git rev-list --count HEAD) to work
 
-      - name: Get build number and branch name
+      - name: Get build number
         id: get-build-number
         # The variables below can be referenced as ${{ needs.checkout.outputs.branch_name }} and ${{ needs.checkout.outputs.build_number }}
         run: |
           BUILD_NUMBER=$(git rev-list --count HEAD)
-          BRANCH_NAME=${GITHUB_REF#refs/heads/}
           echo "Build number: $BUILD_NUMBER"
-          echo "Branch name: $BRANCH_NAME"
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_STATE
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_STATE
 
   build:
     name: "Build project and publish NPMs"
@@ -68,20 +64,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and test
-        run: |
-          pnpm build
-          pnpm test
+      - name: Build PNPM project
+        run: pnpm build && pnpm test
 
-      - name: Publish to NPM
-        run: |
-          if [ "${{ github.event.inputs.release-version }}" != "" ]; then
-            pnpm release --version ${{ github.event.inputs.release-version }} --publish
-          elif [ "${{ needs.checkout.outputs.branch_name }}" == "main" ]; then
-            pnpm release:canary
-          else
-            echo "Skipping NPM publish for branch $GITHUB_BASE_REF"
-          fi
+      - name: Test PNPM project
+        run: pnpm test
+
+      - name: Publish canary version to NPM
+        if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == ''
+        run: pnpm release:canary
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish release version to NPM
+        if: github.event.inputs.release-version != ''
+        run: pnpm release --version ${{ github.event.inputs.release-version }} --publish
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -112,16 +109,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker images
+      - name: Build and push release docker images
+        if: github.event.inputs.release-version != ''
+        run: docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:v${{ github.event.inputs.release-version }} --tag syncmaven/syncmaven:latest --push .
+      - name: Build and push canary docker images
+        if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == ''
+        run: docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-v${{ needs.checkout.outputs.build_number }}  --tag syncmaven/syncmaven:canary --push .
 
-        run: |
-          if [ "${{ github.event.inputs.release-version }}" != "" ]; then
-            docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:v${{ github.event.inputs.release-version }} --tag syncmaven/syncmaven:latest --push .
-          elif [ "${{ needs.checkout.outputs.branch_name }}" == "main" ]; then
-            docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-v${{ needs.checkout.outputs.build_number }}  --tag syncmaven/syncmaven:canary --push .
-          else
-            echo "Skipping Docker build for branch $GITHUB_REF"
-          fi
 
 #  manifest:
 #    runs-on: ubuntu-latest
