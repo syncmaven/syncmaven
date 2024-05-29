@@ -116,8 +116,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: [DEBUG] Show current directory
-        run: ls .
+      - name: "[DEBUG] Show current directory"
+        run: "ls ."
 
       - name: Build and push release docker images
         if: github.event.inputs.release-version != ''
