@@ -1,4 +1,4 @@
-#docker buildx build --platform linux/amd64,linux/arm64 -t syncmaven/syncmaven:latest --push .
+# See ./docker-build-core.sh for instructions on how to build this image
 
 
 FROM node:20-slim as base

@@ -1,3 +1,9 @@
+#!/bin/bash
+
+#Builds a canary release of the syncmaven/syncmaven image
+#Shouldn't be used directly, GitHub Actions executes the same thing
+#It's here mainly for reference / debugging purposes
+
 function publish_manifest() {
   local tag=$1
   docker manifest create syncmaven/syncmaven:$tag syncmaven/syncmaven:$tag-arm64 syncmaven/syncmaven:$tag-amd64 --amend
@@ -36,16 +42,16 @@ function build() {
 function main() {
   local rev="$(git rev-list --count HEAD).$(git rev-parse --short HEAD)"
 
-  #build arm64 canary canary-v$rev
-  #build amd64 canary canary-v$rev
+  build arm64 canary canary-v$rev
+  build amd64 canary canary-v$rev
 
-  #publish_manifest canary-$rev
-  #publish_manifest canary
+  publish_manifest canary-$rev
+  publish_manifest canary
 
-  remove_docker_tag canary-$rev-amd64
-  remove_docker_tag canary-$rev-arm64
-  remove_docker_tag canary-amd64
-  remove_docker_tag canary-arm64
+#  remove_docker_tag canary-$rev-amd64
+#  remove_docker_tag canary-$rev-arm64
+#  remove_docker_tag canary-amd64
+#  remove_docker_tag canary-arm64
 }
 
 main
