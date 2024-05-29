@@ -1,4 +1,4 @@
-name: Canary Build
+name: Build and Publish
 
 on:
   push:
@@ -106,11 +106,12 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker images
+
         run: |
           if [ "${{ github.event.inputs.release-version }}" != "" ]; then
             docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:v${{ github.event.inputs.release-version }} --tag syncmaven/syncmaven:latest --push .
           elif [ "$GITHUB_BASE_REF" == "main" ]; then
-            docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-v${{ build_number }}  --tag syncmaven/syncmaven:canary --push .
+            docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-v${{ needs.checkout.outputs.build_number }}  --tag syncmaven/syncmaven:canary --push .
           else
             echo "Skipping Docker build for branch $GITHUB_BASE_REF"
           fi
