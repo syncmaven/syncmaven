@@ -26,9 +26,14 @@ jobs:
         with:
           fetch-depth: 0  # We need this to get (git rev-list --count HEAD) to work
 
+      - name: Set up Git user
+        run: |
+          git config --global user.name 'Syncmaven Builds'
+          git config --global user.email 'dev@syncmaven.sh'
+
       - name: Get build number
         id: get-build-number
-        # The variables below can be referenced as ${{ needs.checkout.outputs.branch_name }} and ${{ needs.checkout.outputs.build_number }}
+        # The variables below can be referenced as ${{ needs.checkout.outputs.build_number }}
         run: |
           BUILD_NUMBER=$(git rev-list --count HEAD)
           echo "Build number: $BUILD_NUMBER"
