@@ -98,10 +98,13 @@ jobs:
       - id: checkout
         name: Check out repository
         uses: actions/checkout@v4
-        run: |
-          echo "build_id=$(git rev-list --count HEAD).$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
         with:
           fetch-depth: 0
+
+      - id: versions
+        run: |
+          echo "build_id=$(git rev-list --count HEAD).$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
 
 
       - name: Build and push release docker images
@@ -110,7 +113,7 @@ jobs:
 
       - name: Build and push canary docker images
         if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == ''
-        run: docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-v${{ steps.checkout.outputs.build_id }}-${{ matrix.arch }} --tag syncmaven/syncmaven:canary-${{ matrix.arch }} --push .
+        run: docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-v${{ steps.versions.outputs.build_id }}-${{ matrix.arch }} --tag syncmaven/syncmaven:canary-${{ matrix.arch }} --push .
 
 
   manifest:
@@ -127,14 +130,14 @@ jobs:
       - name: Create and push manifest list for canary
         if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == ''
         run: |
-          tags=("canary" "canary-v${{ steps.build-docker.outputs.docker-version }}")
+          tags=("canary" "canary-v${{ needs.build-docker.outputs.versions.build_id }}")
           for tag in "${tags[@]}"; do
             docker manifest create syncmaven/syncmaven:$tag syncmaven/syncmaven:$tag-arm64 syncmaven/syncmaven:$tag-amd64 --amend
             docker manifest annotate syncmaven/syncmaven:$tag syncmaven/syncmaven:$tag-arm64 --os linux --arch arm64
             docker manifest annotate syncmaven/syncmaven:$tag syncmaven/syncmaven:$tag-amd64 --os linux --arch amd64
             docker manifest push syncmaven/syncmaven:canary
           done
-          tags_to_delete=("canary-amd64" "canary-v${{ steps.build-docker.outputs.docker-version }}-amd64" "canary-arm64" "canary-v${{ steps.build-docker.outputs.docker-version }}-arm64")
+          tags_to_delete=("canary-amd64" "canary-v${{ needs.build-docker.outputs.versions.build_id }}-amd64" "canary-arm64" "canary-v${{ needs.build-docker.outputs.versions.build_id }}-arm64")
           for tag in "${tags_to_delete[@]}"; do
             echo "Deleting tag $tag, not implemented yet"
           done
