@@ -26,10 +26,6 @@ jobs:
         with:
           fetch-depth: 0  # We need this to get (git rev-list --count HEAD) to work
 
-      - name: Set up Git user
-        run: |
-          git config --global user.name 'Syncmaven Builds'
-          git config --global user.email 'dev@syncmaven.sh'
 
       - name: Get build number
         id: get-build-number
@@ -74,6 +70,11 @@ jobs:
 
       - name: Test PNPM project
         run: pnpm test
+
+      - name: Set up Git user for publishing
+        run: |
+          git config --global user.name 'Syncmaven Builds'
+          git config --global user.email 'dev@syncmaven.sh'
 
       - name: Publish canary version to NPM
         if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == ''
