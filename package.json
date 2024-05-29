@@ -11,7 +11,8 @@
     "packages/configs",
     "packages/node-cdk",
     "packages/connectors/*",
-    "packages/protocol"
+    "packages/protocol",
+    "docs"
   ],
   "bin": "./bin/syncmaven",
   "files": [
@@ -23,10 +24,10 @@
     "monorel": "^0.5.0"
   },
   "scripts": {
+    "docs:dev": "pnpm run --filter ./docs dev",
     "main": "pnpm run --filter ./packages/core -r main",
-    "release": "monorel --npm-tag latest --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/core' --publish",
-    "canary": "monorel --npm-tag canary --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/core' --version '0.0.5-alpha.{rev}' --publish",
-    "connectors:canary": "monorel --filter './packages/connectors/**'  --version '0.0.1-alpha.{rev}' --npm-tag canary --publish",
+    "release:stable": "monorel --npm-tag latest --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/core'",
+    "release:canary": "monorel --npm-tag canary --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/core' --version '0.0.1-canary.{rev}' --publish",
     "test": "pnpm run -r test",
     "build": "pnpm run -r build",
     "format:check": "prettier --ignore-unknown --check $(git diff --name-only --diff-filter d | xargs)",

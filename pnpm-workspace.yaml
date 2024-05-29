@@ -4,3 +4,4 @@ packages:
   - "packages/node-cdk"
   - "packages/connectors/*"
   - "packages/protocol"
+  - "docs"

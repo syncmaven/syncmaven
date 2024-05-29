@@ -14,7 +14,26 @@ on:
         required: false
 
 jobs:
-  build-npm:
+  checkout:
+    name: "Checkout Repository"
+    runs-on: ubuntu-latest
+    outputs:
+      build_number: ${{ steps.get-build-number.outputs.build_number }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get build number
+        id: get-build-number
+        run: |
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          echo "Build number: $BUILD_NUMBER"
+          echo "::set-output name=build_number::$BUILD_NUMBER"
+
+  build:
+    name: "Build project and publish NPMs"
+    needs: checkout
     runs-on: ubuntu-latest
     steps:
       - name: Set up Node.js
@@ -51,14 +70,17 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.release-version }}" != "" ]; then
             pnpm release --version ${{ github.event.inputs.release-version }} --publish
-          else
+          elif [ "$GITHUB_BASE_REF" == "main" ]; then
             pnpm release:canary
+          else
+            echo "Skipping NPM publish for branch $GITHUB_BASE_REF"
           fi
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   build-docker:
     runs-on: ubuntu-latest
+    needs: [checkout, build]
     strategy:
       matrix:
         arch: [arm64, amd64]
@@ -87,26 +109,28 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.release-version }}" != "" ]; then
             docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:v${{ github.event.inputs.release-version }} --tag syncmaven/syncmaven:latest --push .
+          elif [ "$GITHUB_BASE_REF" == "main" ]; then
+            docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-v${{ build_number }}  --tag syncmaven/syncmaven:canary --push .
           else
-            docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-${{ matrix.arch }} --push .
+            echo "Skipping Docker build for branch $GITHUB_BASE_REF"
           fi
 
-  manifest:
-    runs-on: ubuntu-latest
-    needs: build-docker
-    steps:
-      - name: Log in to DockerHub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Create and push manifest list
-        run: |
-          if [ "${{ github.event.inputs.release-version }}" != "" ]; then
-            docker manifest create syncmaven/syncmaven:v${{ github.event.inputs.release-version }} --amend syncmaven/syncmaven:canary-amd64 --amend syncmaven/syncmaven:canary-arm64
-            docker manifest push syncmaven/syncmaven:v${{ github.event.inputs.release-version }}
-          else
-            docker manifest create syncmaven/syncmaven:canary --amend syncmaven/syncmaven:canary-amd64 --amend syncmaven/syncmaven:canary-arm64
-            docker manifest push syncmaven/syncmaven:canary
-          fi
+#  manifest:
+#    runs-on: ubuntu-latest
+#    needs: build-docker
+#    steps:
+#      - name: Log in to DockerHub
+#        uses: docker/login-action@v2
+#        with:
+#          username: ${{ secrets.DOCKERHUB_USERNAME }}
+#          password: ${{ secrets.DOCKERHUB_TOKEN }}
+#
+#      - name: Create and push manifest list
+#        run: |
+#          if [ "${{ github.event.inputs.release-version }}" != "" ]; then
+#            docker manifest create syncmaven/syncmaven:v${{ github.event.inputs.release-version }} --amend syncmaven/syncmaven:canary-amd64 --amend syncmaven/syncmaven:canary-arm64
+#            docker manifest push syncmaven/syncmaven:v${{ github.event.inputs.release-version }}
+#          else
+#            docker manifest create syncmaven/syncmaven:canary --amend syncmaven/syncmaven:canary-amd64 --amend syncmaven/syncmaven:canary-arm64
+#            docker manifest push syncmaven/syncmaven:canary
+#          fi

@@ -22,4 +22,13 @@ Syncmaven provides a several ways to store state
 By default, Syncmaven stores state in bunch of local files in `<project-dir>/.state` directory. This is convenient
 for local debugging.
 
+To change the default location, you can use `--state <dir> ` option with `sync` command.
+
+However, to preserve state between different machines, the other options should be used.
+
+# Postgres
+
+Syncmaven can store state in Postgres database. To enable this, you need to provide a connection string to the database.
+Provide the connection string using `--state postgres://<user>:<password>@<host>:<port>/<database>` option with `sync` command.
+
 
