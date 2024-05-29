@@ -25,7 +25,12 @@ function main() {
   else
     build arm64 latest v$version
     build amd64 latest v$version
-    "$script_dir"/docker-publish-tags.sh canary-$rev canary
+    "$script_dir"/docker-publish-tags.sh latest v$version
+  fi
+  if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+    echo "Skipping tags cleanup, DOCKERHUB_USERNAME and DOCKERHUB_TOKEN must be set for that"
+  else
+    "$script_dir"/docker-clean-tags.sh syncmaven/syncmaven
   fi
 }
 
