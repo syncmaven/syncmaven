@@ -14,27 +14,6 @@ on:
         required: false
 
 jobs:
-  checkout:
-    name: "Checkout Repository"
-    runs-on: ubuntu-latest
-    outputs:
-      build_number: ${{ steps.get-build-number.outputs.build_number }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # We need this to get (git rev-list --count HEAD) to work
-
-
-      - name: Get build number
-        id: get-build-number
-        # The variables below can be referenced as ${{ needs.checkout.outputs.build_number }}
-        run: |
-          BUILD_NUMBER=$(git rev-list --count HEAD)
-          echo "Build number: $BUILD_NUMBER"
-          echo "build_number=$BUILD_NUMBER" >> $GITHUB_STATE
-
   build:
     name: "Build project and publish NPMs"
     needs: checkout
@@ -52,7 +31,7 @@ jobs:
         run: npm install -g pnpm
 
       - name: Check out repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Cache pnpm dependencies
         uses: actions/cache@v3
@@ -97,6 +76,7 @@ jobs:
         arch: [arm64, amd64]
 
     steps:
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
         with:
@@ -116,8 +96,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: "[DEBUG] Show current directory"
-        run: "ls ."
+      - name: Check out repository
+        uses: actions/checkout@v4
 
       - name: Build and push release docker images
         if: github.event.inputs.release-version != ''
