@@ -16,8 +16,9 @@ RUN npm -g install pnpm
 
 COPY . .
 RUN pnpm install
-RUN pnpm run --filter "syncmaven" test
-RUN pnpm run --filter "syncmaven" build
+RUN pnpm run build
+# not running test here to save time. This should be run in CI mainly, which does the test separately
+#RUN pnpm run test
 
 # install deps that cannot be handled by webpack
 COPY /packages/core/package.webpack.json /syncmaven/packages/core/dist/package.json
