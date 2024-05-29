@@ -90,7 +90,8 @@ jobs:
 
   build-docker:
     runs-on: ubuntu-latest
-    needs: [checkout, build]
+    # We don't need use build results, since docker rebuilds the project anyway
+    needs: checkout
     strategy:
       matrix:
         arch: [arm64, amd64]
