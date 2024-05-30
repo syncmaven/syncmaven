@@ -56,13 +56,13 @@ jobs:
           else
             echo tag=${{ github.event.inputs.release-version }} >> "$GITHUB_OUTPUT"
           fi
-      - name: "Build and Push Docker Images: resend"
+      - name: "Build and Push Docker Images: ${{ matrix.connector }}"
         uses: docker/build-push-action@v5
         with:
           platforms: linux/amd64,linux/arm64
+          file: connectors.Dockerfile
           push: true
           target: ${{ matrix.connector }}
-          file: connectors.Dockerfile
           context: .
           tags: |
             syncmaven/${{ matrix.connector }}:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && 'canary' || 'latest' }}

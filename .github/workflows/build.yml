@@ -1,4 +1,4 @@
-name: Build and Publish Core (NPM and Docker Images)
+name: Build Core. Publish NPM and Docker Images if needed
 
 on:
   push:
