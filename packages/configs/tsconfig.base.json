@@ -1,9 +1,10 @@
 {
   "compilerOptions": {
-    "rootDirs": ["./src", "__tests__"],
+    "rootDirs": ["./src", "./__tests__"],
     "noEmit": true,
     "noImplicitAny": false,
     "allowSyntheticDefaultImports": true,
+    "sourceMap": true,
     "importHelpers": true,
     "removeComments": true,
     "target": "ESNext",

@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# This script takes a dir as an arg, and runs "main" script of
+# package json files in that dir.
+dir=$1 || "."
+
+shift
+
+if [ ! -f $dir/package.json ]; then
+  echo "No package.json found at $dir/package.json"
+  exit 1
+fi
+
+cd $dir
+
+full_dir=$(pwd)
+
+main=$(jq -r '.main' package.json)
+
+if [ -z $main ]; then
+  echo "No main script found at $full_dir/package.json"
+  exit 1
+fi
+
+if [ ! -f $main ]; then
+  echo "Main script defined in $full_dir/package.json does not exist: $main"
+  exit 1
+fi
+
+node $main "$@"
+exit $?

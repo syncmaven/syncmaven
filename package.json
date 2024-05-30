@@ -28,6 +28,7 @@
     "main": "pnpm run --filter ./packages/core -r main",
     "release:stable": "monorel --npm-tag latest --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/core'",
     "release:canary": "monorel --npm-tag canary --filter './packages/protocol'  --filter './packages/node-cdk' --filter './packages/core' --version '0.0.1-canary.{time}' --publish",
+    "clean": "pnpm run -r clean",
     "test": "pnpm run -r test",
     "build": "pnpm run -r build",
     "format:check": "prettier --ignore-unknown --check $(git diff --name-only --diff-filter d | xargs)",

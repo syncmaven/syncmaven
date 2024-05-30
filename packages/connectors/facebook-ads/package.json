@@ -6,7 +6,7 @@
   "bin": "./bin/facebook-ads",
   "scripts": {
     "build": "tsc",
-    "clean": "rm -r dist",
+    "clean": "rm -rf dist",
     "main:prod": "node dist/index.js",
     "main": "NODE_OPTIONS=--no-deprecation ts-node src/index.ts"
   },
