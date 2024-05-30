@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-env
+env | grep SYNCMAVEN_
 
 SYNC_ARGS=""
 

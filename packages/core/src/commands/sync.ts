@@ -334,9 +334,14 @@ export async function runSync(opts: {
       console.debug(`Max cursor value: ${maxCursorVal}`);
       await store.set(cursorStoreKey, maxCursorVal);
     }
-    console.info(
-      `Sync ${syncId} is finished. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats: ${JSON.stringify(res.payload)}`
-    );
+    console.info(`Sync ${syncId} is finished. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats:`);
+    for (const [k, v] of Object.entries(res.payload as any)) {
+      if (typeof v === "number") {
+        console.info(`  ${k}: ${v}`);
+      } else {
+        console.info(`  ${k}: ${JSON.stringify(v)}`);
+      }
+    }
   } catch (e: any) {
     throw e;
   } finally {

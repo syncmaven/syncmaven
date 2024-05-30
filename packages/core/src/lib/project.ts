@@ -201,10 +201,10 @@ export function readProject(dir: string): Project {
   const syncDir = path.join(dir, "syncs");
   const connectionsDir = path.join(dir, "connections");
   if (!fs.existsSync(modelDir)) {
-    throw new Error(`Model directory ./model does not exist in the project directory ${dir}`);
+    throw new Error(`Model directory ./models does not exist in the project directory ${dir}`);
   }
   if (!fs.existsSync(syncDir)) {
-    throw new Error(`Model directory ./sync does not exist in the project directory ${dir}`);
+    throw new Error(`Model directory ./syncs does not exist in the project directory ${dir}`);
   }
   if (!fs.existsSync(connectionsDir)) {
     throw new Error(`Model directory ./destinations does not exist in the project directory ${dir}`);

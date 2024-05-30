@@ -213,7 +213,7 @@ export class DockerChannel implements DestinationChannel {
           });
       });
 
-      server.listen(process.env.PORT || 0, () => {
+      server.listen(process.env.RPC_PORT || 0, () => {
         const port = (server.address() as any).port;
         console.log(`Started one-time RPC server on http://localhost:${port}`);
 
