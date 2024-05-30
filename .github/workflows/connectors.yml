@@ -1,4 +1,4 @@
-name: Build and publish connectors
+name: Build and Publish Connectors (Docker Images)
 
 on:
 #  push:
