@@ -1,4 +1,4 @@
-name: Build and Publish
+name: Build Core. Publish NPM and Docker Images if needed
 
 on:
   push:
@@ -15,7 +15,7 @@ on:
 
 jobs:
   build:
-    name: "Build project and publish NPMs"
+    name: "Build project. Publish to NPM if needed"
     runs-on: ubuntu-latest
     steps:
       - name: Set up Node.js
