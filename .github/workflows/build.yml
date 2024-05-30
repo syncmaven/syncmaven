@@ -64,7 +64,7 @@ jobs:
         run: pnpm release:canary
 
       - name: Publish release version to NPM
-        if: github.event.inputs.release-version != ''
+        if: github.event.inputs.release-version != '' && github.event.inputs.release-version != 'canary'
         run: pnpm release:stable --version ${{ github.event.inputs.release-version }} --publish
 
   build-docker:
