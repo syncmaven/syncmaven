@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       release-version:
-        description: "Release Version (optional)"
+        description: "Version (optional). Can be either x.y.z or canary"
         required: false
 
 jobs:
@@ -94,6 +94,14 @@ jobs:
           version: "lab:latest"
           driver: cloud
           endpoint: "vklmn/vklmn"
+      - name: Select Version Tag
+        id: docker_tag
+        run: |
+          if [ "${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' }}" == "latest" ]; then
+            echo tag=canary-${{ github.event.inputs.release-version }} >> "$GITHUB_OUTPUT"
+          else
+            echo tag=${{ github.event.inputs.release-version }} >> "$GITHUB_OUTPUT"
+          fi
       - name: Push Docker image (Canary)
         uses: docker/build-push-action@v5
         with:
@@ -102,6 +110,6 @@ jobs:
           context: .
           tags: |
             syncmaven/syncmaven:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && 'canary' || 'latest' }}
-            syncmaven/syncmaven:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && concat('canary-', github.event.inputs.release-version) || github.event.inputs.release-version }}
+            syncmaven/syncmaven:${{ steps.docker_tag.outputs.tag }}
           outputs: type=registry,push=true
 
