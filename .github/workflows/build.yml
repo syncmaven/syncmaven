@@ -17,7 +17,6 @@ jobs:
   build:
     name: "Build project and publish NPMs"
     runs-on: ubuntu-latest
-    if: false
     steps:
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -56,20 +55,20 @@ jobs:
           git config --global user.email 'dev@syncmaven.sh'
 
       - name: Publish canary version to NPM
-        if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == ''
+        if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == '' || github.event.inputs.release-version == 'canary'
         run: pnpm release:canary
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish release version to NPM
         if: github.event.inputs.release-version != ''
-        run: pnpm release --version ${{ github.event.inputs.release-version }} --publish
+        run: pnpm release:stable --version ${{ github.event.inputs.release-version }} --publish
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  build-docker-canary:
+  build-docker:
     name: "Docker Build"
-    # Don't build on PRs and non-main branches
+    # Don't automatically build on PRs and non-main branches
     if: github.ref == 'refs/heads/main' || github.event.inputs.release-version != ''
     runs-on: ubuntu-latest
     steps:
@@ -96,17 +95,13 @@ jobs:
           driver: cloud
           endpoint: "vklmn/vklmn"
       - name: Push Docker image (Canary)
-        if: github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v5
         with:
           platforms: linux/amd64,linux/arm64
           push: true
           context: .
           tags: |
-            syncmaven/syncmaven:canary
-            syncmaven/syncmaven:canary-${{ steps.versions.outputs.build_id }}
-          # For pull requests, export results to the build cache.
-          # Otherwise, push to a registry.
-          # Don't need this, se
+            syncmaven/syncmaven:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && 'canary' || 'latest' }}
+            syncmaven/syncmaven:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && concat('canary-', github.event.inputs.release-version) || github.event.inputs.release-version }}
           outputs: type=registry,push=true
 

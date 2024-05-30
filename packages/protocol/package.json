@@ -13,8 +13,8 @@
   },
   "devDependencies": {
     "@syncmaven/configs": "workspace:*",
-    "typescript": "^5.4.5",
-    "type-fest": "^4.18.2"
+    "type-fest": "^4.18.2",
+    "typescript": "^5.4.5"
   },
   "keywords": [],
   "author": "",

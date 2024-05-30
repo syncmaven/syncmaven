@@ -4,19 +4,28 @@
 #Shouldn't be used directly, GitHub Actions executes the same thing
 #It's here mainly for reference / debugging purposes
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source $SCRIPT_DIR/utils.sh
+
 function build() {
   local platform=$1
   local tag=$2
   local version=$3
-  docker buildx build --platform linux/$platform -t syncmaven/syncmaven:$tag-$platform -t syncmaven/syncmaven:$version-$platform --push .
+  local other_args=$4
+  docker buildx build $other_args --platform linux/$platform -t syncmaven/syncmaven:$tag-$platform -t syncmaven/syncmaven:$version-$platform --push .
 }
 
 
 
 function main() {
-  local version="$1"
-  local rev="$(git rev-list --count HEAD).$(git rev-parse --short HEAD)"
-  local script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+  local args;
+  local version;
+  local builder;
+  local rev;
+  args=$(parse_args "$@")
+  version=args["version"] || "";
+  builder=args["builder"] || "";
+  rev="$(git rev-list --count HEAD).$(git rev-parse --short HEAD)"
   local tags
   if [ -z "$version" ]; then
     build arm64 canary canary-v$rev

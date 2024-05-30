@@ -4,7 +4,7 @@
     "rootDir": ".",
     "noEmit": false,
     "declaration": false,
-    "outDir": "./compiled"
+    "outDir": "./dist"
   },
   "include": ["src/**/*.ts", "__tests__/**/*.ts"],
   "exclude": ["node_modules", "compiled"]

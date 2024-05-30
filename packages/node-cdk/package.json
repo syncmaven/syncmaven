@@ -14,13 +14,13 @@
   "dependencies": {
     "@syncmaven/protocol": "workspace:*",
     "zod": "^3.23.8",
-    "zod-to-json-schema": "^3.23.0"
+    "zod-to-json-schema": "^3.23.0",
+    "tslib": "^2.6.2"
   },
   "devDependencies": {
     "@syncmaven/configs": "workspace:*",
-    "typescript": "^5.4.5",
-    "tslib": "^2.6.2",
-    "@types/node": "^20.12.12"
+    "@types/node": "^20.12.12",
+    "typescript": "^5.4.5"
   },
   "keywords": [],
   "author": "",
