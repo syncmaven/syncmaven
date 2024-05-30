@@ -40,3 +40,4 @@ packages/*/dist
 packages/connectors/*/dist
 /packages/core/.state/
 /packages/core/compiled/
+/.npmrc
