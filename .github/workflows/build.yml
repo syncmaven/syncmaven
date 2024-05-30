@@ -75,6 +75,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # need this for build id below
+          fetch-depth: 0
 
       - name: Set build ID
         id: versions
@@ -100,8 +103,8 @@ jobs:
           push: true
           context: .
           tags: |
-            syncmaven/syncmaven:latest
-            syncmaven/syncmaven:${{ steps.versions.outputs.build_id }}
+            syncmaven/syncmaven:canary
+            syncmaven/syncmaven:canary-${{ steps.versions.outputs.build_id }}
           # For pull requests, export results to the build cache.
           # Otherwise, push to a registry.
           # Don't need this, se
