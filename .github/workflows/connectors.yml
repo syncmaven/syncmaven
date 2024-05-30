@@ -62,6 +62,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           target: ${{ matrix.connector }}
+          file: connectors.Dockerfile
           context: .
           tags: |
             syncmaven/${{ matrix.connector }}:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && 'canary' || 'latest' }}
