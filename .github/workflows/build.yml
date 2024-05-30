@@ -53,6 +53,9 @@ jobs:
         run: |
           git config --global user.name 'Syncmaven Builds'
           git config --global user.email 'dev@syncmaven.sh'
+      - name: Prepare NPM authentication
+        # we can't keep it in the npmrc file. If NPM_TOKEN is not set, pnpm complains
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
       - name: Publish canary version to NPM
         if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == '' || github.event.inputs.release-version == 'canary'
