@@ -17,6 +17,7 @@ jobs:
   build:
     name: "Build project and publish NPMs"
     runs-on: ubuntu-latest
+    if: false
     steps:
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -66,74 +67,43 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  build-docker:
-    if: false #disabled for now
+  build-docker-canary:
+    name: "Docker Build"
+    # Don't build on PRs and non-main branches
+    if: github.ref == 'refs/heads/main' || github.event.inputs.release-version != ''
     runs-on: ubuntu-latest
-    outputs:
-      build_id: ${{ steps.versions.outputs.build_id }}
-    # We don't need use build results, since docker rebuilds the project anyway
-    strategy:
-      matrix:
-        arch: [arm64, amd64]
-
     steps:
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          buildkitd-flags: --debug
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: ~/.docker
-          key: ${{ runner.os }}-docker-${{ matrix.arch }}
-          restore-keys: |
-            ${{ runner.os }}-docker
+      - name: Set build ID
+        id: versions
+        run: |
+          echo "build_id=$(git rev-list --count HEAD).$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Log in to DockerHub
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - id: checkout
-        name: Check out repository
-        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
         with:
-          fetch-depth: 0
-
-      - id: versions
-        run: |
-          echo "build_id=$(git rev-list --count HEAD).$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-
-
-
-      - name: Build and push release docker images
-        if: github.event.inputs.release-version != ''
-        run: docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:v${{ github.event.inputs.release-version }}-${{ matrix.arch }} --tag syncmaven/syncmaven:latest-${{ matrix.arch }} --push .
-
-      - name: Build and push canary docker images
-        if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == ''
-        run: docker buildx build --platform linux/${{ matrix.arch }} --tag syncmaven/syncmaven:canary-v${{ steps.versions.outputs.build_id }}-${{ matrix.arch }} --tag syncmaven/syncmaven:canary-${{ matrix.arch }} --push .
-
-
-  manifest:
-    if: false #disabled for now
-    runs-on: ubuntu-latest
-    needs: build-docker
-    name: "Create and push manifest list"
-    steps:
-      - name: Log in to DockerHub
-        uses: docker/login-action@v2
+          version: "lab:latest"
+          driver: cloud
+          endpoint: "vklmn/vklmn"
+      - name: Push Docker image (Canary)
+        if: github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v5
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - id: checkout
-        name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Create and push manifest list for canary
-        if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == ''
-        run: ./build-scripts/docker-publish-tags.sh canary canary-v${{ needs.build-docker.outputs.build_id }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          context: .
+          tags: |
+            syncmaven/syncmaven:latest
+            syncmaven/syncmaven:${{ steps.versions.outputs.build_id }}
+          # For pull requests, export results to the build cache.
+          # Otherwise, push to a registry.
+          # Don't need this, se
+          outputs: type=registry,push=true
 
