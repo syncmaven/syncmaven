@@ -103,7 +103,7 @@ jobs:
           else
             echo tag=${{ github.event.inputs.release-version }} >> "$GITHUB_OUTPUT"
           fi
-      - name: Push Docker image (Canary)
+      - name: Build and Push Docker Images
         uses: docker/build-push-action@v5
         with:
           platforms: linux/amd64,linux/arm64

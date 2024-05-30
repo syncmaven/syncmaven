@@ -2,12 +2,12 @@
   "name": "syncmaven",
   "version": "0.0.0",
   "description": "",
-  "main": "dist/main.js",
+  "main": "dist/src/index.js",
   "bin": "./bin/syncmaven",
   "scripts": {
     "compile": "tsc -p . ",
     "build": "pnpm compile",
-    "clean": "rm -r dist",
+    "clean": "rm -rf dist",
     "main:prod": "node dist/main.js",
     "main": "NODE_OPTIONS=--no-deprecation ts-node --swc src/index.ts",
     "test": "tsc && node --test"

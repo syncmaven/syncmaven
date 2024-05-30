@@ -14,25 +14,13 @@ RUN npm -g install pnpm
 
 FROM builder-base AS builder
 COPY . .
-RUN pnpm install
-RUN pnpm build
+RUN pnpm install --frozen-lockfile
+RUN pnpm run build
 RUN rm -rf `find . -name "node_modules" -type d`
 RUN pnpm install --prod
 
 
 FROM builder AS resend
 
-COPY --from=builder /syncmaven/ .
-#RUN rm -rf packages/core
+ENTRYPOINT [ "/syncmaven/bin/node-main", "/syncmaven/packages/connectors/resend" ]
 
-ENTRYPOINT [ "node", "dist/index.js" ]
-
-FROM builder AS resend-builder
-
-RUN pnpm install --config.dedupe-peer-dependents=false --filter ./packages/connectors/resend... --filter ./packages/node-cdk
-RUN pnpm run --filter "./packages/connectors/resend" test
-RUN pnpm run --filter "./packages/connectors/resend" build
-
-FROM base AS resend
-COPY --from=resend-builder /syncmaven/packages/connectors/resend/dist .
-ENTRYPOINT [ "node", "dist/index.js" ]

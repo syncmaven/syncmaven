@@ -1,3 +1,11 @@
 #!/usr/bin/env node
 
-require("../dist/main.js");
+process.removeAllListeners("warning");
+
+const pkg = require("../package.json");
+if (!pkg.main) {
+  console.error("No main file specified in package.json");
+  process.exit(1);
+}
+
+require("../" + pkg.main);

@@ -28,4 +28,4 @@ fi
 
 export RPC_PORT=8081
 
-node /syncmaven/packages/core/dist/src/index.js sync $SYNC_ARGS
+/syncmaven/bin/node-main /syncmaven/packages/core sync $SYNC_ARGS

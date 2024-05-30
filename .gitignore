@@ -37,5 +37,6 @@ next-env.d.ts
 /.env
 /.idea/
 packages/*/dist
+packages/connectors/*/dist
 /packages/core/.state/
 /packages/core/compiled/

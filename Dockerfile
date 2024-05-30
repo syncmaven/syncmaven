@@ -26,6 +26,8 @@ COPY --from=builder /syncmaven/ .
 COPY --from=builder /syncmaven/packages/core/bin/action.sh .
 
 RUN mkdir /project
-ENV SYNCMAVEN_PROJECT_DIR=/project
 
-ENTRYPOINT [ "node", "/syncmaven/packages/core/dist/src/index.js" ]
+ENV SYNCMAVEN_PROJECT_DIR=/project
+ENV IN_DOCKER=1
+
+ENTRYPOINT [ "/syncmaven/bin/node-main", "/syncmaven/packages/core" ]
