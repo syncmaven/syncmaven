@@ -19,7 +19,11 @@ on:
 jobs:
   build-node-based-connectors:
     name: "Build and Publish Node-based Connectors"
+    #bogus check for future use, see above, this is always set
     if: github.event.inputs.release-version != ''
+    strategy:
+      matrix:
+        connector: [resend]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -57,8 +61,9 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           push: true
+          target: ${{ matrix.connector }}
           context: .
           tags: |
-            syncmaven/syncmaven:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && 'canary' || 'latest' }}
-            syncmaven/syncmaven:${{ steps.docker_tag.outputs.tag }}
+            syncmaven/${{ matrix.connector }}:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && 'canary' || 'latest' }}
+            syncmaven/${{ matrix.connector }}:${{ steps.docker_tag.outputs.tag }}
           outputs: type=registry,push=true
