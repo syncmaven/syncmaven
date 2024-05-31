@@ -61,20 +61,6 @@ jobs:
       matrix:
         connector: [ resend ]
     steps:
-#      - name: Download Docker image artifact
-#        uses: actions/download-artifact@v3
-#        with:
-#          name: tmp-base-image-for-node-connectors-${{ github.run_id }}
-#          path: .
-#
-#      - name: Load Docker image from tar file with unique postfix
-#        run: docker load -i tmp-base-image-for-node-connectors-${{ github.run_id }}.tar
-
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#        with:
-#          # need this for build id below
-#          fetch-depth: 0
 
       - name: Set build ID
         id: versions
@@ -118,3 +104,18 @@ jobs:
             syncmaven/${{ matrix.connector }}:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && 'canary' || 'latest' }}
             syncmaven/${{ matrix.connector }}:${{ steps.docker_tag.outputs.tag }}
           outputs: type=registry,push=true
+  cleanup-tmp-images:
+    name: "Cleanup temporary images"
+    if: github.event.inputs.release-version != ''
+    runs-on: ubuntu-latest
+    needs: build-connector-image
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: "Cleanup temporary images"
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: ./bin/delete-docker-tag syncmaven/tmp-base-image-for-node-connectors ${{ github.run_id }}
+
