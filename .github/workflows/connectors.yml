@@ -201,4 +201,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: syncmaven/${{ matrix.connector }}
           short-description: "Implementation of the connector ${{ matrix.connector }} for Syncmaven"
-          readme: README.dockerhub-connectors.md
+          readme-file: README.dockerhub-connectors.md

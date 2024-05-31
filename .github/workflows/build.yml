@@ -125,5 +125,5 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: syncmaven/syncmaven
           short-description: "Syncmaven core"
-          readme: README.dockerhub-core.md
+          readme-file: README.dockerhub-core.md
 
