@@ -43,36 +43,38 @@ jobs:
           file: connectors.Dockerfile
           push: true
           context: .
-          tags: base-image-for-node-connectors-${{ github.run_id }}
-          outputs: type=docker,dest=base-image-for-node-connectors-${{ github.run_id }}.tar
-      - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: base-image-for-node-connectors-${{ github.run_id }}
-          path: base-image-for-node-connectors-${{ github.run_id }}.tar
+          tags: tmp-base-image-for-node-connectors-${{ github.run_id }}
+          outputs: type=registry,push=true
+          #outputs: type=docker,dest=tmp-base-image-for-node-connectors-${{ github.run_id }}.tar
+#      - name: Upload Docker image artifact
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: tmp-base-image-for-node-connectors-${{ github.run_id }}
+#          path: tmp-base-image-for-node-connectors-${{ github.run_id }}.tar
 
   build-connector-image:
     name: "Build a ${{ matrix.connector }} connector image"
     if: github.event.inputs.release-version != ''
     runs-on: ubuntu-latest
+    needs: build-node-based-docker
     strategy:
       matrix:
         connector: [ resend ]
     steps:
-      - name: Download Docker image artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: base-image-for-node-connectors-${{ github.run_id }}
-          path: .
+#      - name: Download Docker image artifact
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: tmp-base-image-for-node-connectors-${{ github.run_id }}
+#          path: .
+#
+#      - name: Load Docker image from tar file with unique postfix
+#        run: docker load -i tmp-base-image-for-node-connectors-${{ github.run_id }}.tar
 
-      - name: Load Docker image from tar file with unique postfix
-        run: docker load -i base-image-for-node-connectors-${{ github.run_id }}.tar
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          # need this for build id below
-          fetch-depth: 0
+#      - name: Checkout
+#        uses: actions/checkout@v4
+#        with:
+#          # need this for build id below
+#          fetch-depth: 0
 
       - name: Set build ID
         id: versions
@@ -101,7 +103,7 @@ jobs:
       - name: Generate Docker File
         run: |
           cat > ${{ matrix.connector }}.Dockerfile << EOL
-          FROM base-image-for-node-connectors-${{ github.run_id }}
+          FROM tmp-base-image-for-node-connectors-${{ github.run_id }}
           ENTRYPOINT ["/syncmaven/bin/node-main", "/syncmaven/packages/connectors/${{ matrix.connector }}"]
           EOL
 
