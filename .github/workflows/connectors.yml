@@ -32,7 +32,7 @@ jobs:
           endpoint: "vklmn/vklmn"
       # See https://github.com/reproducible-containers/buildkit-cache-dance for cache handling
       - name: Preserve PNPM cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: cache
         with:
           path: |
@@ -43,7 +43,7 @@ jobs:
         with:
           cache-map: |
             {
-              "pnpm-cache": "/pnpm",
+              "pnpm-cache": "/pnpm"
             }
           skip-extraction: ${{ steps.cache.outputs.cache-hit }}
       - name: "Build Docker Image"
