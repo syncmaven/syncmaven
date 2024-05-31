@@ -145,6 +145,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: peterevans/dockerhub-description
+          repository: syncmaven/${{ matrix.connector }}
           short-description: "Implementation of the connector ${{ matrix.connector }} for Syncmaven"
           readme: README.dockerhub-connectors.md
