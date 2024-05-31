@@ -19,11 +19,11 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm fetch
 FROM package-fetcher AS builder
 
 COPY . .
-RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm install --offline --frozen-lockfile
+RUN --mount=type=cache,target=/pnpm pnpm install --offline --frozen-lockfile
 
 RUN pnpm run build
 RUN rm -rf `find . -name "node_modules" -type d`
-RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm install --offline --prod  --frozen-lockfile
+RUN --mount=type=cache,target=/pnpm pnpm install --offline --prod  --frozen-lockfile
 
 FROM base AS release
 

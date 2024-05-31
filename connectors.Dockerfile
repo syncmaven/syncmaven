@@ -15,12 +15,12 @@ ENV PNPM_HOME=/pnpm
 FROM builder-base AS package-fetcher
 
 COPY pnpm-lock.yaml .
-RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm fetch
+RUN --mount=type=cache,target=/pnpm pnpm fetch
 
 
 FROM package-fetcher AS builder
 COPY . .
-RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm install --frozen-lockfile --offline
+RUN --mount=type=cache,target=/pnpm pnpm install --frozen-lockfile --offline
 RUN pnpm run build
 RUN rm -rf `find . -name "node_modules" -type d`
 RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm install --offline --prod

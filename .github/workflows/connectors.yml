@@ -30,10 +30,27 @@ jobs:
           version: "lab:latest"
           driver: cloud
           endpoint: "vklmn/vklmn"
-
+      # See https://github.com/reproducible-containers/buildkit-cache-dance for cache handling
+      - name: Preserve PNPM cache
+        uses: actions/cache@v3
+        id: cache
+        with:
+          path: |
+            pnpm-cache
+          key: cache-${{ hashFiles('.github/workflows/test/Dockerfile') }}
+      - name: inject cache into docker
+        uses: reproducible-containers/buildkit-cache-dance@v3.1.0
+        with:
+          cache-map: |
+            {
+              "pnpm-cache": "/pnpm",
+            }
+          skip-extraction: ${{ steps.cache.outputs.cache-hit }}
       - name: "Build Docker Image"
         uses: docker/build-push-action@v5
         with:
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
           file: connectors.Dockerfile
           push: true
