@@ -17,7 +17,7 @@ jobs:
     if: github.event.inputs.release-version != '' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
-        build_id: ${{ steps.versions.outputs.build_id }}
+        build_id: ${{ steps.docker_tag.outputs.build_id }}
         docker_tag: ${{ steps.docker_tag.outputs.tag }}
         secondary_docker_tag: ${{ steps.docker_tag.outputs.secondary_tag }}
     steps:
@@ -34,8 +34,8 @@ jobs:
           BUILD_ID="$(git rev-list --count HEAD).$(git rev-parse --short HEAD)"
           echo build_id=$BUILD_ID >> "$GITHUB_OUTPUT"
           if [ "${{ github.event.inputs.release-version == 'canary' || github.event.inputs.release-version == '' }}" == "true" ]; then
-            echo tag=canary-${{ needs.build-node-based-docker.outputs.build_id }} >> "$GITHUB_OUTPUT"
-            echo secondary_tag=canary >> "$GITHUB_OUTPUT"
+            echo "tag=canary-$BUILD_ID" >> "$GITHUB_OUTPUT"
+            echo "secondary_tag=canary" >> "$GITHUB_OUTPUT"
           else
             echo tag=${{ github.event.inputs.release-version }} >> "$GITHUB_OUTPUT"
             echo secondary_tag=latest >> "$GITHUB_OUTPUT"
@@ -126,7 +126,7 @@ jobs:
             syncmaven/${{ matrix.connector }}:${{ needs.build-node-based-docker.outputs.secondary_docker_tag }}
           outputs: type=registry,push=true
   cleanup-tmp-images:
-    name: "Cleanup temporary images"
+    name: "Cleanup temporary images and update description"
     # do things only on manually triggered builds or on main branch. On PRs we don't build connectors
     if: github.event.inputs.release-version != '' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -140,4 +140,11 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: ./bin/delete-docker-tag syncmaven/tmp-base-image-for-node-connectors ${{ github.run_id }}
-
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: peterevans/dockerhub-description
+          short-description: "Implementation of the connector ${{ matrix.connector }} for Syncmaven"
+          readme: README.dockerhub-connectors.md
