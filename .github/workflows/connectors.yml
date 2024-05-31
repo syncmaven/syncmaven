@@ -43,7 +43,7 @@ jobs:
           file: connectors.Dockerfile
           push: true
           context: .
-          tags: tmp-base-image-for-node-connectors-${{ github.run_id }}
+          tags: syncmaven/tmp-base-image-for-node-connectors:${{ github.run_id }}
           outputs: type=registry,push=true
           #outputs: type=docker,dest=tmp-base-image-for-node-connectors-${{ github.run_id }}.tar
 #      - name: Upload Docker image artifact
@@ -103,7 +103,7 @@ jobs:
       - name: Generate Docker File
         run: |
           cat > ${{ matrix.connector }}.Dockerfile << EOL
-          FROM tmp-base-image-for-node-connectors-${{ github.run_id }}
+          FROM syncmaven/tmp-base-image-for-node-connectors:${{ github.run_id }}
           ENTRYPOINT ["/syncmaven/bin/node-main", "/syncmaven/packages/connectors/${{ matrix.connector }}"]
           EOL
 
