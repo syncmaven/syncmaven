@@ -1,10 +1,10 @@
 on:
-#  push:
-#    branches:
-#      - main
-#  pull_request:
-#    branches:
-#      - main
+  #  push:
+  #    branches:
+  #      - main
+  #  pull_request:
+  #    branches:
+  #      - main
   workflow_dispatch:
     inputs:
       release-version:
@@ -15,15 +15,59 @@ on:
         required: false
         default: "*"
 jobs:
-  build-node-based-connectors:
-    name: "Build and Publish Node-based Connectors"
+  build-node-based-docker:
+    name: "Build a base image for Node-based connectors"
     #bogus check for future use, see above, this is always set
     if: github.event.inputs.release-version != ''
-    strategy:
-      matrix:
-        connector: [resend]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          version: "lab:latest"
+          driver: cloud
+          endpoint: "vklmn/vklmn"
+
+      - name: "Build Docker Image"
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64,linux/arm64
+          file: connectors.Dockerfile
+          push: true
+          context: .
+          tags: base-image-for-node-connectors-${{ github.run_id }}
+          outputs: type=docker,dest=base-image-for-node-connectors-${{ github.run_id }}.tar
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-image-for-node-connectors-${{ github.run_id }}
+          path: base-image-for-node-connectors-${{ github.run_id }}.tar
+
+  build-connector-image:
+    name: "Build a ${{ matrix.connector }} connector image"
+    if: github.event.inputs.release-version != ''
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        connector: [ resend ]
+    steps:
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: base-image-for-node-connectors-${{ github.run_id }}
+          path: .
+
+      - name: Load Docker image from tar file with unique postfix
+        run: docker load -i base-image-for-node-connectors-${{ github.run_id }}.tar
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -54,13 +98,19 @@ jobs:
           else
             echo tag=${{ github.event.inputs.release-version }} >> "$GITHUB_OUTPUT"
           fi
+      - name: Generate Docker File
+        run: |
+          cat > ${{ matrix.connector }}.Dockerfile << EOL
+          FROM base-image-for-node-connectors-${{ github.run_id }}
+          ENTRYPOINT ["/syncmaven/bin/node-main", "/syncmaven/packages/connectors/${{ matrix.connector }}"]
+          EOL
+
       - name: "Build and Push Docker Images: ${{ matrix.connector }}"
         uses: docker/build-push-action@v5
         with:
           platforms: linux/amd64,linux/arm64
-          file: connectors.Dockerfile
+          file: ${{ matrix.connector }}.Dockerfile
           push: true
-          target: ${{ matrix.connector }}
           context: .
           tags: |
             syncmaven/${{ matrix.connector }}:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && 'canary' || 'latest' }}
