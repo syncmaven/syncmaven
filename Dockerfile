@@ -13,7 +13,7 @@ ENV PNPM_HOME=/pnpm
 FROM base-builder AS package-fetcher
 
 COPY pnpm-lock.yaml .
-RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm fetch
+RUN --mount=type=cache,target=/pnpm pnpm fetch
 
 
 FROM package-fetcher AS builder

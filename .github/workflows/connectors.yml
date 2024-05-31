@@ -9,15 +9,37 @@ on:
         description: "Select connectors to build and publish (not implemented yet)"
         required: false
         default: "*"
+
 jobs:
   build-node-based-docker:
     name: "Build a base image for Node-based connectors"
-    #bogus check for future use, see above, this is always set
-    if: github.event.inputs.release-version != ''
+    # do things only on manually triggered builds or on main branch. On PRs we don't build connectors
+    if: github.event.inputs.release-version != '' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+        build_id: ${{ steps.versions.outputs.build_id }}
+        docker_tag: ${{ steps.docker_tag.outputs.tag }}
+        secondary_docker_tag: ${{ steps.docker_tag.outputs.secondary_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # We need this to get version
+          fetch-depth: 0
+
+      - name: Set Publishing tags Tag
+        id: docker_tag
+        run: |
+          # Either canary version is set explicitely, or it's not set at all meaning it's automated build
+          BUILD_ID="$(git rev-list --count HEAD).$(git rev-parse --short HEAD)"
+          echo build_id=$BUILD_ID >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event.inputs.release-version == 'canary' || github.event.inputs.release-version == '' }}" == "true" ]; then
+            echo tag=canary-${{ needs.build-node-based-docker.outputs.build_id }} >> "$GITHUB_OUTPUT"
+            echo secondary_tag=canary >> "$GITHUB_OUTPUT"
+          else
+            echo tag=${{ github.event.inputs.release-version }} >> "$GITHUB_OUTPUT"
+            echo secondary_tag=latest >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -66,19 +88,14 @@ jobs:
 
   build-connector-image:
     name: "Build a ${{ matrix.connector }} connector image"
-    if: github.event.inputs.release-version != ''
+    # do things only on manually triggered builds or on main branch. On PRs we don't build connectors
+    if: github.event.inputs.release-version != '' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: build-node-based-docker
     strategy:
       matrix:
         connector: [ resend ]
     steps:
-
-      - name: Set build ID
-        id: versions
-        run: |
-          echo "build_id=$(git rev-list --count HEAD).$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -90,14 +107,6 @@ jobs:
           version: "lab:latest"
           driver: cloud
           endpoint: "vklmn/vklmn"
-      - name: Select Version Tag
-        id: docker_tag
-        run: |
-          if [ "${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' }}" == "true" ]; then
-            echo tag=canary-${{ steps.versions.outputs.build_id }} >> "$GITHUB_OUTPUT"
-          else
-            echo tag=${{ github.event.inputs.release-version }} >> "$GITHUB_OUTPUT"
-          fi
       - name: Generate Docker File
         run: |
           cat > ${{ matrix.connector }}.Dockerfile << EOL
@@ -113,12 +122,13 @@ jobs:
           push: true
           context: .
           tags: |
-            syncmaven/${{ matrix.connector }}:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && 'canary' || 'latest' }}
-            syncmaven/${{ matrix.connector }}:${{ steps.docker_tag.outputs.tag }}
+            syncmaven/${{ matrix.connector }}:${{ needs.build-node-based-docker.outputs.docker_tag }}
+            syncmaven/${{ matrix.connector }}:${{ needs.build-node-based-docker.outputs.secondary_docker_tag }}
           outputs: type=registry,push=true
   cleanup-tmp-images:
     name: "Cleanup temporary images"
-    if: github.event.inputs.release-version != ''
+    # do things only on manually triggered builds or on main branch. On PRs we don't build connectors
+    if: github.event.inputs.release-version != '' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: build-connector-image
     steps:
