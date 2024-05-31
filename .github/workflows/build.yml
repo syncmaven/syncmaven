@@ -123,7 +123,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: syncmaven/${{ matrix.connector }}
+          repository: syncmaven/syncmaven
           short-description: "Syncmaven core"
           readme: README.dockerhub-core.md
 
