@@ -118,4 +118,12 @@ jobs:
             syncmaven/syncmaven:${{ steps.docker_tag.outputs.secondary_tag }}
             syncmaven/syncmaven:${{ steps.docker_tag.outputs.tag }}
           outputs: type=registry,push=true
+      - name: "Update Docker Hub description"
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: syncmaven/${{ matrix.connector }}
+          short-description: "Syncmaven core"
+          readme: README.dockerhub-core.md
 
