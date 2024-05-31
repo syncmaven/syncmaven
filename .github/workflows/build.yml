@@ -60,7 +60,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish canary version to NPM
-        if: github.ref == 'refs/heads/main' && github.event.inputs.release-version == '' || github.event.inputs.release-version == 'canary'
+        if: (github.ref == 'refs/heads/main' && github.event.inputs.release-version == '') || github.event.inputs.release-version == 'canary'
         run: pnpm release:canary
 
       - name: Publish release version to NPM
@@ -95,13 +95,18 @@ jobs:
           version: "lab:latest"
           driver: cloud
           endpoint: "vklmn/vklmn"
-      - name: Select Version Tag
+      - name: Set Publishing Tags
         id: docker_tag
         run: |
-          if [ "${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' }}" == "true" ]; then
-            echo tag=canary-${{ steps.versions.outputs.build_id }} >> "$GITHUB_OUTPUT"
+          # Either canary version is set explicitely, or it's not set at all meaning it's automated build
+          BUILD_ID="$(git rev-list --count HEAD).$(git rev-parse --short HEAD)"
+          echo build_id=$BUILD_ID >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event.inputs.release-version == 'canary' || github.event.inputs.release-version == '' }}" == "true" ]; then
+            echo "tag=canary-$BUILD_ID" >> "$GITHUB_OUTPUT"
+            echo "secondary_tag=canary" >> "$GITHUB_OUTPUT"
           else
             echo tag=${{ github.event.inputs.release-version }} >> "$GITHUB_OUTPUT"
+            echo secondary_tag=latest >> "$GITHUB_OUTPUT"
           fi
       - name: Build and Push Docker Images
         uses: docker/build-push-action@v5
@@ -110,7 +115,7 @@ jobs:
           push: true
           context: .
           tags: |
-            syncmaven/syncmaven:${{ github.ref == 'refs/heads/main' || github.event.inputs.release-version == 'canary' && 'canary' || 'latest' }}
+            syncmaven/syncmaven:${{ steps.docker_tag.outputs.secondary_tag }}
             syncmaven/syncmaven:${{ steps.docker_tag.outputs.tag }}
           outputs: type=registry,push=true
 

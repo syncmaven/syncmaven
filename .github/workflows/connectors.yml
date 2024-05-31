@@ -27,7 +27,7 @@ jobs:
           # We need this to get version
           fetch-depth: 0
 
-      - name: Set Publishing tags Tag
+      - name: Set Publishing Tags
         id: docker_tag
         run: |
           # Either canary version is set explicitely, or it's not set at all meaning it's automated build
