@@ -10,17 +10,23 @@ WORKDIR /syncmaven
 FROM base AS builder-base
 RUN apt update && apt install -y python3 python3-pip make g++ sqlite3 libsqlite3-dev
 RUN npm -g install pnpm
+ENV PNPM_HOME=/pnpm
+
+FROM builder-base AS package-fetcher
+
+COPY pnpm-lock.yaml .
+RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm fetch
 
 
-FROM builder-base AS builder
+FROM package-fetcher AS builder
 COPY . .
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm install --frozen-lockfile --offline
 RUN pnpm run build
 RUN rm -rf `find . -name "node_modules" -type d`
-RUN pnpm install --prod
+RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm install --offline --prod
 
 
-FROM builder AS resend
+FROM base AS release
 
-ENTRYPOINT [ "/syncmaven/bin/node-main", "/syncmaven/packages/connectors/resend" ]
+COPY --from=builder /syncmaven/ .
 

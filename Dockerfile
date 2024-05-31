@@ -1,6 +1,3 @@
-# See ./docker-build-core.sh for instructions on how to build this image
-
-
 FROM node:20-slim as base
 
 RUN apt-get update -y
@@ -11,14 +8,22 @@ WORKDIR /syncmaven
 FROM base AS base-builder
 RUN apt update && apt install -y python3 python3-pip make g++ sqlite3 libsqlite3-dev
 RUN npm -g install pnpm@8
+ENV PNPM_HOME=/pnpm
 
-FROM base-builder AS builder
+FROM base-builder AS package-fetcher
+
+COPY pnpm-lock.yaml .
+RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm fetch
+
+
+FROM package-fetcher AS builder
 
 COPY . .
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm install --offline --frozen-lockfile
+
 RUN pnpm run build
 RUN rm -rf `find . -name "node_modules" -type d`
-RUN pnpm install --prod
+RUN --mount=type=cache,id=pnpm,target=/pnpm pnpm install --offline --prod  --frozen-lockfile
 
 FROM base AS release
 
