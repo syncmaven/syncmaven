@@ -1,0 +1,23 @@
+#!/bin/bash
+
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "Usage: $0 <repo> <tag>. DOCKERHUB_PASSWORD and DOCKERHUB_USERNAME must be set in the environment"
+  exit 1
+fi
+
+REPO=$1
+TAG=$2
+
+if [ -z "$DOCKERHUB_PASSWORD" ] || [ -z "$DOCKERHUB_USERNAME" ]; then
+  echo "DOCKERHUB_USERNAME and DOCKERHUB_PASSWORD must be set in the environment"
+  exit 1
+fi
+
+TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "'$DOCKERHUB_USERNAME'", "password": "'$DOCKERHUB_PASSWORD'"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
+
+if [ -z "$TOKEN" ]; then
+  echo "Failed to get dockerhub auth token"
+  exit 1
+fi
+
+curl -i -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://hub.docker.com/v2/repositories/$REPO/tags/$TAG/"

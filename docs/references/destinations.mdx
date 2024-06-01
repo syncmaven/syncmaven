@@ -4,10 +4,19 @@ icon: "paperclip"
 iconType: "solid"
 ---
 
+
+
+import {Destination} from "/snippets/destination.mdx";
+
 Here's a full list of destinations that are supported by Syncmaven
 
 <AccordionGroup>
   <Accordion title="Resend">
+    <Destination
+      name="resend"
+      url="https://resend.io"
+      description={"a platform for transactional and marketing emails"}
+      docker="syncmaven/resend" />
   </Accordion>
   <Accordion title="Intercom">
   </Accordion>

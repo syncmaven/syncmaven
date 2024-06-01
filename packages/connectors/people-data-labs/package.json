@@ -6,7 +6,7 @@
   "bin": "./bin/people-data-labs",
   "scripts": {
     "build": "tsc",
-    "clean": "rm -r dist",
+    "clean": "rm -rf dist",
     "main:prod": "node dist/index.js",
     "main": "NODE_OPTIONS=--no-deprecation ts-node src/index.ts"
   },
@@ -19,8 +19,8 @@
   "devDependencies": {
     "@syncmaven/configs":"workspace:*",
     "@types/node": "^20.12.12",
-    "typescript": "^5.4.5",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
   },
   "keywords": [],
   "author": "",
