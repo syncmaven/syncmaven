@@ -192,7 +192,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           context: ./packages/connectors/${{ matrix.connector }}
-          file: ./packages/connectors/${{ matrix.connector }}/mixpanel.Dockerfile
+          file: ./packages/connectors/${{ matrix.connector }}/Dockerfile
           tags: |
             syncmaven/${{ matrix.connector }}:${{ needs.prepare-tags.outputs.docker_tag }}
             syncmaven/${{ matrix.connector }}:${{ needs.prepare-tags.outputs.secondary_docker_tag }}
@@ -204,4 +204,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: syncmaven/${{ matrix.connector }}
           short-description: "Implementation of the connector ${{ matrix.connector }} for Syncmaven"
-          readme-filepath: README.dockerhub-connectors.md
+          readme-filepath: README.dockerhub-connector.md
