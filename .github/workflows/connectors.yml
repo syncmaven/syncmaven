@@ -95,6 +95,7 @@ jobs:
   #          path: tmp-base-image-for-node-connectors-${{ github.run_id }}.tar
 
   build-connector-image:
+
     name: "Build a ${{ matrix.connector }} connector image"
     # do things only on manually triggered builds or on main branch. On PRs we don't build connectors
     if: github.event.inputs.release-version != '' || github.ref == 'refs/heads/main'
@@ -172,8 +173,6 @@ jobs:
       # We need checkout as a source for README
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          path: packages/connectors/${{ matrix.connector }}
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -190,9 +189,8 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           push: true
-#          context: packages/connectors/${{ matrix.connector }}
-          context: .
-          file: mixpanel.Dockerfile
+          context: ./packages/connectors/${{ matrix.connector }}
+          file: ./packages/connectors/${{ matrix.connector }}/Dockerfile
           tags: |
             syncmaven/${{ matrix.connector }}:${{ needs.prepare-tags.outputs.docker_tag }}
             syncmaven/${{ matrix.connector }}:${{ needs.prepare-tags.outputs.secondary_docker_tag }}
@@ -204,4 +202,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: syncmaven/${{ matrix.connector }}
           short-description: "Implementation of the connector ${{ matrix.connector }} for Syncmaven"
-          readme-file: README.dockerhub-connectors.md
+          readme-filepath: README.dockerhub-connector.md
