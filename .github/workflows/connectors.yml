@@ -192,7 +192,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           context: ./packages/connectors/${{ matrix.connector }}
-          file: ./mixpanel.Dockerfile
+          file: ./packages/connectors/${{ matrix.connector }}/mixpanel.Dockerfile
           tags: |
             syncmaven/${{ matrix.connector }}:${{ needs.prepare-tags.outputs.docker_tag }}
             syncmaven/${{ matrix.connector }}:${{ needs.prepare-tags.outputs.secondary_docker_tag }}
