@@ -1,4 +1,4 @@
-name: Connectors - build and publish if needed
+name: "Connectors: build and publish"
 on:
   workflow_dispatch:
     inputs:

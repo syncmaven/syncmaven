@@ -1,0 +1,47 @@
+name: "Code checks and test"
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    name: "Build project. Publish to NPM if needed"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Check code style
+        run: pnpm format:check
+
+      - name: Build PNPM project
+        run: pnpm build
+
+      - name: Test PNPM project
+        run: pnpm test
+
+

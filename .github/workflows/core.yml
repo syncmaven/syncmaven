@@ -1,12 +1,6 @@
-name: Core - build and publish if needed
+name: "Core: build and publish"
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       release-version:
@@ -43,8 +37,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Check code style
+        run: pnpm format:check
+
       - name: Build PNPM project
-        run: pnpm build && pnpm test
+        run: pnpm build
 
       - name: Test PNPM project
         run: pnpm test
