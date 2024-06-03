@@ -36,7 +36,7 @@ jobs:
         run: pnpm install
 
       - name: Check code style
-        run: pnpm format:check
+        run: pnpm format:check:all
 
       - name: Build PNPM project
         run: pnpm build
