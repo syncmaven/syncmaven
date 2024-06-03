@@ -123,4 +123,3 @@ jobs:
           repository: syncmaven/syncmaven
           short-description: "Syncmaven core"
           readme-filepath: README.dockerhub-core.md
-

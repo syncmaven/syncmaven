@@ -37,8 +37,6 @@ jobs:
             echo tag=${{ github.event.inputs.release-version }} >> "$GITHUB_OUTPUT"
             echo secondary_tag=latest >> "$GITHUB_OUTPUT"
           fi
-  
-  
 
   build-node-based-docker:
     name: "Build a base image for Node-based connectors"
@@ -95,7 +93,6 @@ jobs:
   #          path: tmp-base-image-for-node-connectors-${{ github.run_id }}.tar
 
   build-connector-image:
-
     name: "Build a ${{ matrix.connector }} connector image"
     # do things only on manually triggered builds or on main branch. On PRs we don't build connectors
     if: github.event.inputs.release-version != '' || github.ref == 'refs/heads/main'
@@ -103,7 +100,7 @@ jobs:
     needs: [build-node-based-docker, prepare-tags]
     strategy:
       matrix:
-        connector: [ resend, twitter-ads, people-data-labs ]
+        connector: [resend, twitter-ads, people-data-labs]
     steps:
       # We need checkout as a source for README
       - name: Checkout
@@ -168,7 +165,7 @@ jobs:
     needs: prepare-tags
     strategy:
       matrix:
-        connector: [ mixpanel ]
+        connector: [mixpanel]
     steps:
       # We need checkout as a source for README
       - name: Checkout

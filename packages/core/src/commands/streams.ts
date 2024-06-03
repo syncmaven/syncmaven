@@ -39,7 +39,6 @@ function getChannelAndMessage(opts: CommonOpts & PackageOpts & { credentials?: s
   }
 }
 
-
 export async function streams(
   opts: CommonOpts &
     PackageOpts & {
@@ -47,16 +46,18 @@ export async function streams(
       connectionFile?: string;
     }
 ) {
-  rewriteSeverityLevel("INFO", "DEBUG")
+  rewriteSeverityLevel("INFO", "DEBUG");
   configureEnvVars(["."], opts.env || []);
   const { channel, describeMessage } = getChannelAndMessage(opts);
 
   const streams = await channel.streams(describeMessage);
 
   const output: string[] = [];
-  output.push(`${fmt.bold(opts.connectionFile || opts.package)} declares the ${fmt.bold(streams.payload.streams.length)} streams:`);
+  output.push(
+    `${fmt.bold(opts.connectionFile || opts.package)} declares the ${fmt.bold(streams.payload.streams.length)} streams:`
+  );
   output.push("");
-  for (let i = 0; i < streams.payload.streams.length; i++){
+  for (let i = 0; i < streams.payload.streams.length; i++) {
     const stream = streams.payload.streams[i];
     if (!stream.rowType.$schema) {
       throw new Error(`Stream ${stream.name} does not have a valid JSON schema`);
@@ -64,7 +65,9 @@ export async function streams(
     const jsonSchema = stream.rowType as SchemaObject;
     const requiredProperties = jsonSchema.required || [];
     const optionalProperties = Object.keys(jsonSchema.properties || {}).filter(p => !requiredProperties.includes(p));
-    output.push(`${fmt.gray(i > 9 ? `${i+1}.` : `0${i+1}. `)}${fmt.cyan(stream.name)}, contains ${requiredProperties.length + optionalProperties.length} total properties, optional ${optionalProperties.length}`);
+    output.push(
+      `${fmt.gray(i > 9 ? `${i + 1}.` : `0${i + 1}. `)}${fmt.cyan(stream.name)}, contains ${requiredProperties.length + optionalProperties.length} total properties, optional ${optionalProperties.length}`
+    );
     displayProperties(jsonSchema, output, 5);
     process.stdout.write(output.join("\n") + "\n");
   }

@@ -88,7 +88,9 @@ export async function sync(
 ) {
   projectDir = untildify(projectDir || opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd());
   if ((projectDir || opts.projectDir) && process.env.IN_DOCKER) {
-    console.warn(`Project dir is set explicitly, but Syncmaven is running in Docker. It may not work as you expect. Mount it with -v flag: -v ${projectDir || opts.projectDir}:/project instead`)
+    console.warn(
+      `Project dir is set explicitly, but Syncmaven is running in Docker. It may not work as you expect. Mount it with -v flag: -v ${projectDir || opts.projectDir}:/project instead`
+    );
   }
   configureEnvVars([projectDir, "."], opts.env || []);
   const project = readProject(projectDir);
