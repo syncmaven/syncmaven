@@ -15,7 +15,7 @@ on:
 env:
   #not entirely necessary, so far, but it's good to control where pnpm stores its cache
   #for future use
-  PNPM_HOME: ~/.pnpm
+  PNPM_HOME: /pnpm
 
 jobs:
   build:
