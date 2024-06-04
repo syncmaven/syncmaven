@@ -6,6 +6,16 @@ on:
       release-version:
         description: "Version (optional). Can be either x.y.z or canary"
         required: false
+      skip-docker:
+        type: boolean
+        description: "Skip Docker build (optional)"
+        required: false
+        default: false
+
+env:
+  #not entirely necessary, so far, but it's good to control where pnpm stores its cache
+  #for future use
+  PNPM_HOME: ~/.pnpm
 
 jobs:
   build:
@@ -26,13 +36,19 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Display versions of tools
+        run: |
+          echo "Node version: $(node --version), npm version: $(npm --version), pnpm version: $(pnpm --version)" 
+
+      - name: Get pnpm store
+        id: pnpm-store
+        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
       - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm
+          path: "{{ steps.pnpm-store.outputs.dir }}"
+          key: "{{ runner.os }}-pnpm-${{ hashFiles('./pnpm-lock.yaml') }}"
 
       - name: Install dependencies
         run: pnpm install
@@ -67,7 +83,7 @@ jobs:
   build-docker:
     name: "Docker Build"
     # Don't automatically build on PRs and non-main branches
-    if: (github.ref == 'refs/heads/main' && github.event.inputs.release-version == '') || github.event.inputs.release-version == 'canary'
+    if: ((github.ref == 'refs/heads/main' && github.event.inputs.release-version == '') || github.event.inputs.release-version == 'canary') && github.event.inputs.skip-docker != true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
