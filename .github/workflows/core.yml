@@ -95,7 +95,7 @@ jobs:
   build-docker:
     name: "Docker Build"
     # Don't automatically build on PRs and non-main branches
-    if: ((github.ref == 'refs/heads/main' && github.event.inputs.release-version == '') || github.event.inputs.release-version == 'canary') && github.event.inputs.skip-docker != true
+    if: ((github.ref == 'refs/heads/main' && github.event.inputs.release-version == '') || github.event.inputs.release-version != '') && github.event.inputs.skip-docker != true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

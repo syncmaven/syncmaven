@@ -1,9 +1,4 @@
-import { Command } from "commander";
 import { initializeConsoleLogging, setEnabledDebugLogging } from "./log";
-import assert from "assert";
-import { OAuth2Client } from "google-auth-library";
-import { sync } from "./commands/sync";
-import { triggerOauthFlow } from "./commands/auth-helper";
 import { initCli } from "./commands";
 
 initializeConsoleLogging();
