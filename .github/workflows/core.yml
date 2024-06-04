@@ -11,6 +11,11 @@ on:
         description: "Skip Docker build (optional)"
         required: false
         default: false
+      debug:
+        type: boolean
+        description: "Debug mode (optional)"
+        required: false
+        default: false
 
 env:
   #not entirely necessary, so far, but it's good to control where pnpm stores its cache
@@ -31,7 +36,7 @@ jobs:
           always-auth: true
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@8
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -42,16 +47,22 @@ jobs:
 
       - name: Get pnpm store
         id: pnpm-store
-        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+        run: |
+           echo "Using PNPM store at $(pnpm store path)"
+           echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
-          path: "{{ steps.pnpm-store.outputs.dir }}"
-          key: "{{ runner.os }}-pnpm-${{ hashFiles('./pnpm-lock.yaml') }}"
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: "${{ runner.os }}-pnpm-${{ hashFiles('./pnpm-lock.yaml') }}"
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: List PNPM store status
+        if: ${{ github.event.inputs.debug == true }}
+        run: ls -la ${{ steps.pnpm-store.outputs.dir }}
 
       - name: Check code style
         run: pnpm format:check:all
