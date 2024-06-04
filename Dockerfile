@@ -1,5 +1,7 @@
 FROM node:20-slim as base
 
+ENV HUSKY=0
+
 RUN apt-get update -y
 RUN apt-get install nano curl bash netcat-traditional procps jq unzip -y
 WORKDIR /syncmaven

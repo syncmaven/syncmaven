@@ -22,6 +22,7 @@ env:
   # for future use
   # edit - PNPM is not reading this option
   PNPM_HOME: /pnpm
+  HUSKY: 0
 
 jobs:
   build:
@@ -59,7 +60,6 @@ jobs:
           key: "${{ runner.os }}-pnpm-${{ hashFiles('./pnpm-lock.yaml') }}"
           restore-keys: |
             ${{ runner.os }}-pnpm-
-
 
       - name: Install dependencies
         run: pnpm install

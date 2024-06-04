@@ -1,6 +1,7 @@
 # docker buildx build --target twitter-ads --platform linux/arm64 -f connectors.Dockerfile --load -t syncmaven/twitter-ads-destination:latest .
 
 FROM node:20-slim as base
+ENV HUSKY=0
 
 RUN apt-get update -y
 RUN apt-get install nano curl bash netcat-traditional procps jq unzip -y

@@ -9,6 +9,8 @@ on:
         description: "Select connectors to build and publish (not implemented yet)"
         required: false
         default: "*"
+env:
+  HUSKY: 0
 
 jobs:
   prepare-tags:

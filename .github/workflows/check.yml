@@ -13,6 +13,7 @@ env:
   # for future use
   # edit - PNPM is not reading this option
   PNPM_HOME: /pnpm
+  HUSKY: 0
 
 jobs:
   build:

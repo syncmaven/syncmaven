@@ -21,6 +21,7 @@
     "README.md"
   ],
   "devDependencies": {
+    "husky": "^9.0.11",
     "monorel": "^0.5.0"
   },
   "scripts": {
@@ -34,10 +35,10 @@
     "format:check": "prettier --ignore-unknown --check $(git diff --name-only --diff-filter d | xargs)",
     "format:check:all": "prettier --check .",
     "format": "prettier --ignore-unknown --write $(git diff --name-only --diff-filter d | xargs)",
-    "format:all": "prettier --write ."
+    "format:all": "prettier --write .",
+    "prepare": "husky"
   },
   "ts-node": {
     "swc": true
   }
-
 }
