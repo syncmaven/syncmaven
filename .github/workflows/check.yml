@@ -1,4 +1,4 @@
-name: "Code checks and test"
+name: "Code checks and tests"
 
 on:
   push:
@@ -16,7 +16,7 @@ env:
 
 jobs:
   build:
-    name: "Build project. Publish to NPM if needed"
+    name: "Build, check and test project"
     runs-on: ubuntu-latest
     steps:
       - name: Set up Node.js
@@ -45,6 +45,8 @@ jobs:
         with:
           path: ${{ steps.pnpm-store.outputs.dir }}
           key: "${{ runner.os }}-pnpm-${{ hashFiles('./pnpm-lock.yaml') }}"
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         run: pnpm install
