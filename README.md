@@ -23,7 +23,7 @@
 
 Analysts using Syncmaven to export data from their data warehouses to external services (we call them destinations).
 
-Get youself familliar with Syncmamev fundamentals:
+Get youself familliar with Syncmamen fundamentals:
 
 - [Model](https://syncmaven.sh/fundamentals/model)
 - [Connection and Destination](https://syncmaven.sh/fundamentals/connection)
