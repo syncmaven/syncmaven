@@ -2,8 +2,8 @@
   <img src="https://github.com/syncmaven/syncmaven/blob/main/github-assets/hero.png?raw=true" width="600px" alt="Logo" />
 </p>
 <p align="center">
-  <a href="https://github.com/syncmaven/syncmaven/actions/workflows/build.yml">
-    <img src="https://github.com/syncmaven/syncmaven/actions/workflows/build.yml/badge.svg?event=push" alt="CI Badge"/>
+  <a href="https://github.com/syncmaven/syncmaven/actions/workflows/check.yml">
+    <img src="https://github.com/syncmaven/syncmaven/actions/workflows/check.yml/badge.svg?event=push" alt="CI Badge"/>
   </a>
 </p>
 <h3 align="center">Syncmaven</h3>
