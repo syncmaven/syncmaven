@@ -5,6 +5,8 @@ import { init } from "./init";
 import { connectorDev } from "./connector-dev";
 import { streams } from "./streams";
 import { describeDestination } from "./destination";
+import { getLatestVersionFromRegistry, syncmavenVersion, syncmavenVersionTag } from "../lib/version";
+import { fmt } from "../log";
 
 /**
  * Options of every command
@@ -58,7 +60,25 @@ const commonOptions = {
   },
 } as const;
 
-export function initCli(): Command {
+export async function checkNewVersion() {
+  const out: string[] = [];
+  if (syncmavenVersionTag !== "dev") {
+    console.debug("Checking for new version...");
+    const latestVersion = await getLatestVersionFromRegistry("syncmaven", syncmavenVersionTag);
+    if (latestVersion && latestVersion !== syncmavenVersion) {
+      out.push(`${fmt.cyan('│')} ⚠️ ${fmt.cyan('Update available')}: ${syncmavenVersion} -> ${latestVersion}`);
+      out.push(`${fmt.cyan('│')}    Run the following to update`);
+      if (process.env.IN_DOCKER) {
+        out.push(fmt.cyan('│') + fmt.bold(`      docker pull syncmaven/syncmaven:${syncmavenVersionTag}`));
+      } else {
+        out.push(fmt.cyan('│') + fmt.bold(`     npm install -g syncmaven@${syncmavenVersionTag}`));
+      }
+    }
+  }
+  process.stdout.write(out.join("\n") + "\n\n")
+}
+
+export async function initCli(): Promise<Command> {
   const program = new Command();
   program.name("syncmaven").description("Synchronize data from your database to external services.");
 
@@ -149,6 +169,7 @@ export function initCli(): Command {
     .action(connectorDev);
 
   program.helpOption("-h --help", "display help for command");
+  program.version(syncmavenVersionTag === "dev" ? 'LOCAL.DEV.VERSION' : syncmavenVersion, "-v, --version", "output the current version");
 
   return program;
 }

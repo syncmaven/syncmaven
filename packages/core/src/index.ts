@@ -1,11 +1,10 @@
 import { initializeConsoleLogging, setEnabledDebugLogging } from "./log";
-import { initCli } from "./commands";
+import { checkNewVersion, initCli } from "./commands";
 
 initializeConsoleLogging();
 
 export async function main(argv: string[] = process.argv) {
-  const program = initCli();
-
+  const program = await initCli();
   const debug = argv.includes("--debug");
   if (debug) {
     setEnabledDebugLogging(true);
@@ -14,6 +13,7 @@ export async function main(argv: string[] = process.argv) {
     setEnabledDebugLogging(false);
   }
   try {
+    await checkNewVersion();
     await program.parseAsync(argv);
     process.exit(0);
   } catch (e: any) {

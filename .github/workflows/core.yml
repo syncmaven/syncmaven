@@ -141,6 +141,9 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           push: true
+          args:
+            SYNCMAVEN_VERSION=${{ steps.docker_tag.outputs.secondary_tag }}
+            SYNCMAVEN_BUILD_TAG=${{ steps.docker_tag.outputs.tag }}
           context: .
           tags: |
             syncmaven/syncmaven:${{ steps.docker_tag.outputs.secondary_tag }}
