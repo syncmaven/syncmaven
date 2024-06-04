@@ -38,7 +38,7 @@ jobs:
 
       - name: Display versions of tools
         run: |
-          echo "Node version: $(node --version), npm version: $(npm --version), pnpm version: $(pnpm --version)" 
+          echo "Node version: $(node --version), npm version: $(npm --version), pnpm version: $(pnpm --version)"
 
       - name: Get pnpm store
         id: pnpm-store
