@@ -7,6 +7,11 @@ on:
   pull_request:
     branches:
       - "**"
+env:
+  # not entirely necessary, so far, but it's good to control where pnpm stores its cache
+  # for future use
+  # edit - PNPM is not reading this option
+  PNPM_HOME: /pnpm
 
 jobs:
   build:
@@ -24,13 +29,21 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Display versions of tools
+        run: |
+          echo "Node version: $(node --version), npm version: $(npm --version), pnpm version: $(pnpm --version)"
+
+      - name: Get pnpm store
+        id: pnpm-store
+        run: |
+          echo "Using PNPM store at $(pnpm store path)"
+          echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
       - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: "${{ runner.os }}-pnpm-${{ hashFiles('./pnpm-lock.yaml') }}"
 
       - name: Install dependencies
         run: pnpm install

@@ -18,8 +18,9 @@ on:
         default: false
 
 env:
-  #not entirely necessary, so far, but it's good to control where pnpm stores its cache
-  #for future use
+  # not entirely necessary, so far, but it's good to control where pnpm stores its cache
+  # for future use
+  # edit - PNPM is not reading this option
   PNPM_HOME: /pnpm
 
 jobs:
