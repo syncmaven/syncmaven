@@ -17,16 +17,21 @@ function getVersionTag(syncmavenVersion: string) {
 }
 
 export async function getLatestVersionFromRegistry(packageName: string, tag: string): Promise<string | undefined> {
+  // don't delay the process if the registry is not available
+  const timeout = 300;
   const url = `https://registry.npmjs.org/${packageName}`;
+  const abortController = new AbortController();
+  const abortTimeout = setTimeout(() => abortController.abort(), timeout * 1000);
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {signal: abortController.signal});
     if (!response.ok) {
       console.warn(
         `Failed to fetch latest version of ${packageName}@${tag} from npm registry: ${response.status} ${response.statusText}`
       );
       return;
     }
+    clearTimeout(abortTimeout);
 
     const data = await response.json();
     const version = data["dist-tags"][tag];
@@ -38,7 +43,7 @@ export async function getLatestVersionFromRegistry(packageName: string, tag: str
 
     return version;
   } catch (error: any) {
-    console.warn(
+    console.debug(
       `Failed to fetch latest version of ${packageName}@${tag} from npm registry: ${error.message || "unknown error"}`
     );
   }
