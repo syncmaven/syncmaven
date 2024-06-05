@@ -1,28 +1,32 @@
 import { AST, Parser, Select } from "node-sql-parser";
 import { cloneDeep } from "lodash";
+import { DataSource, QueryParamFunction } from "../datasources";
 
-type SqlDialect = "postgres" | "bigquery";
+type SqlDialect = "postgres" | "bigquery" | "snowflake";
 
 const dialectsMapping = {
   postgres: "PostgresQL",
   bigquery: "BigQuery",
+  snowflake: "Snowflake",
 };
 
 export class SqlQuery {
   private query: string;
   private select: Select;
   private namedParams: string[] = [];
+  private queryParamFunction: QueryParamFunction;
   private dialect: SqlDialect;
 
-  constructor(query: string, dialect: SqlDialect) {
+  constructor(query: string, dialect: SqlDialect, queryParamFunction: QueryParamFunction) {
     this.query = query;
+    this.queryParamFunction = queryParamFunction;
     const parser = new Parser();
     let ast: AST[] | AST;
     this.dialect = dialect;
     try {
       ast = parser.astify(query, {
         //see dialects here https://github.com/taozhi8833998/node-sql-parser?tab=readme-ov-file#supported-database-sql-syntax
-        database: SqlQuery.dialectToDatabaseType(dialect),
+        database: SqlQuery.dialectToDatabaseType(this.dialect),
       });
     } catch (e: any) {
       throw new Error(`SQL query contains syntax error: ${e?.message}`);
@@ -43,11 +47,11 @@ export class SqlQuery {
     this.namedParams = [...params];
   }
 
-  private static dialectToDatabaseType(dialect: "postgres" | "bigquery") {
+  private static dialectToDatabaseType(dialect: SqlDialect) {
     return dialectsMapping[dialect] || "PostgresQL";
   }
 
-  public getUsedNamedParameters(): string[] {
+  public getNamedParameters(): string[] {
     return this.namedParams;
   }
 
@@ -60,32 +64,14 @@ export class SqlQuery {
         if (paramVal === undefined) {
           throw new Error(`Missing parameter value for :${paramName}`);
         }
-        if (typeof paramVal === "string") {
-          node.type = "single_quote_string";
-          node.value = paramVal;
-        } else if (typeof paramVal === "number") {
-          node.type = "number";
-          node.value = paramVal;
-        } else if (paramVal instanceof Date) {
-          node.type = "cast";
-          node.keyword = "cast";
-          node.expr = {
-            type: "single_quote_string",
-            value: paramVal.toISOString(),
-          };
-          node.as = null;
-          node.symbol = "::";
-          node.target = {
-            dataType: "TIMESTAMP WITH TIMEZONE",
-          };
-          node.arrows = [];
-          node.properties = [];
-          delete node.value;
-        } else if (paramVal === null) {
-          node.type = "null";
-          node.value = null;
-        } else {
-          throw new Error(`Unsupported '${paramName}' parameter type: ${typeof paramVal}`);
+        try {
+          const newNode = this.queryParamFunction(paramVal);
+          for (const member in node) delete node[member];
+          Object.entries(newNode).forEach(([key, value]) => {
+            node[key] = value;
+          });
+        } catch (e: any) {
+          throw new Error(`Error setting parameter ${paramName}: ${e?.message}`);
         }
       }
     });

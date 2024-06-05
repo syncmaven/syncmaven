@@ -2,8 +2,9 @@ import { Client, FieldDef, type QueryResult } from "pg";
 import { maskPassword } from "../lib/util";
 import Cursor from "pg-cursor";
 import { ModelDefinition } from "../types/objects";
-import { DataSource, StreamingHandler } from "./index";
+import { DataSource, genericToQueryParameter, SQLValue, StreamingHandler } from "./index";
 import { ColumnType, GenericColumnType } from "./types";
+import { ExpressionValue } from "node-sql-parser";
 
 async function getDataTypesTable(client: Client): Promise<Record<number, string>> {
   return (await client.query("SELECT oid, typname FROM pg_type")).rows.reduce((acc, row) => {
@@ -62,8 +63,11 @@ export async function newPostgresDatasource(modelDefinition: ModelDefinition): P
   return {
     type: () => "postgres",
     id: () => id,
+    toQueryParameter(paramVal: SQLValue): ExpressionValue {
+      return genericToQueryParameter(paramVal, "TIMESTAMP WITH TIME ZONE");
+    },
     executeQuery: async (param: { handler: StreamingHandler; query: string }) => {
-      console.debug(`[${id}] Executing query: ${param.query}`);
+      console.info(`[${id}] Executing query: ${param.query}`);
 
       const cursor = client.query(new Cursor(param.query));
       let cursorBatchSize = 100;

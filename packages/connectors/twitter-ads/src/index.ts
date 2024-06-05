@@ -29,7 +29,7 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
 
   constructor(config, ctx) {
     super(config, ctx);
-    this.rowsCacheKey = [`sync=${config.syncId}`, `stream=${config.streamId}`, "last-synced-rows"];
+    this.rowsCacheKey = [`syncId=${config.syncId}`, `stream=${config.streamId}`, "last-synced-rows"];
   }
 
   async init() {

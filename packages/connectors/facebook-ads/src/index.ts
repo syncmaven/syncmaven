@@ -49,7 +49,7 @@ class FacebookAudienceOutputStream extends BaseOutputStream<AudienceRowType, Fac
       },
       urlBase: `https://graph.facebook.com/${this.apiVersion}/${this.accountId}`,
     });
-    this.rowsKey = [`sync=${config.syncId}`, `stream=${config.streamId}`, "last-synced-rows"];
+    this.rowsKey = [`syncId=${config.syncId}`, `stream=${config.streamId}`, "last-synced-rows"];
   }
 
   async init() {

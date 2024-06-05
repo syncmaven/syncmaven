@@ -122,7 +122,7 @@ export async function sync(
 
 type CursorState = {
   type: GenericColumnType;
-  val: number | string | null;
+  val: number | string | null | Date;
 };
 
 function inferCursorType(type: string): GenericColumnType {
@@ -270,18 +270,21 @@ export async function runSync(opts: {
     let enrichedRows = 0;
     const errorThreshold = createErrorThreshold();
     datasource = await createDatasource(model);
-    const query = new SqlQuery(model.query, datasource.type());
-    if (model.cursor && !query.getUsedNamedParameters().includes("cursor")) {
+    const query = new SqlQuery(model.query, datasource.type(), datasource.toQueryParameter);
+    if (model.cursor && !query.getNamedParameters().includes("cursor")) {
       throw new Error(
         `Cursor field (${model.cursor}) is defined in the model, but :cursor is not referenced from the query. Read more about cursors and incremental syncs at https://syncmaven.sh/incremental`
       );
     }
     let maxCursorVal: CursorState | undefined = undefined;
-    const cursorStoreKey = [`sync=${syncId}`, `$lastCursor`];
+    const cursorStoreKey = [`syncId=${syncId}`, `$lastCursor`];
     if (model.cursor && opts.fullRefresh) {
       await store.del(cursorStoreKey);
     }
     const lastMaxCursor = model.cursor ? ((await store.get(cursorStoreKey)) as CursorState) : null;
+    if (lastMaxCursor?.val && lastMaxCursor.type === "date") {
+      lastMaxCursor.val = new Date(lastMaxCursor.val);
+    }
     await datasource.executeQuery({
       query: model.cursor ? query.compile({ cursor: lastMaxCursor?.val || null }) : query.compile({}),
       handler: {
