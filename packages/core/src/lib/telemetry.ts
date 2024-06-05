@@ -4,7 +4,7 @@ import { syncmavenVersion, syncmavenVersionTag } from "./version";
 
 const key = "t4RKFKQzF1ye0ddiWk9ZwXPI4szQGL7X:zKHhK6v3QZ0SWELmeV4pJs2q3BziW1Xc";
 const host = "https://clx0w1kqg00003b6rg67nqa18.d.jitsu.com";
-const telemetryAvailable = !isTruish(process.env.SYNCMAVEN_TELEMETRY_DISABLED) && syncmavenVersionTag !== "dev"
+const telemetryAvailable = !isTruish(process.env.SYNCMAVEN_TELEMETRY_DISABLED) && syncmavenVersionTag !== "dev";
 
 const jitsu = jitsuAnalytics({
   host: process.env.SYNCMAVEN_TELEMETRY_HOST || host,

@@ -4,7 +4,7 @@ import JSON5 from "json5";
 
 const packageJson = getPackageJson();
 
-export const syncmavenVersion = process.env.SYNCMAVEN_VERSION || packageJson.version as string;
+export const syncmavenVersion = process.env.SYNCMAVEN_VERSION || (packageJson.version as string);
 export const syncmavenVersionTag = getVersionTag(syncmavenVersion);
 
 function getVersionTag(syncmavenVersion: string) {
@@ -24,7 +24,7 @@ export async function getLatestVersionFromRegistry(packageName: string, tag: str
   const abortTimeout = setTimeout(() => abortController.abort(), timeout * 1000);
 
   try {
-    const response = await fetch(url, {signal: abortController.signal});
+    const response = await fetch(url, { signal: abortController.signal });
     if (!response.ok) {
       console.warn(
         `Failed to fetch latest version of ${packageName}@${tag} from npm registry: ${response.status} ${response.statusText}`
@@ -48,7 +48,6 @@ export async function getLatestVersionFromRegistry(packageName: string, tag: str
     );
   }
 }
-
 
 export function getPackageJson() {
   const maxDepth = 5;

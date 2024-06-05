@@ -66,16 +66,16 @@ export async function checkNewVersion() {
     console.debug("Checking for new version...");
     const latestVersion = await getLatestVersionFromRegistry("syncmaven", syncmavenVersionTag);
     if (latestVersion && latestVersion !== syncmavenVersion) {
-      out.push(`${fmt.cyan('│')} ${fmt.cyan('Update available')}: ${syncmavenVersion} -> ${latestVersion}`);
-      out.push(`${fmt.cyan('│')} Run the following to update`);
+      out.push(`${fmt.cyan("│")} ${fmt.cyan("Update available")}: ${syncmavenVersion} -> ${latestVersion}`);
+      out.push(`${fmt.cyan("│")} Run the following to update`);
       if (isTruish(process.env.IN_DOCKER)) {
-        out.push(fmt.cyan('│') + fmt.bold(`       docker pull syncmaven/syncmaven:${syncmavenVersionTag}`));
+        out.push(fmt.cyan("│") + fmt.bold(`       docker pull syncmaven/syncmaven:${syncmavenVersionTag}`));
       } else {
-        out.push(fmt.cyan('│') + fmt.bold(`      npm install -g syncmaven@${syncmavenVersionTag}`));
+        out.push(fmt.cyan("│") + fmt.bold(`      npm install -g syncmaven@${syncmavenVersionTag}`));
       }
     }
   }
-  process.stdout.write(out.join("\n") + "\n\n")
+  process.stdout.write(out.join("\n") + "\n\n");
 }
 
 export async function initCli(): Promise<Command> {
@@ -158,7 +158,11 @@ export async function initCli(): Promise<Command> {
     .action(connectorDev);
 
   program.helpOption("-h --help", "display help for command");
-  program.version(syncmavenVersionTag === "dev" ? 'LOCAL.DEV.VERSION' : syncmavenVersion, "-v, --version", "output the current version");
+  program.version(
+    syncmavenVersionTag === "dev" ? "LOCAL.DEV.VERSION" : syncmavenVersion,
+    "-v, --version",
+    "output the current version"
+  );
 
   return program;
 }
