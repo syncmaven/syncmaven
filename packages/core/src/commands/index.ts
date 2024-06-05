@@ -1,10 +1,12 @@
 import { Command } from "commander";
 import { sync } from "./sync";
-import { defaultOauthRedirectURIPort, triggerOauthFlow } from "./auth-helper";
 import { init } from "./init";
 import { connectorDev } from "./connector-dev";
 import { streams } from "./streams";
 import { describeDestination } from "./destination";
+import { getLatestVersionFromRegistry, syncmavenVersion, syncmavenVersionTag } from "../lib/version";
+import { fmt } from "../log";
+import { isTruish } from "../lib/util";
 
 /**
  * Options of every command
@@ -58,7 +60,25 @@ const commonOptions = {
   },
 } as const;
 
-export function initCli(): Command {
+export async function checkNewVersion() {
+  const out: string[] = [];
+  if (syncmavenVersionTag !== "dev") {
+    console.debug("Checking for new version...");
+    const latestVersion = await getLatestVersionFromRegistry("syncmaven", syncmavenVersionTag);
+    if (latestVersion && latestVersion !== syncmavenVersion) {
+      out.push(`${fmt.cyan("│")} ${fmt.cyan("Update available")}: ${syncmavenVersion} -> ${latestVersion}`);
+      out.push(`${fmt.cyan("│")} Run the following to update`);
+      if (isTruish(process.env.IN_DOCKER)) {
+        out.push(fmt.cyan("│") + fmt.bold(`       docker pull syncmaven/syncmaven:${syncmavenVersionTag}`));
+      } else {
+        out.push(fmt.cyan("│") + fmt.bold(`      npm install -g syncmaven@${syncmavenVersionTag}`));
+      }
+    }
+  }
+  process.stdout.write(out.join("\n") + "\n\n");
+}
+
+export async function initCli(): Promise<Command> {
   const program = new Command();
   program.name("syncmaven").description("Synchronize data from your database to external services.");
 
@@ -79,17 +99,6 @@ export function initCli(): Command {
     .option(commonOptions.debug.flag, commonOptions.debug.description)
     .option(commonOptions.fullRefresh.flag, commonOptions.fullRefresh.description)
     .action(sync);
-
-  program
-    .command("auth-helper")
-    .description("Trigger an oauth flow for a given connection to generate credentials")
-    .option(commonOptions.env.flag, commonOptions.env.description)
-    .option("-d, --project-dir <project-directory>", "Which directory to look in for the project")
-    .argument("[project-dir]", "Alternative way to specify project directory")
-    .option("-c, --connection <connectionId>", "Connection id")
-    .option("-p, --port <port>", `Port where to run server (${defaultOauthRedirectURIPort}) to default`)
-    .option("--debug", "Enable extra logging for debugging purposes")
-    .action(triggerOauthFlow);
 
   program
     .command("init")
@@ -149,6 +158,11 @@ export function initCli(): Command {
     .action(connectorDev);
 
   program.helpOption("-h --help", "display help for command");
+  program.version(
+    syncmavenVersionTag === "dev" ? "LOCAL.DEV.VERSION" : syncmavenVersion,
+    "-v, --version",
+    "output the current version"
+  );
 
   return program;
 }

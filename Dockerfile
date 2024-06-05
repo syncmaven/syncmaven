@@ -1,5 +1,9 @@
 FROM node:20-slim as base
 
+#0.0.0 is a dev version
+ARG SYNCMAVEN_VERSION=0.0.0
+ENV SYNCMAVEN_VERSION=${SYNCMAVEN_VERSION}
+
 ENV HUSKY=0
 
 RUN apt-get update -y

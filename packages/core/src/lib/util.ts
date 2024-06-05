@@ -19,5 +19,5 @@ export function maskPassword(url: string): string {
 }
 
 export function isTruish(x: any): boolean {
-  return x === "true" || x === "1";
+  return (x + "").toLowerCase() === "true" || (x + "").toLowerCase() === "1";
 }
