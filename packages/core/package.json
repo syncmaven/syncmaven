@@ -9,8 +9,8 @@
     "build": "pnpm compile",
     "clean": "rm -rf dist",
     "main:prod": "node dist/main.js",
-    "main": "NODE_OPTIONS=--no-deprecation ts-node --swc src/index.ts",
-    "test": "tsc && node --test"
+    "main": "NODE_OPTIONS=--no-deprecation node --require ts-node/register src/index.ts",
+    "test": "node --require ts-node/register --test __tests__/**/*.test.ts __tests__/integration/*.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -40,9 +40,8 @@
     "node-loader": "^2.0.0",
     "prettier": "^3.2.5",
     "ts-node": "^10.9.2",
-    "ts-node-test": "^0.4.3",
-    "type-fest": "^4.16.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "type-fest": "^4.16.0"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^7.7.1",

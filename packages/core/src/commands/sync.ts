@@ -279,7 +279,7 @@ export async function runSync(opts: {
       );
     }
     let maxCursorVal: CursorState | undefined = undefined;
-    const cursorStoreKey = [`syncId=${syncId}`, `$lastCursor`];
+    const cursorStoreKey = [`syncId=${syncId}`, `$lastCursor=${model.cursor}`];
     if (model.cursor && opts.fullRefresh) {
       await store.del(cursorStoreKey);
     }

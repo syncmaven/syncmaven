@@ -169,6 +169,20 @@ export function readProjectObjectFromFile<T>(
         factory: makeFactory<any>(yamlRaw, { fullPath: filePath, idFromName: name }, zodSchema) as any,
       };
     }
+  } else if (ext === ".json") {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const jsonRaw = JSON.parse(content);
+    if (!content || !jsonRaw) {
+      throw new Error(`Error parsing ${path}. File seems to be empty or invalid`);
+    }
+    if (!jsonRaw.disabled || opts.ignoreDisabled) {
+      const id = jsonRaw.id || name;
+
+      return {
+        id,
+        factory: makeFactory<any>(jsonRaw, { fullPath: filePath, idFromName: name }, zodSchema) as any,
+      };
+    }
   } else if (ext === ".ts") {
     console.warn(`TypeScript models are not supported yet. Skipping ${filePath}`);
   } else {

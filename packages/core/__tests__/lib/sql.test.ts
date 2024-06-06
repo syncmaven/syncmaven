@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "node:test";
 import { SqlQuery } from "../../src/lib/sql";
 import assert from "assert";
 import { genericToQueryParameter, SQLValue } from "../../src/datasources";

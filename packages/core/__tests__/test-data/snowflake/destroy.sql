@@ -1,0 +1,1 @@
+drop table SYNCMAVEN_TEST_TABLE;

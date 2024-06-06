@@ -1,0 +1,28 @@
+{
+  "name": "@syncmaven/file",
+  "version": "0.0.0",
+  "description": "For testing purposes. Simply dumps incoming messages to the file.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "main:prod": "node dist/index.js",
+    "main": "NODE_OPTIONS=--no-deprecation ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@syncmaven/node-cdk": "workspace:*",
+    "@syncmaven/protocol":"workspace:*",
+    "zod": "^3.23.8",
+    "tslib": "^2.6.2"
+  },
+  "devDependencies": {
+    "@syncmaven/configs":"workspace:*",
+    "syncmaven": "workspace:*",
+    "@types/node": "^20.12.12",
+    "typescript": "^5.4.5",
+    "ts-node": "^10.9.2"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "node:test";
 import { fmt, initializeConsoleLogging, rewriteSeverityLevel, setEnabledDebugLogging } from "../../src/log";
 
 initializeConsoleLogging();
@@ -10,7 +10,7 @@ function writeLogs() {
   console.debug(`Message ${fmt.bold("bold")} not-bold`, { a: 1 });
 }
 
-test("test-sql-query-parser", () => {
+test("test-logs", () => {
   writeLogs();
   rewriteSeverityLevel("INFO", "DEBUG");
   setEnabledDebugLogging(false);

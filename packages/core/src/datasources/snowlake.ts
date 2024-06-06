@@ -15,6 +15,35 @@ export const SnowflakeCredentials = z.object({
   application: z.string().optional().default("syncmaven"),
 });
 
+export async function connectSnowflake(cred: z.infer<typeof SnowflakeCredentials>): Promise<snowflake.Connection> {
+  const connection = snowflake.createConnection(cred);
+  await new Promise((resolve, reject) => {
+    connection.connect(function (err, conn) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(conn);
+      }
+    });
+  });
+  return connection;
+}
+
+export async function snowflakeQuery(connection: snowflake.Connection, query: string) {
+  await new Promise<any[] | undefined>((resolve, reject) => {
+    connection.execute({
+      sqlText: query,
+      complete: async function (err, stmt, rows) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(rows);
+      },
+    });
+  });
+}
+
 export async function newSnowflakeDatasource(modelDefinition: ModelDefinition): Promise<DataSource> {
   const ds = modelDefinition.datasource;
   if (typeof ds !== "object") {
@@ -25,22 +54,7 @@ export async function newSnowflakeDatasource(modelDefinition: ModelDefinition): 
   }
   const cred = SnowflakeCredentials.parse(ds.credentials);
 
-  const connection = snowflake.createConnection(cred);
-
-  console.debug(`Connecting`);
-
-  await new Promise((resolve, reject) => {
-    // Try to connect to Snowflake, and check whether the connection was successful.
-    connection.connect(function (err, conn) {
-      if (err) {
-        console.error("Unable to connect: " + err.message);
-        reject(err);
-      } else {
-        console.log("Successfully connected to Snowflake.");
-        resolve(conn);
-      }
-    });
-  });
+  const connection = await connectSnowflake(cred);
 
   const id = modelDefinition.id || modelDefinition.name || "snowflake";
 
@@ -80,7 +94,16 @@ export async function newSnowflakeDatasource(modelDefinition: ModelDefinition): 
             stream
               .on("readable", async function (row: any) {
                 while ((row = stream.read()) !== null) {
-                  row = Object.fromEntries(Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]));
+                  row = Object.fromEntries(
+                    Object.entries(row).map(([k, v]) => {
+                      const className = v?.constructor?.name;
+                      if (className === "Date") {
+                        v = new Date((v as any).getTime());
+                        (v as any).setMilliseconds((v as any).getMilliseconds());
+                      }
+                      return [k.toLowerCase(), v];
+                    })
+                  );
                   handler.row(row);
                 }
               })

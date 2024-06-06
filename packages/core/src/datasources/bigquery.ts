@@ -11,6 +11,14 @@ export const BigQueryCredentials = z.object({
   key: z.union([z.string(), z.record(z.any())]),
 });
 
+export async function bqQuery(bigQuery: BigQuery, query: string) {
+  const [job] = await bigQuery.createQueryJob({
+    query,
+  });
+  const jobResult = await job.getQueryResults();
+  return jobResult[0];
+}
+
 export async function newBigQueryDatasource(modelDefinition: ModelDefinition): Promise<DataSource> {
   const ds = modelDefinition.datasource;
   if (typeof ds !== "object") {
@@ -22,7 +30,7 @@ export async function newBigQueryDatasource(modelDefinition: ModelDefinition): P
   const cred = BigQueryCredentials.parse(ds.credentials);
   const location = cred.location || "US";
   const bigQuery = new BigQuery({
-    credentials: typeof cred.key === "string" ? JSON.parse(ds.credentials.key) : cred.key,
+    credentials: typeof cred.key === "string" ? JSON.parse(cred.key) : cred.key,
     projectId: cred.projectId,
   });
 
