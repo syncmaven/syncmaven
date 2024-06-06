@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "path";
 import { ZodSchema, ZodType } from "zod";
 import fs from "fs";
-import nunjucks from "nunjucks";
+import Handlebars from "handlebars";
 import { merge, omit, set } from "lodash";
 import { load } from "js-yaml";
 import { stringifyZodError } from "./zod";
@@ -128,9 +128,8 @@ export function readProjectObjectFromFile<T>(
     console.warn(`Only files with extensions are supported in ${dir}. Skipping file ${base}`);
   } else if (ext === ".sql") {
     const content = fs.readFileSync(filePath, "utf-8");
-    const templateEngine = new nunjucks.Environment();
     let config: any = {};
-    templateEngine.addGlobal("config", function (arg1, arg2) {
+    Handlebars.registerHelper("config", function (arg1, arg2) {
       if (arg2 === undefined && typeof arg1 === "object") {
         config = merge(config, arg1);
       }
@@ -141,7 +140,8 @@ export function readProjectObjectFromFile<T>(
       }
     });
     try {
-      config.query = templateEngine.renderString(content, { env: process.env });
+      const template = Handlebars.compile(content);
+      config.query = template({ env: process.env });
     } catch (e: any) {
       const message = (e?.message || "unknown error").replace("(unknown path)", filePath);
 

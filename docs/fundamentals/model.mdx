@@ -14,8 +14,8 @@ Models are defined in the `./models` directory of the project.
 Model can be defined in a SQL file. The file should have a `.sql` extension. The file should contain a SQL query
 
 ```sql
---{{ config("name", "Active Users" }) }}
---{{ config("datasource", "${env.POSTGRES_URL}" }}
+--{{ config "name" "Active Users" }}
+--{{ config "datasource", env.POSTGRES_URL }}
 
 SELECT * FROM users WHERE active = true;
 ```
@@ -23,7 +23,7 @@ SELECT * FROM users WHERE active = true;
 In addition to the SQL query, the file can set model configuration using the `config` directive
 
 ```
--- {{ config("param", "value" }) }}
+-- {{ config "param" "value" }}
 ```
 
 Please note that the `config` directive should be in a comment block to be ignored by the SQL parser.

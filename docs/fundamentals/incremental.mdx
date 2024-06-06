@@ -17,9 +17,9 @@ only grows over time. For example, `updated_at` field in a table is a good candi
 Cursors are defined in [model](/fundamentals/models)
 
 ```sql
---{{ config("name", "Users" ) }}
---{{ config("datasource", "${env.DATABASE_URL}") }}
---{{ config("cursor", "updated_at") }}
+--{{ config "name" "Users" }}
+--{{ config "datasource" env.DATABASE_URL }}
+--{{ config "cursor" "updated_at" }}
 
 select * from users where :cursor is null or updated_at >= :cursor
 ```

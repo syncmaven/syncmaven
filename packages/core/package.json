@@ -62,7 +62,7 @@
     "json5": "^2.2.3",
     "lodash": "^4.17.21",
     "node-sql-parser": "^5.2.0",
-    "nunjucks": "3.2.4",
+    "handlebars": "^4.7.8",
     "oauth-1.0a": "^2.2.6",
     "pg": "^8.11.5",
     "pg-cursor": "^2.10.5",

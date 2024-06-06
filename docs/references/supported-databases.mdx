@@ -25,7 +25,7 @@ in YAML or SQL comments.
       <Tab title="model.sql">
         ```sql
         ---DATABASE_URL defined as environment variable as postgres://username:password@host:port/database
-        --{{ config("datasource", "postgresql://${env.PG_USER}:${env.PG_PASS}@${env.PG_HOST}:${env.PG_PORT:5432}/${env.PG_DB}?sslmode=no-verify&schema=newjitsu") }}
+        --{{ config "datasource" "postgresql://${env.PG_USER}:${env.PG_PASS}@${env.PG_HOST}:${env.PG_PORT:5432}/${env.PG_DB}?sslmode=no-verify&schema=newjitsu" }}
         select * from users;
         ```
       </Tab>
