@@ -66,7 +66,7 @@ export function getEnrichmentProvider(en: ConnectionDefinition, messagesHandler:
 
 export async function createStore(state: string): Promise<StreamPersistenceStore> {
   console.log(`Creating store in ${state}`);
-  if (state.startsWith("postgres://")) {
+  if (state.startsWith("postgres://") || state.startsWith("postgresql://")) {
     const pgStore = new PostgresStore(state);
     await pgStore.init();
     return pgStore;

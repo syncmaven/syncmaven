@@ -69,6 +69,7 @@ export async function createDatasource(modelDefinition: ModelDefinition): Promis
     const protocol = dsn.split("://")[0];
     switch (protocol) {
       case "postgresql":
+      case "postgres":
         return newPostgresDatasource(modelDefinition);
       default:
         throw new Error(`Unsupported protocol: ${protocol}`);

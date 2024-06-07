@@ -34,7 +34,7 @@ export async function newPostgresDatasource(modelDefinition: ModelDefinition): P
   if (typeof dsn !== "string") {
     throw new Error(`Invalid datasource: ${dsn}`);
   }
-  if (!dsn.startsWith("postgresql://")) {
+  if (!dsn.startsWith("postgresql://") && !dsn.startsWith("postgres://")) {
     throw new Error(`Invalid postgresql datasource: ${dsn}`);
   }
   const client = new Client({
