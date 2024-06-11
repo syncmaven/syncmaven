@@ -135,3 +135,4 @@ export function normalizeEmail(email: string): string {
 
 export * from "./rpc";
 export * from "./std";
+export * from "./inmem-store";
