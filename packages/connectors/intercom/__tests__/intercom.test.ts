@@ -14,7 +14,6 @@ function strinfigyZodIssue(e: ZodIssue) {
   return `${JSON.stringify(e)}`;
 }
 
-
 export function stringifyZodError(error: any): string {
   if (!(error instanceof ZodError)) {
     return error?.message || "Unknown error";
@@ -32,7 +31,7 @@ async function testProvider<Creds extends any>(opts: {
 }) {
   const envCreds = process.env[opts.envVarName];
   if (!envCreds) {
-    opts.textContext.skip(`${opts.envVarName} is set.`);
+    opts.textContext.skip(`${opts.envVarName} is not set.`);
     return;
   }
   const credentials = JSON5.parse(envCreds);
@@ -78,20 +77,43 @@ describe("Intercom Test", () => {
       testData: {
         contacts: [
           {
-            contact_id: 1,
+            external_id: "1",
             email: "john.doe@horns-and-hoofs.com",
             name: "John Doe",
             phone: "+1234567890",
-            custom_field1: "custom field value",
-            plan_type: "free",
+            contact_custom_field1: "custom field value",
+            company_id: 1,
+          },
+          {
+            external_id: "2",
+            email: "john.do2e@another.com",
+            name: "John Doe2",
+            phone: "+71234567890",
+            company_id: 2,
+          },
+          {
+            external_id: "3",
+            email: "john.do3e@another.com",
+            name: "John Doe.3",
+            phone: "+81234567890",
+            company_id: 2,
           },
         ],
         companies: [
           {
             company_id: 1,
+            remote_created_at: new Date(2024, 1, 1, 12, 0, 0, 0),
+            size: 10,
             name: "Horns and Hoofs",
             custom_field1: "custom field value",
-            plan_type: "free",
+            plan: "free",
+          },
+          {
+            company_id: 2,
+            remote_created_at: new Date(2024, 1, 1, 12, 0, 0, 0),
+            size: 10,
+            name: "Another company",
+            plan: "free",
           },
         ],
       },
