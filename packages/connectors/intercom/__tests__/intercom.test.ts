@@ -25,9 +25,11 @@ async function testProvider<Creds extends any>(opts: {
   provider: DestinationProvider;
   testData: Record<string, any[]>;
   envVarName: string;
+  streamOptions?: Record<string, any>;
   textContext: TestContext;
   before?: (c: Creds) => void;
   after?: (c: Creds) => void;
+  validate?: (c: Creds) => void;
 }) {
   const envCreds = process.env[opts.envVarName];
   if (!envCreds) {
@@ -45,7 +47,7 @@ async function testProvider<Creds extends any>(opts: {
       const outputStream = await stream.createOutputStream(
         {
           streamId: `test-${stream.name}`,
-          options: {},
+          options: opts.streamOptions?.[stream.name] || {},
           credentials,
           syncId: `test-${stream.name}-sync`,
         },
@@ -74,6 +76,14 @@ describe("Intercom Test", () => {
   test("Intercom Provider", async t => {
     await testProvider({
       provider: intercomProvider,
+      streamOptions: {
+        contacts: {
+          customAttributesPolicy: "skip-unknown",
+        },
+        companies: {
+          customAttributesPolicy: "skip-unknown",
+        },
+      },
       testData: {
         contacts: [
           {
