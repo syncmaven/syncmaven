@@ -160,6 +160,7 @@ export async function runSync(opts: {
   const sync: SyncDefinition = syncFactory();
   console.info(`Running sync \`${syncId}\``, sync);
   const modelId = sync.model;
+  const checkpointEvery = sync.checkpointEvery;
 
   const modelFactory = project.models[modelId];
   assert(modelFactory, `Model with id ${modelId} referenced from sync ${syncId} not found in the project`);
@@ -207,16 +208,18 @@ export async function runSync(opts: {
     }
   };
 
-  const destinationChannel: DestinationChannel | undefined = getDestinationChannelFromDefinition(
-    destination,
-    messageListener
-  );
+  const destinationChannel: DestinationChannel = getDestinationChannelFromDefinition(destination, messageListener);
   const enrichments: EnrichmentChannel[] = [];
   let datasource: DataSource | undefined = undefined;
   try {
     const connectionSpec = await destinationChannel.describe();
     const connectionCredentialsParser = createParser(connectionSpec.payload.connectionCredentials);
     const parsedCredentials = connectionCredentialsParser.safeParse(destination.credentials);
+    if (!parsedCredentials.success) {
+      throw new Error(
+        `Invalid credentials for destination ${destinationId}: ${stringifyParseError(parsedCredentials.error)}`
+      );
+    }
     const streamsSpec = await destinationChannel.streams({
       type: "describe-streams",
       payload: {
@@ -230,24 +233,6 @@ export async function runSync(opts: {
     }
     console.debug(`Stream spec: ${JSON.stringify(streamSpec)}`);
     const rowSchemaParser = createParser(streamSpec.rowType);
-    if (!parsedCredentials.success) {
-      throw new Error(
-        `Invalid credentials for destination ${destinationId}: ${stringifyParseError(parsedCredentials.error)}`
-      );
-    }
-    await destinationChannel.startStream(
-      {
-        type: "start-stream",
-        payload: {
-          stream: streamId,
-          connectionCredentials: parsedCredentials.data,
-          streamOptions: sync.options || {},
-          syncId,
-          fullRefresh: !!opts.fullRefresh,
-        },
-      },
-      context
-    );
 
     const enrichmentSettings = sync.enrichments || (sync.enrichment ? [sync.enrichment] : []);
 
@@ -287,6 +272,27 @@ export async function runSync(opts: {
     if (lastMaxCursor?.val && lastMaxCursor.type === "date") {
       lastMaxCursor.val = new Date(lastMaxCursor.val);
     }
+
+    let streamStarted = false;
+
+    async function checkpoint(completed: boolean) {
+      const res = await destinationChannel.stopStream();
+      if (model.cursor) {
+        console.debug(`Max cursor value: ${maxCursorVal}`);
+        await store.set(cursorStoreKey, maxCursorVal);
+      }
+      console.info(
+        `Sync ${syncId} ${completed ? "is finished" : "is checkpointing"}. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats:`
+      );
+      for (const [k, v] of Object.entries(res.payload as any)) {
+        if (typeof v === "number") {
+          console.info(`  ${k}: ${v}`);
+        } else {
+          console.info(`  ${k}: ${JSON.stringify(v)}`);
+        }
+      }
+    }
+
     await datasource.executeQuery({
       query: model.cursor ? query.compile({ cursor: lastMaxCursor?.val || null }) : query.compile({}),
       handler: {
@@ -301,6 +307,22 @@ export async function runSync(opts: {
           }
         },
         row: async row => {
+          if (!streamStarted) {
+            await destinationChannel.startStream(
+              {
+                type: "start-stream",
+                payload: {
+                  stream: streamId,
+                  connectionCredentials: parsedCredentials.data,
+                  streamOptions: sync.options || {},
+                  syncId,
+                  fullRefresh: !!opts.fullRefresh,
+                },
+              },
+              context
+            );
+            streamStarted = true;
+          }
           const parseResult = rowSchemaParser.safeParse(row);
           if (model.cursor) {
             const cursorVal = row[model.cursor];
@@ -335,23 +357,15 @@ export async function runSync(opts: {
             }
           }
           totalRows++;
+          if (checkpointEvery && totalRows % checkpointEvery === 0) {
+            await checkpoint(false);
+            streamStarted = false;
+          }
         },
         finalize: async () => {},
       },
     });
-    const res = await destinationChannel.stopStream();
-    if (model.cursor) {
-      console.debug(`Max cursor value: ${maxCursorVal}`);
-      await store.set(cursorStoreKey, maxCursorVal);
-    }
-    console.info(`Sync ${syncId} is finished. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats:`);
-    for (const [k, v] of Object.entries(res.payload as any)) {
-      if (typeof v === "number") {
-        console.info(`  ${k}: ${v}`);
-      } else {
-        console.info(`  ${k}: ${JSON.stringify(v)}`);
-      }
-    }
+    await checkpoint(true);
   } catch (e: any) {
     throw e;
   } finally {

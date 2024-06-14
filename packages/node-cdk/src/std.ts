@@ -210,6 +210,6 @@ async function rpcCall(method: string, body: any): Promise<any> {
         Authorization: "Bearer " + process.env.RPC_TOKEN,
       }),
     },
-    body: JSON.stringify(body),
+    body: body,
   });
 }

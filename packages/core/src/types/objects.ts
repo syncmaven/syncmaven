@@ -37,6 +37,7 @@ export const SyncDefinition = z.object({
   mapping: z.any(),
   enrichment: EnrichmentSettings.optional(),
   enrichments: z.array(EnrichmentSettings).optional(),
+  checkpointEvery: z.number().describe("End stream and continue with a new one every N rows.").optional(),
   options: z.any(),
 });
 

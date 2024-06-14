@@ -1,8 +1,9 @@
 import {
-  BaseOutputStream,
+  BaseRateLimitedOutputStream,
   DestinationProvider,
   DestinationStream,
   OutputStreamConfiguration,
+  stdProtocol,
 } from "@syncmaven/node-cdk";
 import { z } from "zod";
 import { ExecutionContext } from "@syncmaven/protocol";
@@ -11,13 +12,12 @@ import { omit, pick } from "lodash";
 
 export const IntercomCredentials = z.object({
   accessToken: z.string(),
-  appId: z.string(),
 });
 
 export const CompanyRowType = z
   .object({
     name: z.string(),
-    company_id: z.coerce.string(),
+    company_id: z.union([z.string(), z.number()]),
     plan: z.string().optional(),
     size: z.number().optional(),
     website: z.string().optional(),
@@ -34,11 +34,11 @@ export const ContactRowType = z
     name: z.string().optional(),
     role: z.string().optional(),
     email: z.string(),
-    external_id: z.coerce.string(),
+    external_id: z.union([z.string(), z.number()]),
     owner_id: z.string().optional(),
     phone: z.string().optional(),
     avatar: z.string().optional(),
-    company_id: z.coerce.string(),
+    company_ids: z.union([z.union([z.string(), z.number()]), z.array(z.union([z.string(), z.number()]))]).optional(),
     signed_up_at: z.coerce.date().optional(),
     last_seen_at: z.coerce.date().optional(),
     unsubscribed_from_emails: z.boolean().optional(),
@@ -60,7 +60,7 @@ function createClient(creds: IntercomCredentials) {
   });
 }
 
-abstract class BaseIntercomStream<RowT extends Record<string, any>> extends BaseOutputStream<
+abstract class BaseIntercomStream<RowT extends Record<string, any>> extends BaseRateLimitedOutputStream<
   RowT,
   IntercomCredentials
 > {
@@ -70,7 +70,7 @@ abstract class BaseIntercomStream<RowT extends Record<string, any>> extends Base
   protected customAttributesPolicy: CustomAttributesPolicy;
 
   protected constructor(config: OutputStreamConfiguration<IntercomCredentials>, ctx: ExecutionContext, model: Model) {
-    super(config, ctx);
+    super(config, ctx, 1000 / 60);
     this.model = model;
     this.customAttributesPolicy = this.config.options.customAttributesPolicy || "create-unknown";
     if (!customAttributesPolicies.includes(this.customAttributesPolicy)) {
@@ -85,7 +85,7 @@ abstract class BaseIntercomStream<RowT extends Record<string, any>> extends Base
     );
   }
 
-  public async init(): Promise<this> {
+  public async init(ctx: ExecutionContext) {
     await this.refreshCustomAttributes();
     return this;
   }
@@ -134,15 +134,31 @@ abstract class BaseIntercomStream<RowT extends Record<string, any>> extends Base
 }
 
 class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
-  private companiesCache: Record<string, any> = {};
+  private companiesMap: Record<string, any> = {};
+  private contactsMap: Record<string, any> = {};
 
   constructor(config: OutputStreamConfiguration<IntercomCredentials>, ctx: ExecutionContext) {
     super(config, ctx, "contact");
   }
 
+  async init(ctx: ExecutionContext) {
+    await super.init(ctx);
+    let entries = await ctx.store.list(["syncId=" + this.config.syncId, "companiesMap"]);
+    for (const entry of entries) {
+      const k = entry.key as string[];
+      this.companiesMap[k[k.length - 1]] = entry.value;
+    }
+    entries = await ctx.store.list(["syncId=" + this.config.syncId, "contactsMap"]);
+    for (const entry of entries) {
+      const k = entry.key as string[];
+      this.contactsMap[k[k.length - 1]] = entry.value;
+    }
+    return this;
+  }
+
   // https://developers.intercom.com/docs/references/rest-api/api.intercom.io/Contacts/CreateContact/
-  async handleRow(row: ContactRowType, ctx: ExecutionContext) {
-    const { company_id, signed_up_at, last_seen_at, ...rest } = row;
+  protected async handleRowRateLimited(row: ContactRowType, ctx: ExecutionContext) {
+    const { external_id, company_ids, signed_up_at, last_seen_at, ...rest } = row;
     const knownFields = pick(rest, Object.keys(ContactRowType.shape));
     const signedUpAt = signed_up_at;
     const lastSeenAt = last_seen_at;
@@ -150,68 +166,84 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
     await this.handleCustomAttributes(customFields);
     const contactObj = {
       ...knownFields,
+      external_id: external_id.toString(),
       signed_up_at: signedUpAt ? signedUpAt.getTime() / 1000 : undefined,
       last_seen_at: lastSeenAt ? lastSeenAt.getTime() / 1000 : undefined,
       custom_attributes: Object.keys(customFields).length > 0 ? customFields : undefined,
     };
-    let contactId: string | undefined;
-    let company: any;
-    // try to find company for this contact
-    if (company_id) {
-      company = this.companiesCache[company_id];
-      if (!company) {
-        try {
-          const res = await this.client.get(`/companies?company_id=${company_id}`);
-          if (res.data && res.data.id) {
-            company = res.data;
-            this.companiesCache[company_id] = company;
-          } else {
-            console.warn(`Company with company_id=${company_id} not found`);
+    let contactIntercomId: string | undefined;
+    let companyIntercomIds: any[] = [];
+    // try to find companyIntercomIds for this contact
+    if (company_ids) {
+      const ids = Array.isArray(company_ids) ? company_ids : [company_ids];
+      for (const id of ids) {
+        let companyIntercomId = this.companiesMap[id.toString()];
+        if (!companyIntercomId) {
+          try {
+            const res = await this.client.get(`/companies?company_id=${id}`);
+            if (res.data && res.data.id) {
+              companyIntercomIds.push(res.data.id);
+              this.companiesMap[id.toString()] = res.data.id;
+              await ctx.store.set(["syncId=" + this.config.syncId, "companiesMap", id.toString()], res.data.id);
+            } else {
+              console.warn(`Company with company_id=${id} not found`);
+            }
+          } catch (e) {
+            throw rethrowAxiosError(e);
           }
-        } catch (e) {
-          throw rethrowAxiosError(e);
+        } else {
+          companyIntercomIds.push(companyIntercomId);
         }
       }
     }
     try {
-      //search existing contact by external_id
-      let res = await this.client.post(`/contacts/search`, {
-        query: {
-          operator: "AND",
-          value: [
-            {
-              field: "external_id",
-              operator: "=",
-              value: knownFields.external_id,
-            },
-          ],
-        },
-      });
-      if (res.data.total_count === 1) {
-        contactId = res.data.data[0].id;
-        console.log(`Contact found by external_id: ${contactId}`);
-      } else {
-        console.log(`Contact not found by external_id: ${knownFields.external_id}: ${JSON.stringify(res.data)}`);
+      contactIntercomId = this.contactsMap[external_id.toString()];
+      if (!contactIntercomId) {
+        let res = await this.client.post(`/contacts/search`, {
+          query: {
+            operator: "AND",
+            value: [
+              {
+                field: "external_id",
+                operator: "=",
+                value: external_id,
+              },
+            ],
+          },
+        });
+        if (res.data.total_count === 1) {
+          contactIntercomId = res.data.data[0].id;
+          this.contactsMap[external_id.toString()] = contactIntercomId;
+          console.log(`Contact found by external_id: ${external_id}: ${contactIntercomId}`);
+          await ctx.store.set(
+            ["syncId=" + this.config.syncId, "contactsMap", external_id.toString()],
+            contactIntercomId
+          );
+        } else {
+          console.log(`Contact not found by external_id: ${external_id}: ${JSON.stringify(res.data)}`);
+        }
       }
-      if (!contactId) {
-        res = await this.client.post(`/contacts`, contactObj);
+      if (!contactIntercomId) {
+        const res = await this.client.post(`/contacts`, contactObj);
         console.log(`Contact created: ${JSON.stringify(res.data)}`);
-        contactId = res.data.id;
+        contactIntercomId = res.data.id;
+        this.contactsMap[external_id.toString()] = contactIntercomId;
+        await ctx.store.set(["syncId=" + this.config.syncId, "contactsMap", external_id.toString()], contactIntercomId);
       } else {
-        res = await this.client.put(`/contacts/${contactId}`, contactObj);
+        const res = await this.client.put(`/contacts/${contactIntercomId}`, contactObj);
         console.log(`Contact updated: ${JSON.stringify(res.data)}`);
       }
     } catch (e) {
       throw rethrowAxiosError(e);
     }
-    if (company) {
+    for (const companyIntercomId of companyIntercomIds) {
       try {
-        const res = await this.client.post(`/contacts/${contactId}/companies`, {
-          id: company.id,
+        const res = await this.client.post(`/contacts/${contactIntercomId}/companies`, {
+          id: companyIntercomId,
         });
         console.log(`Contact linked to company: ${JSON.stringify(res.data)}`);
       } catch (e) {
-        throw rethrowAxiosError(e, { request: { id: company.id } });
+        throw rethrowAxiosError(e, { request: { id: companyIntercomId } });
       }
     }
   }
@@ -243,7 +275,9 @@ function rethrowAxiosError(e: any, opts: { request?: any } = {}): Error {
         2
       )
     );
-    return new Error(baseMessage);
+    const err = new Error(baseMessage);
+    err["code"] = e.response?.status;
+    return err;
   } else {
     return e;
   }
@@ -259,13 +293,14 @@ class CompaniesOutputStream extends BaseIntercomStream<CompanyRowType> {
   }
 
   // https://developers.intercom.com/docs/references/rest-api/api.intercom.io/Companies/company/
-  async handleRow(row: CompanyRowType, ctx: ExecutionContext) {
-    const { remote_created_at, ...rest } = row;
+  protected async handleRowRateLimited(row: CompanyRowType, ctx: ExecutionContext) {
+    const { company_id, remote_created_at, ...rest } = row;
     const knownFields = pick(rest, Object.keys(CompanyRowType.shape));
     const createdAt = remote_created_at;
     const customFields = omit(rest, Object.keys(CompanyRowType.shape));
     await this.handleCustomAttributes(customFields);
     const companyObj = {
+      company_id: company_id.toString(),
       ...knownFields,
       remote_created_at: createdAt ? createdAt.getTime() / 1000 : undefined,
       custom_attributes: Object.keys(customFields).length > 0 ? customFields : undefined,
@@ -282,18 +317,20 @@ class CompaniesOutputStream extends BaseIntercomStream<CompanyRowType> {
 export const companiesStream: DestinationStream<IntercomCredentials, CompanyRowType> = {
   name: "companies",
   rowType: CompanyRowType,
-  createOutputStream: async (cred, ctx) => await new CompaniesOutputStream(cred, ctx).init(),
+  createOutputStream: async (cred, ctx) => await new CompaniesOutputStream(cred, ctx).init(ctx),
 };
 
 export const contactsStream: DestinationStream<IntercomCredentials, ContactRowType> = {
   name: "contacts",
   rowType: ContactRowType,
-  createOutputStream: async (cred, ctx) => await new ContactsOutputStream(cred, ctx).init(),
+  createOutputStream: async (cred, ctx) => await new ContactsOutputStream(cred, ctx).init(ctx),
 };
 
 export const intercomProvider: DestinationProvider<IntercomCredentials> = {
   name: "intercom",
   credentialsType: IntercomCredentials,
   streams: [contactsStream, companiesStream],
-  defaultStream: "audience",
+  defaultStream: "contacts",
 };
+
+stdProtocol(intercomProvider);

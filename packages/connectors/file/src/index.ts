@@ -21,7 +21,7 @@ class FileStream extends BaseOutputStream<FileRow, FileCredentials> {
     this.file = fs.createWriteStream(config.credentials.filePath);
   }
 
-  async init() {
+  async init(ctx: ExecutionContext) {
     return this;
   }
 
@@ -37,7 +37,7 @@ export const fileProvider: DestinationProvider<FileCredentials> = {
     {
       name: "raw",
       rowType: FileRow,
-      createOutputStream: (config, ctx) => new FileStream(config, ctx).init(),
+      createOutputStream: (config, ctx) => new FileStream(config, ctx).init(ctx),
     },
   ],
   defaultStream: "raw",
