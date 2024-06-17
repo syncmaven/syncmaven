@@ -7,7 +7,7 @@ import {
 } from "@syncmaven/node-cdk";
 import { z } from "zod";
 import { ExecutionContext } from "@syncmaven/protocol";
-import axios, { AxiosError, AxiosInstance } from "axios";
+import { AxiosError } from "axios";
 import { omit, pick } from "lodash";
 import { AssociationTypes, Client } from "@hubspot/api-client";
 import { PropertyCreateFieldTypeEnum, PropertyCreateTypeEnum } from "@hubspot/api-client/lib/codegen/crm/properties";
@@ -16,7 +16,7 @@ import { FilterOperatorEnum } from "@hubspot/api-client/lib/codegen/crm/companie
 import { AssociationSpecAssociationCategoryEnum } from "@hubspot/api-client/lib/codegen/crm/associations/v4/models/AssociationSpec";
 
 export const HubspotCredentials = z.object({
-  accessToken: z.string(),
+  accessToken: z.string().describe("Hubspot API access token"),
 });
 
 export const CompanyRowType = z

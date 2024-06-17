@@ -1,8 +1,0 @@
-{
-  "extends": "@syncmaven/configs/tsconfig.base.json",
-  "compilerOptions": {
-    "noEmit": false,
-    "outDir": "./dist"
-  },
-  "include": ["**/*.ts"]
-}

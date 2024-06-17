@@ -64,7 +64,7 @@ export async function connectorDev(
         return {
           ...connection.factory(),
           package: {
-            type: "sub-process",
+            type: "npm",
             command: process.execPath + " " + packageJson.main,
             commandDir: dir,
           },

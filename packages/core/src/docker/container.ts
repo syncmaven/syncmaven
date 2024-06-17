@@ -90,7 +90,9 @@ export class CommandContainer implements StdIoContainer {
     if (messagesHandler) {
       this.messageHandler = messagesHandler;
     }
-    console.debug(`Starting command container with command: ${this.command} in ${this.cwd}`);
+    console.debug(
+      `Starting command container with command: ${this.command} in ${this.cwd}\n\t(cd ${this.cwd} && ${this.command})`
+    );
     //there's a bug here, if bin contains spaces, it will not work. need to take into account escaping
     const [bin, ...args] = this.command.split(" ");
     this.proc = spawn(bin, args, {

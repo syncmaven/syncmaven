@@ -32,7 +32,7 @@ export type ChildProcessDef =
   | { dockerImage: string; command?: never }
   | { command: { exec: string; dir: string }; dockerImage?: never };
 
-export class DockerChannel implements DestinationChannel {
+export class StdInOutChannel implements DestinationChannel {
   private childProcessDef: ChildProcessDef;
   private rpcServer?: RpcServer;
   private dockerContainer?: StdIoContainer;

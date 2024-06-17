@@ -7,6 +7,7 @@ import { describeDestination } from "./destination";
 import { getLatestVersionFromRegistry, syncmavenVersion, syncmavenVersionTag } from "../lib/version";
 import { fmt } from "../log";
 import { isTruish } from "../lib/util";
+import { add } from "./add";
 
 /**
  * Options of every command
@@ -58,6 +59,10 @@ const commonOptions = {
     flag: "-t, --package-type <package-name>",
     description: "Type of the package. `docker` is default",
   },
+  projectDir: {
+    flag: "-d, --project-dir <project-directory>",
+    description: "Which directory to look in for the project. If not specified, a current directory will be used",
+  },
 } as const;
 
 export async function checkNewVersion() {
@@ -74,8 +79,11 @@ export async function checkNewVersion() {
         out.push(fmt.cyan("│") + fmt.bold(`      npm install -g syncmaven@${syncmavenVersionTag}`));
       }
     }
+    out.push("");
   }
-  process.stdout.write(out.join("\n") + "\n\n");
+  if (out.length > 0) {
+    process.stdout.write(out.join("\n") + "\n");
+  }
 }
 
 export async function initCli(): Promise<Command> {
@@ -86,10 +94,7 @@ export async function initCli(): Promise<Command> {
     .command("sync")
     .description("Run all or selected syncs of a given project")
     .option(commonOptions.env.flag, commonOptions.env.description)
-    .option(
-      "-d, --project-dir <project-directory>",
-      "Which directory to look in for the project. If not specified, a current directory will be used"
-    )
+    .option(commonOptions.projectDir.flag, commonOptions.projectDir.description)
     .argument("[project-dir]", "Alternative way to specify project directory")
     .option(commonOptions.state.flag, commonOptions.state.description)
     .option(
@@ -156,6 +161,15 @@ export async function initCli(): Promise<Command> {
     )
     .argument("[connector-directory]", "You can also specify connector directory as a positional an argument")
     .action(connectorDev);
+
+  program
+    .command("add")
+    .description("Adds object (model, sync, connection) to the project")
+    .option(commonOptions.projectDir.flag, commonOptions.projectDir.description)
+    .option(commonOptions.packageType.flag, commonOptions.packageType.description)
+    .option(commonOptions.debug.flag, commonOptions.debug.description)
+    .argument("<args...>")
+    .action(add);
 
   program.helpOption("-h --help", "display help for command");
   program.version(

@@ -5,14 +5,14 @@ export type ColorScheme = Record<string, keyof typeof fmt | undefined>;
 
 export const defaultColorScheme: ColorScheme = {
   punctuation: "gray",
-  "string-property": "violet",
+  "string-property": "magenta",
   string: "green",
   keyword: "bold",
   "function-variable": undefined,
 };
 
 function chalkString(expr: keyof typeof fmt, str: string): string {
-  return fmt[expr](str);
+  return (fmt[expr] as any)(str);
 }
 
 function getGrammar(lang: "json") {

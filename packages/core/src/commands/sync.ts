@@ -15,7 +15,7 @@ import { configureEnvVars, readProject, untildify } from "../lib/project";
 import { createErrorThreshold } from "../lib/error-threshold";
 import { Project } from "../types/project";
 import { createParser, SchemaBasedParser, stringifyParseError } from "../lib/uniparser";
-import { DockerChannel } from "../docker/docker-channel";
+import { StdInOutChannel } from "../docker/docker-channel";
 import { createDatasource, DataSource } from "../datasources";
 import { PostgresStore, SqliteStore } from "../lib/store";
 import path from "path";
@@ -29,14 +29,17 @@ export function getDestinationChannelFromPackage(
   messagesHandler: MessageHandler
 ): DestinationChannel {
   if (packageType === "docker") {
-    return new DockerChannel({ dockerImage: pkg }, messagesHandler);
+    return new StdInOutChannel({ dockerImage: pkg }, messagesHandler);
   } else if (packageType === "npm") {
     const packageDir = pkg.split("@")[0];
     const packageJson = JSON.parse(fs.readFileSync(path.join(packageDir, "package.json"), "utf-8"));
     if (!packageJson.main) {
       throw new Error(`Package ${pkg} does not have a main entry point`);
     }
-    return new DockerChannel({ command: { exec: `node ${packageJson.main}`, dir: packageDir } }, messagesHandler);
+    return new StdInOutChannel(
+      { command: { exec: `${process.execPath} ${packageJson.main}`, dir: packageDir } },
+      messagesHandler
+    );
   } else {
     throw new Error(`Unsupported package type ${packageType}`);
   }
@@ -46,15 +49,15 @@ export function getDestinationChannelFromDefinition(
   destination: ConnectionDefinition,
   messagesHandler: MessageHandler
 ): DestinationChannel {
-  if (destination.package.type === "sub-process") {
+  if (destination.package.type === "npm") {
     const { command, commandDir } = destination.package;
-    assert(command, "Command is required if package type is sub-process");
-    assert(commandDir, "commandDir is required if package type is sub-process");
-    return new DockerChannel({ command: { exec: command, dir: commandDir } }, messagesHandler);
+    assert(command, "Command is required if package type is npm");
+    assert(commandDir, "commandDir is required if package type is npm");
+    return new StdInOutChannel({ command: { exec: command, dir: commandDir } }, messagesHandler);
   } else if (destination.package.type === "docker") {
     const image = destination.package.image;
     assert(image, "Docker image is required if package type is docker");
-    return new DockerChannel({ dockerImage: image }, messagesHandler);
+    return new StdInOutChannel({ dockerImage: image }, messagesHandler);
   } else {
     throw new Error(`Unsupported package type: ${destination.package.type} for destination ${destination.id}`);
   }

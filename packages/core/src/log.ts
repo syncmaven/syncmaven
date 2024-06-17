@@ -1,4 +1,5 @@
 import { isTruish } from "./lib/util";
+import cols from "picocolors";
 
 type LoggingMethod = (message?: any, ...optionalParams: any[]) => void;
 
@@ -16,19 +17,7 @@ const rewrites: Record<SeverityLevel, SeverityLevel | undefined> = {
   DEBUG: undefined,
 };
 
-export const fmt = {
-  bold: (x: any) => wrap("\x1b[1m", x),
-  italic: (x: any) => wrap("\x1b[3m", x),
-  underline: (x: any) => wrap("\x1b[4m", x),
-  red: (x: any) => wrap("\x1b[31m", x),
-  green: (x: any) => wrap("\x1b[32m", x),
-  yellow: (x: any) => wrap("\x1b[33m", x),
-  blue: (x: any) => wrap("\x1b[34m", x),
-  cyan: (x: any) => wrap("\x1b[36m", x),
-  gray: (x: any) => wrap("\x1b[90m", x),
-  brown: (x: any) => wrap("\x1b[33m", x),
-  violet: (x: any) => wrap("\x1b[35m", x),
-} as const;
+export const fmt = cols;
 
 function wrap(fmt: string, str: any): string {
   return (
@@ -55,7 +44,7 @@ function intercept(stream: typeof process.stdout | typeof process.stderr, cb: ()
   }
 }
 
-const colors: Record<SeverityLevel, keyof typeof fmt> = {
+const colors: Record<SeverityLevel, keyof typeof cols> = {
   INFO: "green",
   WARN: "yellow",
   ERROR: "red",
@@ -73,7 +62,7 @@ function prefixConsoleLoggingMethod(method: LoggingMethod, _severity: SeverityLe
     const content = intercept(severity === "DEBUG" || severity === "INFO" ? process.stdout : process.stderr, () => {
       method(`${timestamp} [${severity.padEnd(maxSeverityLevelLength)}]`, message, ...optionalParams);
     });
-    process.stdout.write(fmt[color](content));
+    process.stdout.write((cols[color] as any)(content));
   };
 }
 
@@ -95,4 +84,16 @@ export function initializeConsoleLogging(c: typeof console = console) {
   c.debug = prefixConsoleLoggingMethod(c.debug, "DEBUG");
 
   (c as any).__pathched = true;
+}
+
+/**
+ * Inlike console.* methods, this function should be used to output messages
+ * in a response to CLI commands
+ * @param message
+ */
+export function out(message: any) {
+  if (Array.isArray(message)) {
+    message = message.join("\n");
+  }
+  process.stdout.write(message + "\n");
 }
