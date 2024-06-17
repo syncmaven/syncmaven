@@ -131,6 +131,9 @@ describe("Intercom Test", () => {
       },
       textContext: t,
       envVarName: "INTERCOM_TEST_CREDENTIALS",
+      after: () => {
+        disableStdProtocol();
+      },
       before: () => {},
     });
   });

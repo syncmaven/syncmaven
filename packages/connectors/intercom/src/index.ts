@@ -51,6 +51,10 @@ export type ContactRowType = z.infer<typeof ContactRowType>;
 
 export type IntercomCredentials = z.infer<typeof IntercomCredentials>;
 
+export const customAttributesPolicies = ["skip-unknown", "create-unknown", "fail-on-unknown"] as const;
+export type CustomAttributesPolicy = (typeof customAttributesPolicies)[number];
+export type Model = "contact" | "company";
+
 function createClient(creds: IntercomCredentials) {
   return axios.create({
     baseURL: `https://api.intercom.io/`,
@@ -177,7 +181,7 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
           }
         }
       }
-      rethrowAxiosError(e);
+      throw toAPIError(e);
     }
   }
 
@@ -194,7 +198,7 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
       if (e instanceof AxiosError && e.response?.status === 404) {
         return this.addContact(contactObj, ctx);
       }
-      rethrowAxiosError(e);
+      throw toAPIError(e);
     }
   }
 
@@ -203,7 +207,7 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
       const res = await this.client.post(`/contacts/${contactIntercomId}/unarchive`);
       console.log(`Contact unarchived: ${JSON.stringify(res.data)}`);
     } catch (e) {
-      rethrowAxiosError(e);
+      throw toAPIError(e);
     }
   }
 
@@ -240,7 +244,7 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
               console.warn(`Company with company_id=${id} not found`);
             }
           } catch (e) {
-            rethrowAxiosError(e);
+            throw toAPIError(e);
           }
         } else {
           companyIntercomIds.push(companyIntercomId);
@@ -280,7 +284,7 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
         contactIntercomId = await this.updateContact(contactIntercomId, contactObj, ctx);
       }
     } catch (e) {
-      rethrowAxiosError(e);
+      throw toAPIError(e);
     }
     for (const companyIntercomId of companyIntercomIds) {
       try {
@@ -289,7 +293,7 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
         });
         console.log(`Contact linked to company: ${JSON.stringify(res.data)}`);
       } catch (e) {
-        rethrowAxiosError(e, { request: { id: companyIntercomId } });
+        throw toAPIError(e, { request: { id: companyIntercomId } });
       }
     }
   }
@@ -306,7 +310,7 @@ function jsonify(param: any) {
   return param;
 }
 
-function rethrowAxiosError(e: any, opts: { request?: any } = {}): Error {
+function toAPIError(e: any, opts: { request?: any } = {}): Error {
   if (e instanceof AxiosError) {
     const requestBody = e.config?.data;
     const baseMessage = `Failed to call ${e.request.method} ${e.request.path} with status ${e.response?.status}`;
@@ -319,15 +323,11 @@ function rethrowAxiosError(e: any, opts: { request?: any } = {}): Error {
     );
     const err = new Error(baseMessage);
     err["code"] = e.response?.status;
-    throw err;
+    return err;
   } else {
-    throw e;
+    return e;
   }
 }
-
-export const customAttributesPolicies = ["skip-unknown", "create-unknown", "fail-on-unknown"] as const;
-export type CustomAttributesPolicy = (typeof customAttributesPolicies)[number];
-export type Model = "contact" | "company";
 
 class CompaniesOutputStream extends BaseIntercomStream<CompanyRowType> {
   constructor(config: OutputStreamConfiguration<IntercomCredentials>, ctx: ExecutionContext) {
@@ -351,7 +351,7 @@ class CompaniesOutputStream extends BaseIntercomStream<CompanyRowType> {
       const res = await this.client.post(`/companies`, companyObj);
       console.log(`Company created: ${JSON.stringify(res.data)}`);
     } catch (e) {
-      rethrowAxiosError(e);
+      throw toAPIError(e);
     }
   }
 }
