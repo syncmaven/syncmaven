@@ -79,8 +79,8 @@ abstract class BaseHubspotStream<RowT extends Record<string, any>> extends BaseR
 
   public async init(ctx: ExecutionContext) {
     await this.refreshCustomAttributes();
-    await this.ensureCustomAttribute("company", "external_id");
-    await this.ensureCustomAttribute("contacts", "external_id");
+    await this.ensureCustomAttribute("external_id");
+    await this.ensureCustomAttribute("external_id");
 
     return this;
   }
@@ -116,21 +116,21 @@ abstract class BaseHubspotStream<RowT extends Record<string, any>> extends BaseR
             `Unknown custom attribute ${key}. Please create in manually, or set customAttributesPolicy to "create-unknown" to automatically create it`
           );
         } else {
-          await this.ensureCustomAttribute(this.model, key);
+          await this.ensureCustomAttribute(key);
         }
       }
     }
   }
 
-  protected async ensureCustomAttribute(model: Model, key: string) {
+  protected async ensureCustomAttribute(key: string) {
     if (!this.knownCustomAttributes[key]) {
       console.log(`Creating custom attribute ${key}`);
-      await this.client.crm.properties.coreApi.create(model, {
+      await this.client.crm.properties.coreApi.create(this.model, {
         name: key,
         label: key,
         type: PropertyCreateTypeEnum.String,
         fieldType: PropertyCreateFieldTypeEnum.Text,
-        groupName: propertiesGroup[model],
+        groupName: propertiesGroup[this.model],
         description: `Custom property, created by Syncmaven`,
       });
       this.knownCustomAttributes[key] = key;
