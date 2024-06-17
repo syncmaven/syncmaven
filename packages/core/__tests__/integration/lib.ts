@@ -65,7 +65,7 @@ export async function runSync(projectDir: string, model: ModelDefinition, expect
 
   await connectorDev(path.join(process.cwd(), "../connectors/file"), {
     modelFile: modelPath,
-    syncFileOrId: "sync",
+    sync: "sync",
     connectionFile: connectionPath,
     state: projectDir,
   });

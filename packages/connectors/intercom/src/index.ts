@@ -14,6 +14,8 @@ export const IntercomCredentials = z.object({
   accessToken: z.string(),
 });
 
+const alreadyExistsPattern = /(An archived)?.*contact matching those details already exists with id=(\w+)/;
+
 export const CompanyRowType = z
   .object({
     name: z.string(),
@@ -79,10 +81,6 @@ abstract class BaseIntercomStream<RowT extends Record<string, any>> extends Base
       );
     }
     this.client = createClient(config.credentials);
-    this.client.interceptors.response.use(
-      response => response,
-      e => Promise.reject(rethrowAxiosError(e))
-    );
   }
 
   public async init(ctx: ExecutionContext) {
@@ -156,6 +154,59 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
     return this;
   }
 
+  private async addContact(contactObj: any, ctx: ExecutionContext) {
+    try {
+      const res = await this.client.post(`/contacts`, contactObj);
+      console.log(`Contact created: ${JSON.stringify(res.data)}`);
+      const contactIntercomId = res.data.id as string;
+      this.contactsMap[contactObj.external_id] = contactIntercomId;
+      await ctx.store.set(["syncId=" + this.config.syncId, "contactsMap", contactObj.external_id], contactIntercomId);
+      return contactIntercomId;
+    } catch (e: any) {
+      if (e instanceof AxiosError && Array.isArray(e.response?.data.errors)) {
+        for (const error of e.response.data.errors) {
+          if (error.code === "conflict") {
+            console.warn(error.message);
+            const match = alreadyExistsPattern.exec(error.message);
+            if (match) {
+              if (match[1]) {
+                await this.unarchiveContact(match[2]);
+              }
+              return this.updateContact(match[2], contactObj, ctx);
+            }
+          }
+        }
+      }
+      rethrowAxiosError(e);
+    }
+  }
+
+  private async updateContact(contactIntercomId: string, contactObj: any, ctx: ExecutionContext) {
+    try {
+      const res = await this.client.put(`/contacts/${contactIntercomId}`, contactObj);
+      console.log(`Contact updated: ${JSON.stringify(res.data)}`);
+      if (this.contactsMap[contactObj.external_id] !== contactIntercomId) {
+        this.contactsMap[contactObj.external_id] = contactIntercomId;
+        await ctx.store.set(["syncId=" + this.config.syncId, "contactsMap", contactObj.external_id], contactIntercomId);
+      }
+      return contactIntercomId;
+    } catch (e) {
+      if (e instanceof AxiosError && e.response?.status === 404) {
+        return this.addContact(contactObj, ctx);
+      }
+      rethrowAxiosError(e);
+    }
+  }
+
+  private async unarchiveContact(contactIntercomId: string) {
+    try {
+      const res = await this.client.post(`/contacts/${contactIntercomId}/unarchive`);
+      console.log(`Contact unarchived: ${JSON.stringify(res.data)}`);
+    } catch (e) {
+      rethrowAxiosError(e);
+    }
+  }
+
   // https://developers.intercom.com/docs/references/rest-api/api.intercom.io/Contacts/CreateContact/
   protected async handleRowRateLimited(row: ContactRowType, ctx: ExecutionContext) {
     const { external_id, company_ids, signed_up_at, last_seen_at, ...rest } = row;
@@ -189,7 +240,7 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
               console.warn(`Company with company_id=${id} not found`);
             }
           } catch (e) {
-            throw rethrowAxiosError(e);
+            rethrowAxiosError(e);
           }
         } else {
           companyIntercomIds.push(companyIntercomId);
@@ -224,17 +275,12 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
         }
       }
       if (!contactIntercomId) {
-        const res = await this.client.post(`/contacts`, contactObj);
-        console.log(`Contact created: ${JSON.stringify(res.data)}`);
-        contactIntercomId = res.data.id;
-        this.contactsMap[external_id.toString()] = contactIntercomId;
-        await ctx.store.set(["syncId=" + this.config.syncId, "contactsMap", external_id.toString()], contactIntercomId);
+        contactIntercomId = await this.addContact(contactObj, ctx);
       } else {
-        const res = await this.client.put(`/contacts/${contactIntercomId}`, contactObj);
-        console.log(`Contact updated: ${JSON.stringify(res.data)}`);
+        contactIntercomId = await this.updateContact(contactIntercomId, contactObj, ctx);
       }
     } catch (e) {
-      throw rethrowAxiosError(e);
+      rethrowAxiosError(e);
     }
     for (const companyIntercomId of companyIntercomIds) {
       try {
@@ -243,7 +289,7 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
         });
         console.log(`Contact linked to company: ${JSON.stringify(res.data)}`);
       } catch (e) {
-        throw rethrowAxiosError(e, { request: { id: companyIntercomId } });
+        rethrowAxiosError(e, { request: { id: companyIntercomId } });
       }
     }
   }
@@ -266,20 +312,16 @@ function rethrowAxiosError(e: any, opts: { request?: any } = {}): Error {
     const baseMessage = `Failed to call ${e.request.method} ${e.request.path} with status ${e.response?.status}`;
     console.debug(
       baseMessage,
-      JSON.stringify(
-        {
-          request: jsonify(opts.request || requestBody),
-          error: e.response?.data,
-        },
-        null,
-        2
-      )
+      JSON.stringify({
+        request: jsonify(opts.request || requestBody),
+        error: e.response?.data,
+      })
     );
     const err = new Error(baseMessage);
     err["code"] = e.response?.status;
-    return err;
+    throw err;
   } else {
-    return e;
+    throw e;
   }
 }
 
@@ -309,7 +351,7 @@ class CompaniesOutputStream extends BaseIntercomStream<CompanyRowType> {
       const res = await this.client.post(`/companies`, companyObj);
       console.log(`Company created: ${JSON.stringify(res.data)}`);
     } catch (e) {
-      throw rethrowAxiosError(e);
+      rethrowAxiosError(e);
     }
   }
 }

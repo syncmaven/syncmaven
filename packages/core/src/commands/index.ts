@@ -151,8 +151,8 @@ export async function initCli(): Promise<Command> {
     )
     .requiredOption("-m, --model-file <model-file>", "Model file that are used as a source for the test sync")
     .option(
-      "-s, --sync-file <sync-file-or-id>",
-      "Optional. You can specify either sync file if the sync requires additional options, or id for a sync. If id is not provided, it will be generated from model and connection ids. Id is required for saving state accross runs"
+      "-s, --sync <sync-file-or-id>",
+      "Optional. You can specify either sync file if the sync requires additional options, or id for a sync. If id is not provided, it will be generated from model and connection ids. Id is required for saving state across runs"
     )
     .argument("[connector-directory]", "You can also specify connector directory as a positional an argument")
     .action(connectorDev);
