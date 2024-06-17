@@ -1,7 +1,6 @@
-import { describe, test, before } from "node:test";
+import { describe, test } from "node:test";
 
 import { Client } from "pg";
-import { maskPassword } from "../../src/lib/util";
 import assert from "assert";
 
 import { runTest } from "./lib";
