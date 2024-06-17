@@ -47,7 +47,7 @@ jobs:
   build-node-based-docker:
     name: "Build a base image for Node-based connectors"
     # do things only on manually triggered builds or on main branch. On PRs we don't build connectors
-    if: github.event.inputs.select != '[]' && github.event.inputs.select != '' && (github.event.inputs.release-version != '' || github.ref == 'refs/heads/main')
+    if: github.event.inputs.select != '[]' && (github.event.inputs.release-version != '' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -166,7 +166,7 @@ jobs:
 
   build-go-connectors:
     name: "Build Go-based ${{ matrix.connector }} connector image"
-    if: github.event.inputs.select-go != '[]' && github.event.inputs.select-go != '' && (github.event.inputs.release-version != '' || github.ref == 'refs/heads/main')
+    if: github.event.inputs.select-go != '[]' && (github.event.inputs.release-version != '' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     needs: prepare-tags
     strategy:
