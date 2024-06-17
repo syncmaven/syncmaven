@@ -6,9 +6,9 @@ on:
         description: "Version. Can be either x.y.z or canary"
         required: true
       select:
-        description: "Select connectors to build and publish (not implemented yet)"
+        description: "Select connectors to build and publish (provide JSON array of connector names)"
         required: false
-        default: "*"
+        default: "null"
 env:
   HUSKY: 0
 
@@ -102,7 +102,7 @@ jobs:
     needs: [build-node-based-docker, prepare-tags]
     strategy:
       matrix:
-        connector: [resend, twitter-ads, people-data-labs]
+        connector: ${{ fromJSON(github.event.inputs) || '[resend, twitter-ads, people-data-labs, intercom, hubspot]' }}
     steps:
       # We need checkout as a source for README
       - name: Checkout
