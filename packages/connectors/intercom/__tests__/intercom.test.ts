@@ -1,5 +1,5 @@
 import { describe, test, TestContext } from "node:test";
-import JSON5 from "json5";
+import * as JSON5 from "json5";
 import { intercomProvider } from "../src";
 import { DestinationProvider, InMemoryStore, disableStdProtocol } from "@syncmaven/node-cdk";
 import { ZodError, ZodIssue } from "zod";

@@ -54,6 +54,14 @@ export async function stdProtocol(provider: DestinationProvider) {
       output: process.stdout,
       terminal: false,
     });
+
+    process.on("SIGINT", () => {
+      readLine.close();
+    });
+    process.on("SIGTERM", () => {
+      readLine.close();
+    });
+
     for await (const line of readLine) {
       if (line.trim() === "") {
         return;

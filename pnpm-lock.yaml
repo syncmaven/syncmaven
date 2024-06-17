@@ -82,6 +82,61 @@ importers:
         specifier: ^5.4.5
         version: 5.4.5
 
+  packages/connectors/hubspot:
+    dependencies:
+      '@syncmaven/node-cdk':
+        specifier: workspace:*
+        version: link:../../node-cdk
+      '@syncmaven/protocol':
+        specifier: workspace:*
+        version: link:../../protocol
+      axios:
+        specifier: ^1.6.8
+        version: 1.6.8
+      json5:
+        specifier: ^2.2.3
+        version: 2.2.3
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
+      tslib:
+        specifier: ^2.6.2
+        version: 2.6.2
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
+    devDependencies:
+      '@swc/cli':
+        specifier: ^0.3.12
+        version: 0.3.12(@swc/core@1.5.5)
+      '@swc/core':
+        specifier: ^1.5.5
+        version: 1.5.5(@swc/helpers@0.5.11)
+      '@swc/helpers':
+        specifier: ^0.5.10
+        version: 0.5.11
+      '@syncmaven/configs':
+        specifier: workspace:*
+        version: link:../../configs
+      '@types/json5':
+        specifier: ^2.2.0
+        version: 2.2.0
+      '@types/lodash':
+        specifier: ^4.17.1
+        version: 4.17.1
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.12.12
+      syncmaven:
+        specifier: workspace:*
+        version: link:../../core
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@swc/core@1.5.5)(@types/node@20.12.12)(typescript@5.4.5)
+      typescript:
+        specifier: ^5.4.5
+        version: 5.4.5
+
   packages/connectors/intercom:
     dependencies:
       '@syncmaven/node-cdk':
@@ -93,9 +148,6 @@ importers:
       axios:
         specifier: ^1.6.8
         version: 1.6.8
-      intercom-client:
-        specifier: ^3.2.0
-        version: 3.2.1
       json5:
         specifier: ^2.2.3
         version: 2.2.3
@@ -4874,14 +4926,6 @@ packages:
     resolution: {integrity: sha512-NmWvPnx0F1SfrQbYwOi7OeaNGokp9XhzNioJ/CSBs8Qa4vxug81mhJEAVZwxXuBmYB5KDRfMq/F3RR0BIU7sWg==}
     dev: false
 
-  /axios@0.24.0:
-    resolution: {integrity: sha512-Q6cWsys88HoPgAaFAVUb0WpPk0O8iTeisR9IMqy9G8AbO4NlpVknrnQS03zzF9PGAWgO3cgletO3VjV/P7VztA==}
-    dependencies:
-      follow-redirects: 1.15.6
-    transitivePeerDependencies:
-      - debug
-    dev: false
-
   /axios@1.6.8:
     resolution: {integrity: sha512-v/ZHtJDU39mDpyBoFVkETcd/uNdxrWRrg3bKpOKzXFA6Bvqopts6ALSMU3y6ijYxbw2B+wPrIv46egTzJXCLGQ==}
     dependencies:
@@ -6958,10 +7002,6 @@ packages:
     resolution: {integrity: sha512-0quDb7s97CfemeJAnW9wC0hw78MtW7NU3hqtCD75g2vFlDLt36llsYD7uB7SUzojLMP24N5IatXf7ylGXiGG9A==}
     dev: true
 
-  /htmlencode@0.0.4:
-    resolution: {integrity: sha512-0uDvNVpzj/E2TfvLLyyXhKBRvF1y84aZsyRxRXFsQobnHaL4pcaXk+Y9cnFlvnxrBLeXDNq/VJBD+ngdBgQG1w==}
-    dev: false
-
   /htmlparser2@8.0.2:
     resolution: {integrity: sha512-GYdjWKDkbRLkZ5geuHs5NY1puJ+PXwP7+fHPRz06Eirsb9ugf6d8kkXav6ADhcODhFFPMIXyxkxSuMf3D6NCFA==}
     dependencies:
@@ -7101,17 +7141,6 @@ packages:
       through: 2.3.8
       wrap-ansi: 6.2.0
     dev: true
-
-  /intercom-client@3.2.1:
-    resolution: {integrity: sha512-jHlDCo39Sdum0xdLaogMRa0P3pQ1FxC/O8wSjxGN4kvHuS4GPnMiptf5QYe8LkWYQw1Djah4mlVZlyUC1p/dsw==}
-    engines: {node: '>= v8.0.0'}
-    dependencies:
-      axios: 0.24.0
-      htmlencode: 0.0.4
-      lodash: 4.17.21
-    transitivePeerDependencies:
-      - debug
-    dev: false
 
   /ip-regex@4.3.0:
     resolution: {integrity: sha512-B9ZWJxHHOHUhUjCPrMpLD4xEq35bUTClHM1S6CBU5ixQnkZmwipwgc96vAd7AAGM9TGHvJR+Uss+/Ak6UphK+Q==}
