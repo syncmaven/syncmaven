@@ -8,7 +8,11 @@ on:
       select:
         description: "Select connectors to build and publish (provide JSON array of connector names)"
         required: false
-        default: "null"
+        default: '["resend", "twitter-ads", "people-data-labs", "intercom", "hubspot"]'
+      selectGo:
+        description: "Select go-connectors to build and publish (provide JSON array of connector names)"
+        required: false
+        default: '["mixpanel"]'
 env:
   HUSKY: 0
 
@@ -102,7 +106,7 @@ jobs:
     needs: [build-node-based-docker, prepare-tags]
     strategy:
       matrix:
-        connector: ${{ fromJSON(github.event.inputs) || '[resend, twitter-ads, people-data-labs, intercom, hubspot]' }}
+        connector: ${{ fromJSON(github.event.inputs.select) }}
     steps:
       # We need checkout as a source for README
       - name: Checkout
@@ -167,7 +171,7 @@ jobs:
     needs: prepare-tags
     strategy:
       matrix:
-        connector: [mixpanel]
+        connector: ${{ fromJSON(github.event.inputs.select-go) }}
     steps:
       # We need checkout as a source for README
       - name: Checkout
