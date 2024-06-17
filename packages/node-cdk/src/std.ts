@@ -31,6 +31,9 @@ export async function stdProtocol(provider: DestinationProvider) {
   if (!stdProtocolEnabled) {
     return;
   }
+  if (process.env.STD_PROTOCOL_DISABLED === undefined) {
+    return;
+  }
   let received = 0;
   let skipped = 0;
   let failed = 0;
