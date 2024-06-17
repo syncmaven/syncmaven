@@ -15,7 +15,7 @@ export async function connectorDev(
   opts: {
     connectorDir?: string;
     modelFile: string;
-    syncFileOrId: string;
+    sync: string;
     connectionFile: string;
     env?: string[];
     state?: string;
@@ -41,12 +41,12 @@ export async function connectorDev(
   assert(model, `Can't read model from ${opts.modelFile}`);
   assert(connection, `Can't read connection from ${opts.connectionFile}`);
 
-  const sync: { id: string; factory: Factory<SyncDefinition> } = looksLikePath(opts.syncFileOrId)
-    ? readProjectObjectFromFile(opts.syncFileOrId, SyncDefinition, {
+  const sync: { id: string; factory: Factory<SyncDefinition> } = looksLikePath(opts.sync)
+    ? readProjectObjectFromFile(opts.sync, SyncDefinition, {
         ignoreDisabled: true,
       })!
     : {
-        id: opts.syncFileOrId || model.id + "-" + connection.id,
+        id: opts.sync || model.id + "-" + connection.id,
         factory: () => ({
           model: model.id,
           destination: connection.id,

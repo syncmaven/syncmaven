@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "description": "",
   "main": "dist/index.js",
-  "bin": "./bin/twitter-ads",
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { undefined, z } from "zod";
 import { Simplify } from "type-fest";
 
 export type StorageKey = string | string[];

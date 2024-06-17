@@ -73,10 +73,12 @@ export class CommandContainer implements StdIoContainer {
   private proc: ChildProcessWithoutNullStreams | undefined;
   private lineReader?: readline.Interface;
   private cwd: string;
+  private envs: Record<string, string>;
 
   constructor(command: string, cwd: string, envs: Record<string, string> = {}) {
     this.command = command;
     this.cwd = cwd;
+    this.envs = envs;
   }
 
   init(): Promise<void> {
@@ -92,6 +94,7 @@ export class CommandContainer implements StdIoContainer {
     //there's a bug here, if bin contains spaces, it will not work. need to take into account escaping
     const [bin, ...args] = this.command.split(" ");
     this.proc = spawn(bin, args, {
+      env: this.envs,
       cwd: this.cwd,
       //stdio: "inherit"
     }) as ChildProcessWithoutNullStreams;

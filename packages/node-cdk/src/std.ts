@@ -3,6 +3,9 @@ import { DestinationProvider, OutputStream, rpc } from "./index";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { Entry, ExecutionContext, StartStreamMessage, StorageKey } from "@syncmaven/protocol";
 
+let readLine: readline.Interface;
+let stdProtocolEnabled = true;
+
 function log(level: "debug" | "info" | "warn" | "error", message: string, ...params: any[]) {
   process.stdout.write(
     JSON.stringify({
@@ -25,6 +28,12 @@ function halt(reason: string) {
 }
 
 export async function stdProtocol(provider: DestinationProvider) {
+  if (!stdProtocolEnabled) {
+    return;
+  }
+  if (process.env.STD_PROTOCOL_DISABLED === "true") {
+    return;
+  }
   let received = 0;
   let skipped = 0;
   let failed = 0;
@@ -33,109 +42,117 @@ export async function stdProtocol(provider: DestinationProvider) {
   let ctx: ExecutionContext | undefined = undefined;
 
   const oldConsole = console;
-  console = {
-    ...console,
-    log: (...args: any[]) => log("info", args[0], ...args.slice(1)),
-    info: (...args: any[]) => log("info", args[0], ...args.slice(1)),
-    warn: (...args: any[]) => log("warn", args[0], ...args.slice(1)),
-    error: (...args: any[]) => log("error", args[0], ...args.slice(1)),
-  };
+  try {
+    console = {
+      ...console,
+      log: (...args: any[]) => log("info", args[0], ...args.slice(1)),
+      info: (...args: any[]) => log("info", args[0], ...args.slice(1)),
+      warn: (...args: any[]) => log("warn", args[0], ...args.slice(1)),
+      error: (...args: any[]) => log("error", args[0], ...args.slice(1)),
+      debug: (...args: any[]) => log("debug", args[0], ...args.slice(1)),
+    };
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: false,
-  });
-  for await (const line of rl) {
-    if (line.trim() === "") {
-      return;
-    }
-    let message: any;
-    try {
-      message = JSON.parse(line);
-    } catch (error) {
-      log("error", "Message received cannot be parsed: " + line, { error });
-      process.exit(1);
-    }
-    if (!message.type) {
-      log("error", "Message received does not have a type", { message });
-      process.exit(1);
-    }
-    log("debug", `Received message ${message.type}`, { message });
-    if (message.type === "describe") {
-      reply("spec", {
-        description: provider.name,
-        roles: ["destination"],
-        connectionCredentials: zodToJsonSchema(provider.credentialsType),
-      });
-    } else if (message.type === "describe-streams") {
-      reply("stream-spec", {
-        roles: ["destination"],
-        defaultStream: provider.defaultStream,
-        streams: provider.streams.map(s => ({
-          name: s.name,
-          rowType: zodToJsonSchema(s.rowType),
-        })),
-      });
-    } else if (message.type === "start-stream") {
-      const streamName = message.payload.stream;
-      const stream = provider.streams.find(s => s.name === streamName);
-      if (!stream) {
-        log("error", "Unknown stream", { streamName });
-        reply("halt", { message: `Unknown stream ${streamName}` });
+    readLine = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: false,
+    });
+
+    process.on("SIGINT", () => {
+      readLine.close();
+    });
+    process.on("SIGTERM", () => {
+      readLine.close();
+    });
+
+    for await (const line of readLine) {
+      if (line.trim() === "") {
+        return;
+      }
+      let message: any;
+      try {
+        message = JSON.parse(line);
+      } catch (error) {
+        log("error", "Message received cannot be parsed: " + line, { error });
         process.exit(1);
-      } else {
-        const payload = (message as StartStreamMessage).payload;
-        if (!ctx) {
-          ctx = createContext();
-        }
-        currentOutputStream = await stream.createOutputStream(
-          {
-            streamId: payload.stream,
-            credentials: payload.connectionCredentials,
-            syncId: payload.syncId,
-            fullRefresh: payload.fullRefresh,
-            options: payload.streamOptions,
-          },
-          ctx
-        );
       }
-    } else if (message.type === "end-stream") {
-      if (currentOutputStream) {
-        log("info", "Received end-stream message. Bye!");
-        if (currentOutputStream.finish) {
-          await currentOutputStream.finish(ctx!);
-        }
-        setTimeout(() => {
-          reply("stream-result", { received, skipped, success, failed });
-          process.exit(0);
-        }, 1000);
-      } else {
-        log("error", "There is no started stream.");
+      if (!message.type) {
+        log("error", "Message received does not have a type", { message });
+        process.exit(1);
       }
-    } else if (message.type === "row") {
-      received++;
-      if (currentOutputStream) {
-        const row = message.payload.row;
-        try {
-          await currentOutputStream.handleRow(row, ctx!);
-          success++;
-        } catch (e: any) {
-          failed++;
-          log("error", `Failed to process row: ${JSON.stringify(row)} error: ${e.toString()}`);
+      log("debug", `Received message ${message.type}`, { message });
+      if (message.type === "describe") {
+        reply("spec", {
+          description: provider.name,
+          roles: ["destination"],
+          connectionCredentials: zodToJsonSchema(provider.credentialsType),
+        });
+      } else if (message.type === "describe-streams") {
+        reply("stream-spec", {
+          roles: ["destination"],
+          defaultStream: provider.defaultStream,
+          streams: provider.streams.map(s => ({
+            name: s.name,
+            rowType: zodToJsonSchema(s.rowType),
+          })),
+        });
+      } else if (message.type === "start-stream") {
+        const streamName = message.payload.stream;
+        const stream = provider.streams.find(s => s.name === streamName);
+        if (!stream) {
+          log("error", "Unknown stream", { streamName });
+          reply("halt", { message: `Unknown stream ${streamName}` });
+          process.exit(1);
+        } else {
+          const payload = (message as StartStreamMessage).payload;
+          if (!ctx) {
+            ctx = createContext();
+          }
+          currentOutputStream = await stream.createOutputStream(
+            {
+              streamId: payload.stream,
+              credentials: payload.connectionCredentials,
+              syncId: payload.syncId,
+              fullRefresh: payload.fullRefresh,
+              options: payload.streamOptions,
+            },
+            ctx
+          );
+        }
+      } else if (message.type === "end-stream") {
+        if (currentOutputStream) {
+          log("info", "Received end-stream message. Bye!");
+          if (currentOutputStream.finish) {
+            await currentOutputStream.finish(ctx!);
+          }
+          setTimeout(() => {
+            reply("stream-result", { received, skipped, success, failed });
+            process.exit(0);
+          }, 1000);
+        } else {
+          log("error", "There is no started stream.");
+        }
+      } else if (message.type === "row") {
+        received++;
+        if (currentOutputStream) {
+          const row = message.payload.row;
+          try {
+            await currentOutputStream.handleRow(row, ctx!);
+            success++;
+          } catch (e: any) {
+            failed++;
+            log("error", `Failed to process row: ${JSON.stringify(row)} error: ${e.toString()}`);
+          }
+        } else {
+          log("error", "There is no started stream.");
         }
       } else {
-        log("error", "There is no started stream.");
+        log("warn", `Unknown message type ${message.type}`, { message });
       }
-    } else {
-      log("warn", `Unknown message type ${message.type}`, { message });
     }
-  }
-
-  rl.once("close", () => {
+  } finally {
     console = oldConsole;
-    process.exit(0);
-  });
+  }
 }
 
 function createContext(): ExecutionContext {
@@ -210,6 +227,13 @@ async function rpcCall(method: string, body: any): Promise<any> {
         Authorization: "Bearer " + process.env.RPC_TOKEN,
       }),
     },
-    body: JSON.stringify(body),
+    body: body,
   });
+}
+
+export function disableStdProtocol() {
+  stdProtocolEnabled = false;
+  if (readLine) {
+    readLine.close();
+  }
 }

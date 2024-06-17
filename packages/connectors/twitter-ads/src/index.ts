@@ -3,6 +3,7 @@ import { BatchingOutputStream, DestinationProvider, stdProtocol } from "@syncmav
 import TwitterAdsAPI from "twitter-ads";
 import { emailHash, normalizeEmail } from "@syncmaven/node-cdk";
 import request from "request";
+import { ExecutionContext } from "@syncmaven/protocol";
 
 export const TwitterCredentials = z.object({
   consumerKey: z.string(),
@@ -32,7 +33,7 @@ class TwitterOutputStream extends BatchingOutputStream<AudienceRowType, TwitterC
     this.rowsCacheKey = [`syncId=${config.syncId}`, `stream=${config.streamId}`, "last-synced-rows"];
   }
 
-  async init() {
+  async init(ctx: ExecutionContext) {
     this.api = new TwitterAdsAPI({
       consumer_key: this.config.credentials.consumerKey,
       consumer_secret: this.config.credentials.consumerSecret,
@@ -192,7 +193,7 @@ export const twitterAdsProvider: DestinationProvider<TwitterCredentials> = {
     {
       name: "audience",
       rowType: AudienceRowType,
-      createOutputStream: (config, ctx) => new TwitterOutputStream(config, ctx).init(),
+      createOutputStream: (config, ctx) => new TwitterOutputStream(config, ctx).init(ctx),
     },
   ],
 };

@@ -6,7 +6,7 @@
     <img src="https://github.com/syncmaven/syncmaven/actions/workflows/check.yml/badge.svg?event=push" alt="CI Badge"/>
   </a>
 </p>
-<h3 align="center">Syncmaven</h3>
+<h3 align="center">🔄Syncmaven</h3>
   <p align="center">
     The open-source Reverse ETL and Data Activation
     <br />
@@ -19,21 +19,23 @@
   </p>
 </p>
 
-## Undestanding Syncmaven
+## What is Reverse-ETL and Syncmaven?
 
-Analysts using Syncmaven to export data from their data warehouses to external services (we call them destinations).
+ReverseETL, or Data Activation, is a process of exporting data from data warehouses to external services.
 
-Get youself familliar with Syncmamen fundamentals:
-
-- [Model](https://syncmaven.sh/fundamentals/model)
-- [Connection and Destination](https://syncmaven.sh/fundamentals/connection)
-- [Sync](https://syncmaven.sh/fundamentals/sync)
+**Syncmaven** is an open-source, developer-first Reverse-ETL platform
 
 ## Getting started
 
 - [Install Syncmaven](https://syncmaven.sh/quickstart/install)
 - [Take a look at example projects](https://syncmaven.sh/quickstart/examples)
 - [Learn how to run Syncmaven in production](https://syncmaven.sh/quickstart/production)
+
+Get youself familliar with Syncmamen fundamentals:
+
+- [Model](https://syncmaven.sh/fundamentals/model)
+- [Connection and Destination](https://syncmaven.sh/fundamentals/connection)
+- [Sync](https://syncmaven.sh/fundamentals/sync)
 
 ## Contributing
 

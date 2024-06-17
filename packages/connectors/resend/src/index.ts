@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  BaseOutputStream,
+  BaseRateLimitedOutputStream,
   DestinationProvider,
   normalizeEmail,
   OutputStreamConfiguration,
@@ -25,19 +25,16 @@ const ResendRow = z.object({
 
 type ResendRow = z.infer<typeof ResendRow>;
 
-class ResendStream extends BaseOutputStream<ResendRow, ResendCredentials> {
+class ResendStream extends BaseRateLimitedOutputStream<ResendRow, ResendCredentials> {
   private resend: Resend;
   private audienceId: string = "";
-  private lastCallTime = Date.now();
-  // rateLimitRps
-  private rateLimit = 1000;
 
   constructor(config: OutputStreamConfiguration<ResendCredentials>, ctx: ExecutionContext) {
-    super(config, ctx);
+    super(config, ctx, 1000);
     this.resend = new Resend(config.credentials.apiKey);
   }
 
-  async init() {
+  async init(ctx: ExecutionContext) {
     const audienceName =
       this.config.options.audienceName || `AudienceSync: ${this.config.syncId}, stream=${this.config.streamId}`;
     const audiences = await this.resend.audiences.list();
@@ -63,7 +60,7 @@ class ResendStream extends BaseOutputStream<ResendRow, ResendCredentials> {
     return this;
   }
 
-  public async handleRow(row: ResendRow, ctx: ExecutionContext) {
+  protected async handleRowRateLimited(row: ResendRow, ctx: ExecutionContext) {
     let retry = false;
     do {
       const email = normalizeEmail(row.email);
@@ -81,23 +78,11 @@ class ResendStream extends BaseOutputStream<ResendRow, ResendCredentials> {
         const rpsMatch = creationResult.error.message.match(/(\d+) requests per second/);
         if (rpsMatch) {
           this.rateLimit = parseInt(rpsMatch[1]);
-          retry = !retry;
-          console.warn(`Rate limit set to ${this.rateLimit} rps. Retrying: ${retry}`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.warn(`Rate limit set to ${this.rateLimit} rps.`);
+          throw { code: 429 };
         }
       }
-      await this.rateLimitDelay();
     } while (retry);
-  }
-
-  private async rateLimitDelay() {
-    const delay = 1000 / this.rateLimit;
-    const dt = Date.now();
-    const elapsed = dt - this.lastCallTime;
-    this.lastCallTime = dt;
-    if (elapsed < delay) {
-      await new Promise(resolve => setTimeout(resolve, delay - elapsed));
-    }
   }
 }
 
@@ -108,7 +93,7 @@ export const resendProvider: DestinationProvider<ResendCredentials> = {
     {
       name: "audience",
       rowType: ResendRow,
-      createOutputStream: (config, ctx) => new ResendStream(config, ctx).init(),
+      createOutputStream: (config, ctx) => new ResendStream(config, ctx).init(ctx),
     },
   ],
   defaultStream: "audience",

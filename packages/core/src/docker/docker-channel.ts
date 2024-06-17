@@ -186,6 +186,7 @@ export class DockerChannel implements DestinationChannel {
           res.write("\n");
         });
         res.end();
+        return;
     }
     return {};
   }

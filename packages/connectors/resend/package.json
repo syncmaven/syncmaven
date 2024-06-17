@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "description": "",
   "main": "dist/index.js",
-  "bin": "./bin/resend",
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",

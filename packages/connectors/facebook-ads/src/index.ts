@@ -52,7 +52,7 @@ class FacebookAudienceOutputStream extends BaseOutputStream<AudienceRowType, Fac
     this.rowsKey = [`syncId=${config.syncId}`, `stream=${config.streamId}`, "last-synced-rows"];
   }
 
-  async init() {
+  async init(ctx: ExecutionContext) {
     const { streamId, syncId } = this.config;
     const currentAudiences = await this.client(`/customaudiences?fields=id,name,description`);
     const audienceName = this.config.options?.audienceName || `audience-sync?syncId=${syncId}&streamId=` + streamId;
@@ -178,7 +178,7 @@ class FacebookAudienceOutputStream extends BaseOutputStream<AudienceRowType, Fac
 const audienceStream: DestinationStream<FacebookAdsCredentials, AudienceRowType> = {
   name: "audience",
   rowType: AudienceRowType,
-  createOutputStream: async (config, ctx) => await new FacebookAudienceOutputStream(config, ctx).init(),
+  createOutputStream: async (config, ctx) => await new FacebookAudienceOutputStream(config, ctx).init(ctx),
 };
 
 export const facebookAdsProvider: DestinationProvider<FacebookAdsCredentials> = {
