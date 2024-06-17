@@ -37,7 +37,11 @@ export class InMemoryStore implements StreamPersistenceStore {
     (await this.list(prefix)).forEach(cb);
   }
 
-  async streamBatch(prefix: StorageKey, cb: (batch: Entry[]) => Promise<void> | void, maxBatchSize: number): Promise<any> {
+  async streamBatch(
+    prefix: StorageKey,
+    cb: (batch: Entry[]) => Promise<void> | void,
+    maxBatchSize: number
+  ): Promise<any> {
     const all = await this.list(prefix);
     cb(all);
   }

@@ -39,6 +39,7 @@ export async function stdProtocol(provider: DestinationProvider) {
     info: (...args: any[]) => log("info", args[0], ...args.slice(1)),
     warn: (...args: any[]) => log("warn", args[0], ...args.slice(1)),
     error: (...args: any[]) => log("error", args[0], ...args.slice(1)),
+    debug: (...args: any[]) => log("debug", args[0], ...args.slice(1)),
   };
 
   const rl = readline.createInterface({
