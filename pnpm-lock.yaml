@@ -108,9 +108,6 @@ importers:
       zod:
         specifier: ^3.23.8
         version: 3.23.8
-      zod-to-json-schema:
-        specifier: ^3.23.0
-        version: 3.23.0(zod@3.23.8)
     devDependencies:
       '@swc/cli':
         specifier: ^0.3.12
