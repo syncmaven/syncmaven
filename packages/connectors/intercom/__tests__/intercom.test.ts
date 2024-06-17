@@ -1,8 +1,10 @@
 import { describe, test, TestContext } from "node:test";
 import JSON5 from "json5";
 import { intercomProvider } from "../src";
-import { DestinationProvider, InMemoryStore } from "@syncmaven/node-cdk";
+import { DestinationProvider, InMemoryStore, disableStdProtocol } from "@syncmaven/node-cdk";
 import { ZodError, ZodIssue } from "zod";
+
+disableStdProtocol();
 
 function strinfigyZodIssue(e: ZodIssue) {
   if (e.code === "invalid_type") {
