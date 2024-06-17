@@ -9,7 +9,7 @@ on:
         description: "Select connectors to build and publish (provide JSON array of connector names)"
         required: false
         default: '["resend", "twitter-ads", "people-data-labs", "intercom", "hubspot"]'
-      selectGo:
+      select-go:
         description: "Select go-connectors to build and publish (provide JSON array of connector names)"
         required: false
         default: '["mixpanel"]'
