@@ -125,7 +125,7 @@ export function readProjectObjectFromFile<T>(
 ): { id: string; factory: Factory<T> } | undefined {
   const { name, dir, base, ext } = path.parse(filePath);
   if (ext === undefined || ext === "") {
-    console.warn(`Only files with extensions are supported in ${dir}. Skipping file ${base}`);
+    console.debug(`Only files with extensions are supported in ${dir}. Skipping file ${base}`);
   } else if (ext === ".sql") {
     const content = fs.readFileSync(filePath, "utf-8");
     let config: any = {};

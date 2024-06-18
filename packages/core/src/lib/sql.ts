@@ -32,7 +32,10 @@ export class SqlQuery {
       throw new Error(`SQL query contains syntax error: ${e?.message}`);
     }
     if (Array.isArray(ast)) {
-      throw new Error(`SQL query contains multiple statements`);
+      if (ast.length > 1) {
+        throw new Error(`SQL query contains multiple (${ast.length}) statements`);
+      }
+      ast = ast[0];
     }
     if (ast.type !== "select") {
       throw new Error(`SQL query must be a SELECT statement`);

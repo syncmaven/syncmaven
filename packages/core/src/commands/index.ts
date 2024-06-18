@@ -8,6 +8,8 @@ import { getLatestVersionFromRegistry, syncmavenVersion, syncmavenVersionTag } f
 import { fmt } from "../log";
 import { isTruish } from "../lib/util";
 import { add } from "./add";
+import { preview } from "./preview";
+import { link } from "./link";
 
 /**
  * Options of every command
@@ -118,7 +120,7 @@ export async function initCli(): Promise<Command> {
     .description("Describes streams available in the connection")
     .option(
       "-f, --connection-file <connection-file>",
-      "File where connection is defined. Alternatively, you can package and credentials json"
+      "File where connection is defined. If not provided, you can specify package and credentials. Or project dir and connection id"
     )
     .option(commonOptions.packageName.flag, commonOptions.packageName.description)
     .option(commonOptions.packageType.flag, commonOptions.packageType.description)
@@ -128,6 +130,8 @@ export async function initCli(): Promise<Command> {
     )
     .option(commonOptions.env.flag, commonOptions.env.description)
     .option(commonOptions.debug.flag, commonOptions.debug.description)
+    .option(commonOptions.projectDir.flag, commonOptions.projectDir.description)
+    .argument("<args>", "If not specifying connection file, you can provide package and credentials as arguments")
     .action(streams);
 
   program
@@ -170,6 +174,26 @@ export async function initCli(): Promise<Command> {
     .option(commonOptions.debug.flag, commonOptions.debug.description)
     .argument("<args...>")
     .action(add);
+
+  program
+    .command("preview")
+    .description("Preview a model in the project")
+    .option(commonOptions.projectDir.flag, commonOptions.projectDir.description)
+    .option(commonOptions.packageType.flag, commonOptions.packageType.description)
+    .option(commonOptions.debug.flag, commonOptions.debug.description)
+    .argument("<model...>")
+    .action(preview);
+
+  program
+    .command("link")
+    .description("Creates a sync: links a model to a connection")
+    .option(commonOptions.projectDir.flag, commonOptions.projectDir.description)
+    .option(commonOptions.packageType.flag, commonOptions.packageType.description)
+    .option(commonOptions.debug.flag, commonOptions.debug.description)
+    .requiredOption("-c, --connection <connection>", "Connection id")
+    .requiredOption("-m, --model <model>", "Model id")
+    .option("-s, --stream <stream>", "Stream name. Should be set if connection supports multiple streams")
+    .action(link);
 
   program.helpOption("-h --help", "display help for command");
   program.version(

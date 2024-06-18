@@ -72,16 +72,23 @@ export async function newPostgresDatasource(modelDefinition: ModelDefinition): P
       const cursor = client.query(new Cursor(param.query));
       let cursorBatchSize = 100;
       let result = await read(cursor, cursorBatchSize);
-      await param.handler.header({
-        columns: result.fields.map(f => ({ name: f.name, type: parseType(f) })),
-      });
+      if (param.handler.header) {
+        await param.handler.header({
+          columns: result.fields.map(f => ({ name: f.name, type: parseType(f) })),
+        });
+      }
       while (result?.rows && result.rows.length > 0) {
         for (const row of result.rows) {
-          await param.handler.row(row);
+          const stop = await param.handler.row(row);
+          if (stop === true) {
+            return;
+          }
         }
         result = await read(cursor, cursorBatchSize);
       }
-      await param.handler.finalize();
+      if (param.handler.finalize) {
+        await param.handler.finalize();
+      }
     },
     close: async () => {
       await client.end();

@@ -17,9 +17,12 @@ export type TableHeader = {
 export type SQLValue = any;
 
 export type StreamingHandler = {
-  header: (header: TableHeader) => void | Promise<void>;
-  row: (row: Record<string, SQLValue>) => void | Promise<void>;
-  finalize: () => void | Promise<void>;
+  header?: (header: TableHeader) => void | Promise<void>;
+  /**
+   * If function returns true, the streaming will stop
+   */
+  row: (row: Record<string, SQLValue>) => (void | true) | Promise<void | true>;
+  finalize?: () => void | Promise<void>;
 };
 
 export interface DataSource {

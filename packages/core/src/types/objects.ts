@@ -56,7 +56,7 @@ export const ConnectionDefinition = z.object({
     type: z.string().default("docker").optional(),
     image: z.string().optional(),
     command: z.string().optional(),
-    commandDir: z.string().optional(),
+    dir: z.string().optional(),
   }),
   credentials: z.any(),
 });

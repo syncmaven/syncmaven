@@ -78,16 +78,18 @@ export async function newSnowflakeDatasource(modelDefinition: ModelDefinition): 
               reject(err);
               return;
             }
-            await handler.header({
-              columns:
-                stmt.getColumns().map(col => ({
-                  name: col.getName().toLowerCase(),
-                  type: {
-                    nativeType: col.getType(),
-                    genericType: getGenericType(col),
-                  },
-                })) || [],
-            });
+            if (handler.header) {
+              await handler.header({
+                columns:
+                  stmt.getColumns().map(col => ({
+                    name: col.getName().toLowerCase(),
+                    type: {
+                      nativeType: col.getType(),
+                      genericType: getGenericType(col),
+                    },
+                  })) || [],
+              });
+            }
 
             const stream = stmt.streamRows();
             // Read data from the stream when it is available
@@ -108,7 +110,9 @@ export async function newSnowflakeDatasource(modelDefinition: ModelDefinition): 
                 }
               })
               .on("end", async function () {
-                await handler.finalize();
+                if (handler.finalize) {
+                  await handler.finalize();
+                }
                 resolve();
               })
               .on("error", function (err) {

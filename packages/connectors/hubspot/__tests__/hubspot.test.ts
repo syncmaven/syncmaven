@@ -89,40 +89,38 @@ describe("Hubspot Test", () => {
       testData: {
         contacts: [
           {
-            external_id: "1",
+            id: "1",
             email: "john.doe@horns-and-hoofs.com",
-            firstname: "John",
-            lastname: "Doe",
+            name: "John Doe",
             phone: "+1234567890",
             contact_custom_field1: "custom field value",
             company_ids: 1,
           },
           {
-            external_id: "2",
+            id: "2",
             email: "john.do2e@another.com",
-            firstname: "John",
+            name: "John",
             lastname: "Doe2",
             phone: "+71234567890",
             company_ids: [1, 2],
           },
           {
-            external_id: "3",
+            id: "3",
             email: "john.do3e@another.com",
-            firstname: "John",
-            lastname: "Doe3",
+            name: "John Doe3",
             phone: "+81234567890",
             company_ids: 1,
           },
         ],
         companies: [
           {
-            external_id: 1,
+            id: 1,
             name: "Horns and Hoofs",
             custom_field1: "custom field value",
             plan: "free",
           },
           {
-            external_id: 2,
+            id: 2,
             name: "Another company",
             plan: "free",
           },

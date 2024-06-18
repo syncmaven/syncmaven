@@ -66,7 +66,7 @@ export async function connectorDev(
           package: {
             type: "npm",
             command: process.execPath + " " + packageJson.main,
-            commandDir: dir,
+            dir,
           },
         };
       },

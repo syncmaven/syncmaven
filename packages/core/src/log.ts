@@ -1,4 +1,3 @@
-import { isTruish } from "./lib/util";
 import cols from "picocolors";
 
 type LoggingMethod = (message?: any, ...optionalParams: any[]) => void;
@@ -91,9 +90,34 @@ export function initializeConsoleLogging(c: typeof console = console) {
  * in a response to CLI commands
  * @param message
  */
-export function out(message: any) {
+export function out(message?: any) {
+  if (message === undefined) {
+    process.stdout.write("\n");
+    return;
+  }
   if (Array.isArray(message)) {
     message = message.join("\n");
   }
   process.stdout.write(message + "\n");
+}
+
+export function startLoading(proc: string): () => void {
+  const symbols = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  if (process.stdout.isTTY) {
+    let cnt = 0;
+    const interval = setInterval(() => {
+      process.stdout.cursorTo(0);
+      process.stdout.write(fmt.green(symbols[cnt++ % symbols.length]) + " " + proc);
+    }, 100);
+    return () => {
+      clearInterval(interval);
+      process.stdout.write("\x1b[0G");
+      process.stdout.write("\x1b[2K");
+      process.stdout.write("\n");
+      process.stdout.write(fmt.green("✔") + " " + proc + "\n");
+    };
+  } else {
+    out(`${proc.trim()}...`);
+    return () => {};
+  }
 }

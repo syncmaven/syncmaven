@@ -1,16 +1,18 @@
 import { CommonOpts, PackageOpts } from "./index";
 import { SchemaObject } from "ajv/dist/types";
-import { fmt, rewriteSeverityLevel } from "../log";
+import { fmt, out, rewriteSeverityLevel } from "../log";
 import { codeHighlight } from "../lib/code-highlighter";
-import { getDestinationChannelFromPackage } from "./sync";
+import { getDestinationChannel } from "./sync";
 
 function describeProp(prop: any) {
   const facts: string[] = [];
   if (prop.type) {
-    facts.push(Array.isArray(prop.type) ? prop.type.filter(t => t !== "null").join(" or ") : prop.type);
+    facts.push(fmt.bold(Array.isArray(prop.type) ? prop.type.filter(t => t !== "null").join(" or ") : prop.type));
+  } else {
+    facts.push(fmt.bold("string"));
   }
   if (prop.default) {
-    facts.push(`Default: ${prop.default}`);
+    facts.push(`(default: ${prop.default})`);
   }
   if (prop.description) {
     facts.push(prop.description);
@@ -18,7 +20,7 @@ function describeProp(prop: any) {
   return facts.join(". ");
 }
 
-export function displayProperties(credentialsSchema: SchemaObject, output: string[], indent = 3) {
+export function displayProperties(credentialsSchema: SchemaObject, indent = 3) {
   const requiredMark = " (required)";
   const optionalMark = " (optional)";
   const maxPropWidth = Math.max(...Object.keys(credentialsSchema.properties).map(k => k.length));
@@ -35,8 +37,8 @@ export function displayProperties(credentialsSchema: SchemaObject, output: strin
   });
   for (const [key, prop] of props) {
     const required = credentialsSchema.required?.includes(key);
-    output.push(
-      `${" ".repeat(indent)}${fmt.bold(key) + " ".repeat(maxPropWidth - key.length)}${required ? fmt.red(requiredMark) : fmt.gray(optionalMark)} - ${describeProp(prop)}`
+    out(
+      `${" ".repeat(indent)}${fmt.magenta("➔")} ${fmt.bold(key) + " ".repeat(maxPropWidth - key.length)}${required ? fmt.red(requiredMark) : fmt.gray(optionalMark)} - ${describeProp(prop)}`
     );
   }
 }
@@ -44,7 +46,14 @@ export function displayProperties(credentialsSchema: SchemaObject, output: strin
 export async function describeDestination(opts: CommonOpts & PackageOpts & { json?: boolean }) {
   rewriteSeverityLevel("INFO", "DEBUG");
   const { package: pkg, packageType = "docker" } = opts;
-  const channel = getDestinationChannelFromPackage(opts, () => {});
+  const channel = getDestinationChannel(
+    {
+      type: packageType,
+      image: packageType === "docker" ? opts.package : undefined,
+      dir: packageType === "npm" ? opts.package : undefined,
+    },
+    () => {}
+  );
   const description = await channel.describe();
   const output: string[] = [];
   const credentials = description.payload.connectionCredentials;
@@ -63,7 +72,7 @@ export async function describeDestination(opts: CommonOpts & PackageOpts & { jso
   }
   output.push(`${packageType === "docker" ? "🐳" : ""}${fmt.bold(fmt.cyan(pkg))} has following credential properties`);
   output.push(``);
-  displayProperties(credentialsSchema, output);
+  displayProperties(credentialsSchema);
   output.push(``);
   output.push(`📌 To see a full JSON schema run the command with --json flag`);
 

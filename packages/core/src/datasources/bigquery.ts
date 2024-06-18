@@ -62,17 +62,19 @@ export async function newBigQueryDatasource(modelDefinition: ModelDefinition): P
         const rows = jobResult[0];
         const meta = jobResult[2];
         if (!pageToken) {
-          //send header only on the first page
-          await handler.header({
-            columns:
-              meta?.schema?.fields?.map(f => ({
-                name: f.name || "",
-                type: {
-                  nativeType: f.type || "",
-                  genericType: getGenericType(f.type),
-                },
-              })) || [],
-          });
+          if (handler.header) {
+            //send header only on the first page
+            await handler.header({
+              columns:
+                meta?.schema?.fields?.map(f => ({
+                  name: f.name || "",
+                  type: {
+                    nativeType: f.type || "",
+                    genericType: getGenericType(f.type),
+                  },
+                })) || [],
+            });
+          }
         }
         for (const row of rows) {
           Object.entries(row).forEach(([k, v]) => {
@@ -88,7 +90,9 @@ export async function newBigQueryDatasource(modelDefinition: ModelDefinition): P
           console.debug(`[${id}] Fetching next page.`);
         }
       } while (pageToken);
-      await handler.finalize();
+      if (handler.finalize) {
+        await handler.finalize();
+      }
     },
     close: async () => {},
   };

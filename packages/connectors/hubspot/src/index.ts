@@ -21,23 +21,30 @@ export const HubspotCredentials = z.object({
 
 export const CompanyRowType = z
   .object({
-    name: z.string(),
-    external_id: z.union([z.string(), z.number()]),
+    id: z.union([z.string(), z.number()]).describe("Unique id of the company (in your system)"),
+    name: z.string().describe("Name of the company"),
   })
-  .catchall(z.any());
+  .catchall(z.any())
+  .describe(
+    "Company record. Must include id and name fields. Can also include other fields too, that will be treated as custom Hubspot attributes"
+  );
 
 export type CompanyRowType = z.infer<typeof CompanyRowType>;
 
 export const ContactRowType = z
   .object({
-    firstname: z.string().optional(),
-    lastname: z.string().optional(),
+    id: z.union([z.string(), z.number()]).describe("Unique id of the contact (in your system)"),
+    name: z.string().optional().describe("Contact name"),
     email: z.string(),
-    external_id: z.union([z.string(), z.number()]),
-    company_ids: z.union([z.union([z.string(), z.number()]), z.array(z.union([z.string(), z.number()]))]).optional(),
+    company_ids: z
+      .union([z.union([z.string(), z.number()]), z.array(z.union([z.string(), z.number()]))])
+      .optional()
+      .describe("Company id(s) this contact is associated with. First id will be a primary company"),
   })
-  .catchall(z.any());
-
+  .catchall(z.any())
+  .describe(
+    "Contact record. Must include id and name fields. Can also include other fields too, that will be treated as custom Hubspot attributes"
+  );
 export type ContactRowType = z.infer<typeof ContactRowType>;
 
 export type HubspotCredentials = z.infer<typeof HubspotCredentials>;
@@ -218,14 +225,14 @@ class ContactsOutputStream extends BaseHubspotStream<ContactRowType> {
   }
 
   protected async handleRowRateLimited(row: ContactRowType, ctx: ExecutionContext) {
-    const { external_id, company_ids, ...rest } = row;
+    const { id, company_ids, ...rest } = row;
     const knownFields = pick(rest, Object.keys(ContactRowType.shape));
     const customFields = omit(rest, Object.keys(ContactRowType.shape));
     await this.handleCustomAttributes(customFields);
     console.log(`Processing contact: ${JSON.stringify(row)}`);
     const contactObj = {
       properties: {
-        external_id: external_id.toString(),
+        external_id: id.toString(),
         ...knownFields,
         ...customFields,
       } as { [key: string]: string },
@@ -257,9 +264,9 @@ class ContactsOutputStream extends BaseHubspotStream<ContactRowType> {
       }
     }
     try {
-      contactHubspotId = this.contactsMap[external_id.toString()];
+      contactHubspotId = this.contactsMap[id.toString()];
       if (!contactHubspotId) {
-        contactHubspotId = await this.searchByField("contacts", "external_id", external_id.toString());
+        contactHubspotId = await this.searchByField("contacts", "external_id", id.toString());
       }
       if (!contactHubspotId) {
         contactHubspotId = await this.addContact(contactObj, ctx);
@@ -303,22 +310,22 @@ class CompaniesOutputStream extends BaseHubspotStream<CompanyRowType> {
   }
 
   protected async handleRowRateLimited(row: CompanyRowType, ctx: ExecutionContext) {
-    const { external_id, ...rest } = row;
+    const { id, ...rest } = row;
     const knownFields = pick(rest, Object.keys(CompanyRowType.shape));
     const customFields = omit(rest, Object.keys(CompanyRowType.shape));
     await this.handleCustomAttributes(customFields);
     const companyProperties = {
       properties: {
-        external_id: external_id.toString(),
+        external_id: id.toString(),
         ...knownFields,
         ...customFields,
       },
     };
     let companyHubspotId: string | undefined = undefined;
     try {
-      companyHubspotId = this.companiesMap[external_id.toString()];
+      companyHubspotId = this.companiesMap[id.toString()];
       if (!companyHubspotId) {
-        companyHubspotId = await this.searchByField("company", "external_id", external_id.toString());
+        companyHubspotId = await this.searchByField("company", "external_id", id.toString());
       }
       if (!companyHubspotId) {
         // Contact does not exist, create it

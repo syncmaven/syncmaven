@@ -24,42 +24,29 @@ import { GenericColumnType } from "../datasources/types";
 import fs from "fs";
 import { trackEvent } from "../lib/telemetry";
 
-export function getDestinationChannelFromPackage(
-  { package: pkg, packageType = "docker" }: { package: string; packageType?: string },
+export function getDestinationChannel(
+  pkg: ConnectionDefinition["package"],
   messagesHandler: MessageHandler
 ): DestinationChannel {
-  if (packageType === "docker") {
-    return new StdInOutChannel({ dockerImage: pkg }, messagesHandler);
-  } else if (packageType === "npm") {
-    const packageDir = pkg.split("@")[0];
-    const packageJson = JSON.parse(fs.readFileSync(path.join(packageDir, "package.json"), "utf-8"));
-    if (!packageJson.main) {
-      throw new Error(`Package ${pkg} does not have a main entry point`);
+  if (pkg.type === "npm") {
+    let { command, dir } = pkg;
+    assert(dir, "dir is required for npm package type");
+    if (!command) {
+      console.debug(`Looking for package.json in ${dir}, cwd: ${process.cwd()}`);
+      //get command from package.json
+      const pkgJsonPath = path.join(dir, "package.json");
+      assert(fs.existsSync(pkgJsonPath), `package.json not found in ${dir}`);
+      const packageJson = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"));
+      assert(packageJson.main, `${pkgJsonPath} should have main field`);
+      command = `${process.execPath} ${packageJson.main}`;
     }
-    return new StdInOutChannel(
-      { command: { exec: `${process.execPath} ${packageJson.main}`, dir: packageDir } },
-      messagesHandler
-    );
-  } else {
-    throw new Error(`Unsupported package type ${packageType}`);
-  }
-}
-
-export function getDestinationChannelFromDefinition(
-  destination: ConnectionDefinition,
-  messagesHandler: MessageHandler
-): DestinationChannel {
-  if (destination.package.type === "npm") {
-    const { command, commandDir } = destination.package;
-    assert(command, "Command is required if package type is npm");
-    assert(commandDir, "commandDir is required if package type is npm");
-    return new StdInOutChannel({ command: { exec: command, dir: commandDir } }, messagesHandler);
-  } else if (destination.package.type === "docker") {
-    const image = destination.package.image;
+    return new StdInOutChannel({ command: { exec: command, dir } }, messagesHandler);
+  } else if (pkg.type === "docker") {
+    const image = pkg.image;
     assert(image, "Docker image is required if package type is docker");
     return new StdInOutChannel({ dockerImage: image }, messagesHandler);
   } else {
-    throw new Error(`Unsupported package type: ${destination.package.type} for destination ${destination.id}`);
+    throw new Error(`Unsupported package type: ${pkg.type}`);
   }
 }
 
@@ -211,7 +198,7 @@ export async function runSync(opts: {
     }
   };
 
-  const destinationChannel: DestinationChannel = getDestinationChannelFromDefinition(destination, messageListener);
+  const destinationChannel: DestinationChannel = getDestinationChannel(destination.package, messageListener);
   const enrichments: EnrichmentChannel[] = [];
   let datasource: DataSource | undefined = undefined;
   try {

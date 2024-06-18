@@ -1,33 +1,16 @@
 import { CommonOpts, PackageOpts, ProjectDirOpt, StateOpt } from "./index";
 import path from "path";
 import { untildify } from "../lib/project";
-import { getDestinationChannelFromPackage } from "./sync";
-import { fmt, out, rewriteSeverityLevel } from "../log";
+import { fmt, out, rewriteSeverityLevel, startLoading } from "../log";
 import { ConnectionSpecMessage, StreamSpecMessage } from "@syncmaven/protocol";
-import picocolors from "picocolors";
+import clr from "picocolors";
 import prompts from "prompts";
 import Ajv from "ajv";
 import { SchemaObject } from "ajv/dist/types";
 import fs from "fs";
 import { dump } from "js-yaml";
-
-function startLoading(proc: string): () => void {
-  const symbols = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-  if (process.stdout.isTTY) {
-    let cnt = 0;
-    const interval = setInterval(() => {
-      process.stdout.cursorTo(0);
-      process.stdout.write(fmt.green(symbols[cnt++ % symbols.length]) + " " + proc);
-    }, 100);
-    return () => {
-      clearInterval(interval);
-      process.stdout.write("\n");
-    };
-  } else {
-    out("Loading...");
-    return () => {};
-  }
-}
+import { getDestinationChannel } from "./sync";
+import picocolors from "picocolors";
 
 function pickId(projectDir: string, packageName: string) {
   const connectionsDir = path.join(projectDir, "connections");
@@ -61,9 +44,15 @@ export async function add(args: string[], opts: CommonOpts & ProjectDirOpt & Sta
     if (packageName.indexOf("/") < 0) {
       packageName = `syncmaven/${packageName}`;
     }
-    const channel = getDestinationChannelFromPackage({ package: packageName, packageType }, () => {});
+    const channel = getDestinationChannel(
+      {
+        type: packageType,
+        [packageType === "docker" ? "image" : "dir"]: packageName,
+      },
+      () => {}
+    );
     let stopLoader = startLoading(
-      `Getting metadata for ${picocolors.bold(packageName)}. For the first time, it might take a while...`
+      `Getting metadata for ${clr.bold(packageName)}. For the first time, it might take a while...`
     );
     let connection: ConnectionSpecMessage;
     try {
@@ -85,9 +74,9 @@ export async function add(args: string[], opts: CommonOpts & ProjectDirOpt & Sta
     const config: Record<string, any> = {};
     for (const [key, prop] of Object.entries(credentialsSchema.properties) as [string, any][]) {
       const required = credentialsSchema.required?.includes(key);
-      out(`Enter the value for ${picocolors.bold(key)}${required ? " (required)" : ""}`);
+      out(`Enter the value for ${clr.bold(key)}${required ? picocolors.red(" (required)") : ""}`);
       if (prop.description) {
-        out(`Documentation: ${picocolors.gray(prop.description)}`);
+        out(`Documentation: ${clr.gray(prop.description)}`);
       }
       const response = await prompts({
         type: prop.type === "string" ? "text" : prop.type,
@@ -95,14 +84,13 @@ export async function add(args: string[], opts: CommonOpts & ProjectDirOpt & Sta
         instructions: prop.description,
         //required: credentialsSchema.required?.includes(key),
         message: `${key} `,
-        //validate: value => value < 18 ? `Nightclub is 18+ only` : true
       });
       config[key] = response.value;
     }
     if (!validator(config)) {
       throw new Error(`Invalid configuration: ${ajv.errorsText(validator.errors)}`);
     }
-    stopLoader = startLoading(`Validating credentials for ${picocolors.bold(packageName)}`);
+    stopLoader = startLoading(`Validating credentials for ${clr.bold(packageName)}`);
     let availableStreams: StreamSpecMessage;
     try {
       availableStreams = await channel.streams({ type: "describe-streams", payload: { credentials: config } });
@@ -113,7 +101,7 @@ export async function add(args: string[], opts: CommonOpts & ProjectDirOpt & Sta
     const connectionYaml = {
       package: {
         type: packageType,
-        package: packageName,
+        [packageType === "docker" ? "image" : "dir"]: packageName,
       },
       credentials: config,
     };
@@ -121,11 +109,12 @@ export async function add(args: string[], opts: CommonOpts & ProjectDirOpt & Sta
     fs.writeFileSync(connectionFile, dump(connectionYaml), "utf-8");
 
     out([
-      `${picocolors.green("✔")} Connection ${picocolors.bold(packageName)} added.`,
-      `\tIt's written to file: ${picocolors.bold(connectionFile)}`,
-      `\tAvailable streams: ${availableStreams.payload.streams.map(s => s.name).join(", ")}`,
+      `${clr.green("✔")} Connection ${clr.bold(packageName)} added.`,
+      `  ${clr.magenta("➔")} It's written to file: ${clr.bold(connectionFile)}`,
+      `  ${clr.magenta("➔")} Available streams: ${availableStreams.payload.streams.map(s => clr.bold(s.name)).join(", ")}`,
+      `  ${clr.magenta("➔")} Get detailed information about streams with \`${clr.bold(`syncmaven streams ${args[1]}`)}\``,
     ]);
   } else {
-    throw new Error(`Unknown type ${type}`);
+    throw new Error(`Unknown object type: ${type}. Available types: connection, model, sync`);
   }
 }
