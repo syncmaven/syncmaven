@@ -1,78 +1,59 @@
-import { describe, test, TestContext } from "node:test";
-import * as JSON5 from "json5";
-import { hubspotProvider } from "../src";
-import { DestinationProvider, InMemoryStore, disableStdProtocol } from "@syncmaven/node-cdk";
-import { ZodError, ZodIssue } from "zod";
+import { describe, test } from "node:test";
+import { HubspotCredentials, hubspotProvider } from "../src";
+import { disableStdProtocol, testProvider } from "@syncmaven/node-cdk";
+import { Client } from "@hubspot/api-client";
+//import assert from "assert";
 
 disableStdProtocol();
 
-function strinfigyZodIssue(e: ZodIssue) {
-  if (e.code === "invalid_type") {
-    return `${e.code} - expected ${e.expected} but got ${e.received}`;
-  } else if (e.code === "unrecognized_keys") {
-    return `${e.code} - found keys ${e.keys.join(", ")}`;
-  }
-
-  return `${JSON.stringify(e)}`;
-}
-
-export function stringifyZodError(error: any): string {
-  if (!(error instanceof ZodError)) {
-    return error?.message || "Unknown error";
-  }
-  return `${error.errors.length} errors found: ${error.errors.map((e, idx) => `#${idx + 1} - at path \$.${e.path.join(".")} - ${strinfigyZodIssue(e)}`).join(", ")}`;
-}
-
-async function testProvider<Creds extends any>(opts: {
-  provider: DestinationProvider;
-  testData: Record<string, any[]>;
-  envVarName: string;
-  streamOptions?: Record<string, any>;
-  textContext: TestContext;
-  before?: (c: Creds) => void;
-  after?: (c: Creds) => void;
-  validate?: (c: Creds) => void;
-}) {
-  const envCreds = process.env[opts.envVarName];
-  if (!envCreds) {
-    opts.textContext.skip(`${opts.envVarName} is not set.`);
-    return;
-  }
-  const credentials = JSON5.parse(envCreds);
-  for (const stream of opts.provider.streams) {
-    const testDataStream = opts.testData[stream.name];
-    if (testDataStream) {
-      console.log(`Testing stream ${stream.name}`);
-      const ctx = {
-        store: new InMemoryStore(),
-      };
-      const outputStream = await stream.createOutputStream(
-        {
-          streamId: `test-${stream.name}`,
-          options: opts.streamOptions?.[stream.name] || {},
-          credentials,
-          syncId: `test-${stream.name}-sync`,
-        },
-        ctx
-      );
-      for (const row of testDataStream) {
-        let distilledRow: any;
-        try {
-          distilledRow = stream.rowType.parse(row);
-        } catch (e) {
-          throw new Error(`Failed to parse row ${JSON.stringify(row)}: ${stringifyZodError(e)}`);
-        }
-
-        await outputStream.handleRow(distilledRow, ctx);
-      }
-      if (outputStream.finish) {
-        await outputStream.finish(ctx);
-      }
-    } else {
-      console.log(`Skipping stream ${stream.name}. No test data for the stream is provided.`);
+async function forEachContact(accessToken: string, cb: (contact) => any | Promise<any>) {
+  const client = new Client({ accessToken });
+  let nextPage: string | undefined = undefined;
+  do {
+    const contactsResponse = await client.crm.contacts.basicApi.getPage(100, nextPage);
+    for (const contact of contactsResponse.results) {
+      await cb(contact);
     }
-  }
+    nextPage = contactsResponse.paging?.next?.after;
+    if (nextPage) {
+      console.debug(`Will load next page of contacts`);
+    }
+  } while (nextPage);
 }
+
+async function forEachCompany(accessToken: string, cb: (company) => any | Promise<any>) {
+  const client = new Client({ accessToken });
+  let nextPage: string | undefined = undefined;
+  do {
+    const response = await client.crm.companies.basicApi.getPage(100, nextPage);
+    for (const company of response.results) {
+      await cb(company);
+    }
+    nextPage = response.paging?.next?.after;
+    if (nextPage) {
+      console.debug(`Will load next page of companies`);
+    }
+  } while (nextPage);
+}
+
+// Function to remove all contacts and companies from an account using accessToken
+async function cleanHubspotAccount(accessToken: string) {
+  const client = new Client({ accessToken });
+  console.log("Removing all contacts from test account...");
+  await forEachContact(accessToken, async contact => await client.crm.contacts.basicApi.archive(contact.id));
+  console.log("Removing all companies from test account...");
+  await forEachCompany(accessToken, async company => await client.crm.companies.basicApi.archive(company.id));
+}
+
+// Example usage with your access token
+const accessToken = "your_access_token_here";
+
+// Uncomment and use the function as needed
+// removeAllContactsAndCompanies(accessToken).then(() => {
+//     console.log('All contacts and companies removed.');
+// }).catch((error) => {
+//     console.error('Error removing contacts and companies:', error);
+// });
 
 describe("Hubspot Test", () => {
   test("Hubspot Provider", async t => {
@@ -128,10 +109,22 @@ describe("Hubspot Test", () => {
       },
       textContext: t,
       envVarName: "HUBSPOT_TEST_CREDENTIALS",
-      after: () => {
-        disableStdProtocol();
+      validate: async (c: HubspotCredentials) => {
+        const contacts: any[] = [];
+        const companies: any[] = [];
+        console.log(`Got ${contacts.length} contacts and ${companies.length} companies`);
+        await forEachContact(c.accessToken, c => contacts.push(c));
+        await forEachCompany(c.accessToken, c => companies.push(c));
+        // assert.equal(companies.length, 30)
+        // assert.equal(contacts.length, 30)
+        throw new Error("Not implemented");
       },
-      before: () => {},
+      before: async (c: HubspotCredentials) => {
+        await cleanHubspotAccount(c.accessToken);
+      },
+      after: async (c: HubspotCredentials) => {
+        await cleanHubspotAccount(c.accessToken);
+      },
     });
   });
 });

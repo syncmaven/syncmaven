@@ -1,4 +1,5 @@
 import cols from "picocolors";
+import { isTruish } from "./lib/util";
 
 type LoggingMethod = (message?: any, ...optionalParams: any[]) => void;
 
@@ -7,7 +8,10 @@ type SeverityLevel = (typeof severityLevels)[number];
 const maxSeverityLevelLength = Math.max(...severityLevels.map(s => s.length));
 
 const RESET = "\x1b[0m";
-let debugLoginEnabled = true;
+let debugLoginEnabled = isTruish(process.env.DEBUG);
+if (debugLoginEnabled) {
+  console.debug("Debug logging enabled via DEBUG env var");
+}
 
 const rewrites: Record<SeverityLevel, SeverityLevel | undefined> = {
   INFO: undefined,

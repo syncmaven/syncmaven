@@ -1,4 +1,4 @@
-FROM node:20-slim as base
+FROM node:22-slim as base
 
 #0.0.0 is a dev version
 ARG SYNCMAVEN_VERSION=0.0.0

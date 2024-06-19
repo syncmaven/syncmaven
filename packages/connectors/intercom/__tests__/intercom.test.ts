@@ -1,7 +1,7 @@
 import { describe, test, TestContext } from "node:test";
 import * as JSON5 from "json5";
 import { intercomProvider } from "../src";
-import { DestinationProvider, InMemoryStore, disableStdProtocol } from "@syncmaven/node-cdk";
+import { DestinationProvider, InMemoryStore, disableStdProtocol, testProvider } from "@syncmaven/node-cdk";
 import { ZodError, ZodIssue } from "zod";
 
 disableStdProtocol();
@@ -21,57 +21,6 @@ export function stringifyZodError(error: any): string {
     return error?.message || "Unknown error";
   }
   return `${error.errors.length} errors found: ${error.errors.map((e, idx) => `#${idx + 1} - at path \$.${e.path.join(".")} - ${strinfigyZodIssue(e)}`).join(", ")}`;
-}
-
-async function testProvider<Creds extends any>(opts: {
-  provider: DestinationProvider;
-  testData: Record<string, any[]>;
-  envVarName: string;
-  streamOptions?: Record<string, any>;
-  textContext: TestContext;
-  before?: (c: Creds) => void;
-  after?: (c: Creds) => void;
-  validate?: (c: Creds) => void;
-}) {
-  const envCreds = process.env[opts.envVarName];
-  if (!envCreds) {
-    opts.textContext.skip(`${opts.envVarName} is not set.`);
-    return;
-  }
-  const credentials = JSON5.parse(envCreds);
-  for (const stream of opts.provider.streams) {
-    const testDataStream = opts.testData[stream.name];
-    if (testDataStream) {
-      console.log(`Testing stream ${stream.name}`);
-      const ctx = {
-        store: new InMemoryStore(),
-      };
-      const outputStream = await stream.createOutputStream(
-        {
-          streamId: `test-${stream.name}`,
-          options: opts.streamOptions?.[stream.name] || {},
-          credentials,
-          syncId: `test-${stream.name}-sync`,
-        },
-        ctx
-      );
-      for (const row of testDataStream) {
-        let distilledRow: any;
-        try {
-          distilledRow = stream.rowType.parse(row);
-        } catch (e) {
-          throw new Error(`Failed to parse row ${JSON.stringify(row)}: ${stringifyZodError(e)}`);
-        }
-
-        await outputStream.handleRow(distilledRow, ctx);
-      }
-      if (outputStream.finish) {
-        await outputStream.finish(ctx);
-      }
-    } else {
-      console.log(`Skipping stream ${stream.name}. No test data for the stream is provided.`);
-    }
-  }
 }
 
 describe("Intercom Test", () => {

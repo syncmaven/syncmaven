@@ -63,6 +63,23 @@ function createClient(creds: HubspotCredentials) {
   return client;
 }
 
+function splitName(fullName: string): [string | undefined, string | undefined] {
+  if (!fullName) {
+    return [undefined, undefined];
+  }
+
+  const nameParts = fullName.trim().split(/\s+/);
+  if (nameParts.length === 1) {
+    return [nameParts[0], undefined];
+  } else if (nameParts.length === 2) {
+    return [nameParts[0], nameParts[1]];
+  } else {
+    const lastName = nameParts.pop();
+    const firstName = nameParts.join(" ");
+    return [firstName, lastName || undefined];
+  }
+}
+
 abstract class BaseHubspotStream<RowT extends Record<string, any>> extends BaseRateLimitedOutputStream<
   RowT,
   HubspotCredentials
@@ -86,7 +103,6 @@ abstract class BaseHubspotStream<RowT extends Record<string, any>> extends BaseR
 
   public async init(ctx: ExecutionContext) {
     await this.refreshCustomAttributes();
-    await this.ensureCustomAttribute("external_id");
     await this.ensureCustomAttribute("external_id");
 
     return this;
@@ -225,14 +241,17 @@ class ContactsOutputStream extends BaseHubspotStream<ContactRowType> {
   }
 
   protected async handleRowRateLimited(row: ContactRowType, ctx: ExecutionContext) {
-    const { id, company_ids, ...rest } = row;
+    const { id, company_ids, name, ...rest } = row;
     const knownFields = pick(rest, Object.keys(ContactRowType.shape));
     const customFields = omit(rest, Object.keys(ContactRowType.shape));
+    const [firstname, lastname] = name ? splitName(name) : [undefined, undefined];
     await this.handleCustomAttributes(customFields);
     console.log(`Processing contact: ${JSON.stringify(row)}`);
     const contactObj = {
       properties: {
         external_id: id.toString(),
+        firstname,
+        lastname,
         ...knownFields,
         ...customFields,
       } as { [key: string]: string },
