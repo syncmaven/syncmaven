@@ -23,8 +23,9 @@ function reply(type: string, payload: any) {
   process.stdout.write(JSON.stringify({ type, payload }) + "\n");
 }
 
-function halt(reason: string) {
-  reply("halt", { message: reason });
+function fatal(reason: string) {
+  reply("halt", { message: reason, status: "error" });
+  process.exit(1);
 }
 
 export async function stdProtocol(provider: DestinationProvider) {
@@ -97,27 +98,29 @@ export async function stdProtocol(provider: DestinationProvider) {
           })),
         });
       } else if (message.type === "start-stream") {
-        const streamName = message.payload.stream;
-        const stream = provider.streams.find(s => s.name === streamName);
-        if (!stream) {
-          log("error", "Unknown stream", { streamName });
-          reply("halt", { message: `Unknown stream ${streamName}` });
-          process.exit(1);
-        } else {
-          const payload = (message as StartStreamMessage).payload;
-          if (!ctx) {
-            ctx = createContext();
+        try {
+          const streamName = message.payload.stream;
+          const stream = provider.streams.find(s => s.name === streamName);
+          if (!stream) {
+            fatal(`Unknown stream ${streamName}`);
+          } else {
+            const payload = (message as StartStreamMessage).payload;
+            if (!ctx) {
+              ctx = createContext();
+            }
+            currentOutputStream = await stream.createOutputStream(
+              {
+                streamId: payload.stream,
+                credentials: payload.connectionCredentials,
+                syncId: payload.syncId,
+                fullRefresh: payload.fullRefresh,
+                options: payload.streamOptions,
+              },
+              ctx
+            );
           }
-          currentOutputStream = await stream.createOutputStream(
-            {
-              streamId: payload.stream,
-              credentials: payload.connectionCredentials,
-              syncId: payload.syncId,
-              fullRefresh: payload.fullRefresh,
-              options: payload.streamOptions,
-            },
-            ctx
-          );
+        } catch (e: any) {
+          fatal(`Failed to start stream: ${e.toString()}`);
         }
       } else if (message.type === "end-stream") {
         if (currentOutputStream) {
