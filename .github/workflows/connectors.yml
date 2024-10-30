@@ -8,7 +8,7 @@ on:
       select:
         description: "Select connectors to build and publish (provide JSON array of connector names)"
         required: false
-        default: '["resend", "twitter-ads", "people-data-labs", "intercom", "hubspot"]'
+        default: '["resend", "twitter-ads", "people-data-labs", "intercom", "hubspot", "google-sheets"]'
       select-go:
         description: "Select go-connectors to build and publish (provide JSON array of connector names)"
         required: false
