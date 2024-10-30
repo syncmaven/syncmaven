@@ -11,6 +11,11 @@ on:
         description: "Skip Docker build (optional)"
         required: false
         default: false
+      publish:
+        type: boolean
+        description: "If changes should be published"
+        required: false
+        default: true
       debug:
         type: boolean
         description: "Debug mode (optional)"
@@ -38,7 +43,7 @@ jobs:
           always-auth: true
 
       - name: Install pnpm
-        run: npm install -g pnpm@8
+        run: npm install -g pnpm@9
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -88,11 +93,11 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish canary version to NPM
-        if: (github.ref == 'refs/heads/main' && github.event.inputs.release-version == '') || github.event.inputs.release-version == 'canary'
+        if: (github.ref == 'refs/heads/main' && github.event.inputs.release-version == '' && github.event.inputs.publish) || github.event.inputs.release-version == 'canary'
         run: pnpm release:canary
 
       - name: Publish release version to NPM
-        if: github.event.inputs.release-version != '' && github.event.inputs.release-version != 'canary'
+        if: github.event.inputs.release-version != '' && github.event.inputs.release-version != 'canary' && github.event.inputs.publish
         run: pnpm release:stable --version ${{ github.event.inputs.release-version }} --publish
 
   build-docker:
@@ -140,7 +145,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: ${{ github.event.inputs.publish }}
           args: SYNCMAVEN_VERSION=${{ steps.docker_tag.outputs.secondary_tag }}
             SYNCMAVEN_BUILD_TAG=${{ steps.docker_tag.outputs.tag }}
           context: .

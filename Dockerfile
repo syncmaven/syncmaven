@@ -13,7 +13,7 @@ WORKDIR /syncmaven
 
 FROM base AS base-builder
 RUN apt update && apt install -y python3 python3-pip make g++ sqlite3 libsqlite3-dev
-RUN npm -g install pnpm@8
+RUN npm -g install pnpm@9
 ENV PNPM_HOME=/pnpm
 
 FROM base-builder AS package-fetcher
