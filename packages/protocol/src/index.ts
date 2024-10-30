@@ -88,6 +88,7 @@ export const StreamSpecMessage = MessageBase.merge(
         z.object({
           name: z.string(),
           rowType: z.any(),
+          streamOptions: z.any().optional(),
         })
       ),
     }),

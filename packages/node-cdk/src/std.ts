@@ -95,6 +95,7 @@ export async function stdProtocol(provider: DestinationProvider) {
           streams: provider.streams.map(s => ({
             name: s.name,
             rowType: zodToJsonSchema(s.rowType),
+            streamOptions: s.streamOptions ? zodToJsonSchema(s.streamOptions) : undefined,
           })),
         });
       } else if (message.type === "start-stream") {
@@ -126,7 +127,11 @@ export async function stdProtocol(provider: DestinationProvider) {
         if (currentOutputStream) {
           log("info", "Received end-stream message. Bye!");
           if (currentOutputStream.finish) {
-            await currentOutputStream.finish(ctx!);
+            try {
+              await currentOutputStream.finish(ctx!);
+            } catch (e: any) {
+              fatal(`Failed to finish stream: ${e?.message || "unknown error"}${e.stack ? "\n" + e.stack : ""}`);
+            }
           }
           setTimeout(() => {
             reply("stream-result", { received, skipped, success, failed });

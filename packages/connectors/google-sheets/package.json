@@ -1,0 +1,32 @@
+{
+  "name": "@syncmaven/google-sheets",
+  "version": "0.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "main:prod": "node dist/index.js",
+    "main": "NODE_OPTIONS=--no-deprecation ts-node src/index.ts",
+    "test": "STD_PROTOCOL_DISABLED=true node --require ts-node/register --test __tests__/**/*.test.ts"
+  },
+  "dependencies": {
+    "@syncmaven/node-cdk": "workspace:*",
+    "@syncmaven/protocol":"workspace:*",
+    "zod": "^3.23.8",
+    "tslib": "^2.6.2",
+    "googleapis": "^144.0.0",
+    "json5": "^2.2.3"
+  },
+  "devDependencies": {
+    "@syncmaven/configs":"workspace:*",
+    "syncmaven": "workspace:*",
+    "@types/node": "^20.12.12",
+    "typescript": "^5.4.5",
+    "ts-node": "^10.9.2",
+    "@googleapis/sheets": "^9.3.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

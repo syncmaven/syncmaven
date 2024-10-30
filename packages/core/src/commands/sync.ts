@@ -88,11 +88,11 @@ function readJson(_resource: any, nonJsonHandler: (val: string) => any) {
   const prefixes = ["@", "file://"];
   for (const prefix of prefixes) {
     if (resource.startsWith(prefix)) {
-      const path = resource.slice(prefix.length);
-      console.debug(`Reading json resource from ${path}`);
-      const content = fs.readFileSync(path, "utf-8");
-      if (path.endsWith(".yaml") || path.endsWith(".yml")) {
-        return load(content, { filename: path, json: true });
+      const filePath = path.resolve(resource.slice(prefix.length));
+      console.debug(`Reading json resource from ${filePath}`);
+      const content = fs.readFileSync(filePath, "utf-8");
+      if (filePath.endsWith(".yaml") || filePath.endsWith(".yml")) {
+        return load(content, { filename: filePath, json: true });
       }
       return JSON5.parse(content);
     }
@@ -217,19 +217,19 @@ export async function sync(_projectDir: string, _opts: SyncCommandOpts & Partial
     console.error(`Failed to init store: ${storeCfg}`, e);
     process.exit(1);
   }
-  let errors = false;
+  let errors = 0;
   for (const syncId of syncIds) {
     try {
       await runSync({ project, syncId, store });
     } catch (e: any) {
-      errors = true;
+      errors++;
       console.error(`Failed to run sync: ${syncId}`, e);
     }
   }
-  if (!errors) {
+  if (errors == 0) {
     console.debug(`All syncs finished`);
   } else {
-    console.error(`Some syncs failed`);
+    console.error(`${errors}/${syncIds.length} syncs failed. See log messages above`);
     process.exit(1);
   }
 }
@@ -307,7 +307,9 @@ export async function runSync(opts: {
         const params = logMes.payload.params?.length
           ? ` ${logMes.payload.params.map(p => JSON.stringify(p)).join(", ")}`
           : "";
-        console.log(`LOG [${syncId}] ${logMes.payload.level.toUpperCase()} ${logMes.payload.message}${params}`);
+        const logLevel = logMes.payload.level.toLowerCase();
+        const logFunction = ["debug", "info", "warn", "error"].includes(logLevel) ? console[logLevel] : console.log;
+        logFunction(`<${syncId}> ${logMes.payload.message}${params}`);
         break;
       case "halt":
         const haltMes = message as HaltMessage;

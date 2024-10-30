@@ -69,7 +69,7 @@ export async function streams(
       connectionFile?: string;
     }
 ) {
-  console.debug("Calling streams", args, opts);
+  console.debug(`Calling streams command on ${args || "ad-hoc sync"} `, opts);
   rewriteSeverityLevel("INFO", "DEBUG");
   configureEnvVars(["."], opts.env || []);
   const { channel, describeMessage } = getChannelAndMessage({ ...opts, connectionId: args });
@@ -90,5 +90,10 @@ export async function streams(
       `${fmt.gray(i > 9 ? `${i + 1}.` : `0${i + 1}. `)}${fmt.bold(fmt.cyan(stream.name))}${stream.rowType.description ? `: ${fmt.gray(stream.rowType.description)}` : ""}`
     );
     out(displayProperties(jsonSchema, 4));
+    if (stream.streamOptions) {
+      out("");
+      out("Stream configuration options");
+      out(displayProperties(stream.streamOptions, 4));
+    }
   }
 }

@@ -6,9 +6,14 @@ import { RateLimitError } from "./rate-limit";
 type AnyRow = Record<string, any>;
 type AnyCredentials = any;
 
-export type DestinationStream<Cred extends AnyCredentials = AnyCredentials, RowType extends AnyRow = AnyRow> = {
+export type DestinationStream<
+  Cred extends AnyCredentials = AnyCredentials,
+  RowType extends AnyRow = AnyRow,
+  StreamOptions extends AnyCredentials = AnyCredentials,
+> = {
   name: string;
   rowType: ZodType<RowType>;
+  streamOptions?: ZodType<StreamOptions>;
   createOutputStream: (
     config: OutputStreamConfiguration<Cred>,
     ctx: ExecutionContext

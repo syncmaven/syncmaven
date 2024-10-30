@@ -129,7 +129,7 @@ export async function initCli(): Promise<Command> {
       "Specify datasource credentials for adhoc runs, either as JSON or @/path/to/a/file.json or yaml"
     )
     .option("--stream", "Optionally, you can specify a stream name")
-    .option("-o, --stream-options", "Optionally, you can specify a stream options")
+    .option("-o, --stream-options <json>", "Optionally, you can specify a stream options as a JSON string")
     .option("--checkpoint-every <n>", "Optionally, you can specify a checkpoint every N rows")
     .option(
       "--sync-id <id>",

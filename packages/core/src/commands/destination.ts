@@ -22,6 +22,10 @@ function describeProp(prop: any) {
 
 export function displayProperties(credentialsSchema: SchemaObject, indent = 3): string[] {
   const res: string[] = [];
+  if (!credentialsSchema.properties) {
+    // means z.any() as a type
+    return [`${" ".repeat(indent)}${fmt.magenta("➔")} You could use any set or fields in your model`];
+  }
   const requiredMark = " (required)";
   const optionalMark = " (optional)";
   const maxPropWidth = Math.max(...Object.keys(credentialsSchema.properties).map(k => k.length));
