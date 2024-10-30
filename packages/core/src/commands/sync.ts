@@ -1,4 +1,4 @@
-import { ConnectionDefinition, SyncDefinition } from "../types/objects";
+import { ConnectionDefinition, ModelDefinition, SyncDefinition } from "../types/objects";
 import assert from "assert";
 import {
   BaseChannel,
@@ -23,6 +23,10 @@ import { SqlQuery } from "../lib/sql";
 import { GenericColumnType } from "../datasources/types";
 import fs from "fs";
 import { trackEvent } from "../lib/telemetry";
+import JSON5 from "json5";
+import { PackageOpts } from "./index";
+import { SetRequired } from "type-fest";
+import { load } from "js-yaml";
 
 export function getDestinationChannel(
   pkg: ConnectionDefinition["package"],
@@ -55,7 +59,7 @@ export function getEnrichmentProvider(en: ConnectionDefinition, messagesHandler:
 }
 
 export async function createStore(state: string): Promise<StreamPersistenceStore> {
-  console.log(`Creating store in ${state}`);
+  console.log(`Creating store defined by ${state}`);
   if (state.startsWith("postgres://") || state.startsWith("postgresql://")) {
     const pgStore = new PostgresStore(state);
     await pgStore.init();
@@ -67,28 +71,146 @@ export async function createStore(state: string): Promise<StreamPersistenceStore
   }
 }
 
-export async function sync(
-  projectDir: string,
-  opts: {
-    projectDir?: string;
-    state?: string;
-    select?: string;
-    fullRefresh?: boolean;
-    env?: string[];
+/**
+ * Reads JSON from a resource. Resource can be
+ *   * Either pointer to a JSON or YAML file (starts with @ or file://)
+ *   * Or a JSON string
+ *   * Or just a string, in that case nonJsonHandler should be used to parse it
+ */
+function readJson(_resource: any, nonJsonHandler: (val: string) => any) {
+  if (!_resource) {
+    throw new Error("Resource is required");
   }
-) {
-  projectDir = untildify(projectDir || opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd());
-  await trackEvent("sync-command", { fullRefresh: !!opts.fullRefresh });
-  if ((projectDir || opts.projectDir) && process.env.IN_DOCKER) {
+  if (typeof _resource === "object") {
+    return _resource;
+  }
+  const resource = _resource + "";
+  const prefixes = ["@", "file://"];
+  for (const prefix of prefixes) {
+    if (resource.startsWith(prefix)) {
+      const path = resource.slice(prefix.length);
+      console.debug(`Reading json resource from ${path}`);
+      const content = fs.readFileSync(path, "utf-8");
+      if (path.endsWith(".yaml") || path.endsWith(".yml")) {
+        return load(content, { filename: path, json: true });
+      }
+      return JSON5.parse(content);
+    }
+  }
+  try {
+    return JSON5.parse(resource);
+  } catch (e) {
+    return nonJsonHandler(resource + "");
+  }
+}
+
+//reads project either from the directory or from source and destination
+function getProjectModel(
+  opts: Required<Pick<SyncCommandOpts, "projectDir">> &
+    Pick<
+      SyncCommandOpts,
+      "model" | "streamOptions" | "credentials" | "datasource" | "stream" | "checkpointEvery" | "syncId"
+    > &
+    Partial<PackageOpts>
+): Project {
+  if (opts.model) {
+    assert(opts.credentials, "--credentials options should be set for ad-hoc runs");
+    if (!opts.package) {
+      throw new Error("Package is required if model is provided. See -p and -t flags");
+    }
+    const source = readJson(opts.model, (val: string) => ({ query: val })) as ModelDefinition;
+    if (!source.id) {
+      source.id = "source";
+    }
+    if (!source.datasource) {
+      assert(
+        opts.datasource,
+        "Either define datasource in the model JSON as datasource field, or provide it with --datasource flag"
+      );
+      source.datasource = opts.datasource;
+    }
+    const destinationId = opts.package;
+
+    const packageType = opts.packageType || "docker";
+    assert(opts.package, `Please specify a package for the destination with -p flag`);
+    const connectionCredentials = readJson(opts.credentials, (val: string) => ({ apiKey: val }));
+
+    const syncId = opts.syncId || "sync";
+    return {
+      models: {
+        source: () => source,
+      },
+      connection: {
+        [destinationId]: () => ({
+          package: {
+            type: packageType,
+            ...(packageType === "docker" ? { image: opts.package } : { dir: opts.package }),
+          },
+          credentials: connectionCredentials,
+        }),
+      },
+      syncs: {
+        [syncId]: () => ({
+          model: "source",
+          id: syncId,
+          destination: destinationId,
+          stream: opts.stream,
+          options: opts.streamOptions ? JSON5.parse(opts.streamOptions) : {},
+          checkpointEvery: opts.checkpointEvery,
+        }),
+      },
+    };
+  }
+  return readProject(untildify(opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd()));
+}
+
+export type SyncCommandOpts = {
+  projectDir?: string;
+  state?: string;
+  select?: string;
+  source?: string;
+  model?: string;
+  checkpointEvery?: number;
+  credentials?: string;
+  datasource?: string;
+  streamOptions?: string;
+  stream?: string;
+  fullRefresh?: boolean;
+  env?: string[];
+  syncId?: string;
+};
+
+function dockerProjectDirWarning(projectDir?: string) {
+  if (process.env.IN_DOCKER) {
     console.warn(
-      `Project dir is set explicitly, but Syncmaven is running in Docker. It may not work as you expect. Mount it with -v flag: -v ${projectDir || opts.projectDir}:/project instead`
+      `Project dir is set explicitly, but Syncmaven is running in Docker. It may not work as you expect. Mount it with -v flag: -v ${projectDir}:/project instead`
     );
   }
-  configureEnvVars([projectDir, "."], opts.env || []);
-  const project = readProject(projectDir);
+}
+
+function patchOptsWithProjectDir(
+  _opts: SyncCommandOpts & Partial<PackageOpts>,
+  _projectDir: string
+): SetRequired<SyncCommandOpts, "projectDir"> {
+  return {
+    ..._opts,
+    projectDir: _projectDir || _opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd(),
+  };
+}
+
+export async function sync(_projectDir: string, _opts: SyncCommandOpts & Partial<PackageOpts>) {
+  dockerProjectDirWarning(_projectDir || _opts.projectDir);
+
+  //patch opts with projectDir if specified as an argument, also make a copy
+  const opts = patchOptsWithProjectDir(_opts, _projectDir);
+  console.debug(`Running sync with following options: ${JSON.stringify(opts, null, 2)}`);
+  await trackEvent("sync-command", { fullRefresh: !!opts.fullRefresh });
+
+  configureEnvVars([opts.projectDir, "."], opts.env || []);
+  const project = getProjectModel(opts);
   const syncIds = opts.select ? opts.select.split(",") : Object.keys(project.syncs);
   let store: StreamPersistenceStore;
-  const storeCfg = opts.state || path.join(projectDir, ".state");
+  const storeCfg = opts.state || path.join(opts.projectDir, ".state");
   try {
     store = await createStore(storeCfg);
   } catch (e: any) {
@@ -121,17 +243,27 @@ function inferCursorType(type: string): GenericColumnType {
   return "string";
 }
 
+/**
+ * Nulls considered as the smallest value
+ */
 function compareCursors(type: CursorState["type"], val1: CursorState["val"], val2: CursorState["val"]): number {
   if (val1 === val2) {
     return 0;
   }
+  //nulls is the smallest value
   if (val1 === null) {
     return -1;
   }
   if (val2 === null) {
     return 1;
   }
-  return val1 < val2 ? -1 : 1;
+  return val1 > val2 ? 1 : -1;
+}
+
+function stringifyCursor(val: any) {
+  if (val instanceof Date) {
+    return val.toISOString();
+  }
 }
 
 export async function runSync(opts: {
@@ -247,6 +379,7 @@ export async function runSync(opts: {
     let enrichedRows = 0;
     const errorThreshold = createErrorThreshold();
     datasource = await createDatasource(model);
+    console.debug(`Will run query '${model.query}' on ${datasource.type()}`);
     const query = new SqlQuery(model.query, datasource.type(), datasource.toQueryParameter);
     if (model.cursor && !query.getNamedParameters().includes("cursor")) {
       throw new Error(
@@ -283,6 +416,7 @@ export async function runSync(opts: {
       }
     }
 
+    let previousCursorValue: any = undefined;
     await datasource.executeQuery({
       query: model.cursor ? query.compile({ cursor: lastMaxCursor?.val || null }) : query.compile({}),
       handler: {
@@ -316,6 +450,15 @@ export async function runSync(opts: {
           const parseResult = rowSchemaParser.safeParse(row);
           if (model.cursor) {
             const cursorVal = row[model.cursor];
+            if (
+              previousCursorValue !== undefined &&
+              compareCursors(maxCursorVal!.type, previousCursorValue, cursorVal) > 0
+            ) {
+              throw new Error(
+                `The model should be sorted in ascending order by the \`${model.cursor}\` field. Prev value ${stringifyCursor(previousCursorValue)} > current value ${stringifyCursor(cursorVal)}. Try to add \`ORDER BY ${model.cursor} ASC\` to the query.`
+              );
+            }
+            previousCursorValue = cursorVal;
             if (compareCursors(maxCursorVal!.type, cursorVal, maxCursorVal!.val) > 0) {
               maxCursorVal!.val = cursorVal;
             }

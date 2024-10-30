@@ -99,7 +99,7 @@ function makeFactory<T extends WithId>(
   };
 }
 
-export function configureEnvVars(dirs: string | string[], envFiles: string[]) {
+export function configureEnvVars(dirs: (string | undefined) | (string | undefined)[], envFiles: string[]) {
   const envFileNames = [".env", ".env.local"];
   if (process.env.NODE_ENV) {
     envFileNames.push(`.env.${process.env.NODE_ENV}`);
@@ -108,8 +108,10 @@ export function configureEnvVars(dirs: string | string[], envFiles: string[]) {
 
   const paths: string[] = [];
   for (const dir of dirsArr) {
-    for (const envFileName of envFileNames) {
-      paths.push(path.join(dir, envFileName));
+    if (dir) {
+      for (const envFileName of envFileNames) {
+        paths.push(path.join(dir, envFileName));
+      }
     }
   }
   paths.push(...envFiles);

@@ -15,7 +15,7 @@ Model can be defined in a SQL file. The file should have a `.sql` extension. The
 
 ```sql
 --{{ config "name" "Active Users" }}
---{{ config "datasource", env.POSTGRES_URL }}
+--{{ config "datasource" env.POSTGRES_URL }}
 
 SELECT * FROM users WHERE active = true;
 ```
@@ -33,9 +33,9 @@ parameters `name` and `id`. Default values for these parameters is the file name
 
 # YAML file
 
-Model can also be defined in a YAML file. The file should have a `.yaml` or `.ymk` extension:
+Model can also be defined in a YAML file. The file should have a `.yaml` or `.ym;` extension:
 
-```
+```yaml
 name: Active Users minus Paid Users
 datasource: ${env.POSTGRES_URL}
 query: SELECT * FROM users WHERE active = true AND paid = false;

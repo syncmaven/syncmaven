@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
-  BaseRateLimitedOutputStream,
+  BaseOutputStream,
+  CredentialsCanBeEmpty,
+  RateLimitError,
   DestinationProvider,
   normalizeEmail,
   OutputStreamConfiguration,
@@ -18,25 +20,28 @@ export const ResendCredentials = z.object({
 export type ResendCredentials = z.infer<typeof ResendCredentials>;
 
 const ResendRow = z.object({
-  email: z.string(),
   name: z.string().optional(),
-  unsubscribed: z.boolean().optional(),
+  email: z.string(),
+  unsubscribed: z.boolean().or(z.null()).optional(),
 });
 
 type ResendRow = z.infer<typeof ResendRow>;
 
-class ResendStream extends BaseRateLimitedOutputStream<ResendRow, ResendCredentials> {
+class ResendAudienceStream extends BaseOutputStream<ResendRow, CredentialsCanBeEmpty<ResendCredentials>> {
   private resend: Resend;
   private audienceId: string = "";
 
-  constructor(config: OutputStreamConfiguration<ResendCredentials>, ctx: ExecutionContext) {
-    super(config, ctx, 1000);
+  constructor(config: OutputStreamConfiguration<CredentialsCanBeEmpty<ResendCredentials>>, ctx: ExecutionContext) {
+    super(config, ctx);
+    if (config.credentials.$empty) {
+      throw new Error("Resend credentials must be set");
+    }
     this.resend = new Resend(config.credentials.apiKey);
   }
 
   async init(ctx: ExecutionContext) {
     const audienceName =
-      this.config.options.audienceName || `AudienceSync: ${this.config.syncId}, stream=${this.config.streamId}`;
+      this.config.options.audienceName || `Syncmaven: ${this.config.syncId}, stream=${this.config.streamId}`;
     const audiences = await this.resend.audiences.list();
     if (audiences.error) {
       throw new Error(`Error getting audiences ${audiences.error.message}`);
@@ -60,7 +65,7 @@ class ResendStream extends BaseRateLimitedOutputStream<ResendRow, ResendCredenti
     return this;
   }
 
-  protected async handleRowRateLimited(row: ResendRow, ctx: ExecutionContext) {
+  async handleRow(row: ResendRow, ctx: ExecutionContext) {
     let retry = false;
     do {
       const email = normalizeEmail(row.email);
@@ -69,17 +74,21 @@ class ResendStream extends BaseRateLimitedOutputStream<ResendRow, ResendCredenti
         email: email,
         firstName: first,
         lastName: last,
-        unsubscribed: !!row.unsubscribed,
+        //undefined means that we keep original value in resend
+        unsubscribed: row.unsubscribed || undefined,
         audienceId: this.audienceId,
       };
       const creationResult = await this.resend.contacts.create(createPayload);
       if (creationResult.error) {
-        console.error(`Error creating contact ${email}: ${creationResult.error.message}`);
+        console.error(
+          `Error creating contact ${email}: ${creationResult.error.message}. Full error: ${JSON.stringify(creationResult.error)}`
+        );
         const rpsMatch = creationResult.error.message.match(/(\d+) requests per second/);
         if (rpsMatch) {
-          this.rateLimit = parseInt(rpsMatch[1]);
-          console.warn(`Rate limit set to ${this.rateLimit} rps.`);
-          throw { code: 429 };
+          throw new RateLimitError(`Rate limit exceeded: ${rpsMatch[1]} requests per second`, {
+            //this is a random number, we should get it from the error message / headers
+            retryAfterMs: 1000,
+          });
         }
       }
     } while (retry);
@@ -93,7 +102,7 @@ export const resendProvider: DestinationProvider<ResendCredentials> = {
     {
       name: "audience",
       rowType: ResendRow,
-      createOutputStream: (config, ctx) => new ResendStream(config, ctx).init(ctx),
+      createOutputStream: (config, ctx) => new ResendAudienceStream(config, ctx).init(ctx),
     },
   ],
   defaultStream: "audience",

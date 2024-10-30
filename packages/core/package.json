@@ -9,7 +9,7 @@
     "build": "pnpm compile",
     "clean": "rm -rf dist",
     "main:prod": "node dist/main.js",
-    "main": "NODE_OPTIONS=--no-deprecation node --require ts-node/register src/index.ts",
+    "main": "NODE_OPTIONS=--no-deprecation node --require ts-node/register src/index.ts --",
     "test": "node --require ts-node/register --test-force-exit  --test __tests__/**/*.test.ts __tests__/integration/*.test.ts"
   },
   "keywords": [],

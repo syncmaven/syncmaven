@@ -1,0 +1,24 @@
+---
+title: "BigQuery"
+iconType: "solid"
+---
+
+BigQuery requires following parameters:
+* `projectId` - unique id of a projec
+* `key` - JSON key
+
+Read more about BigQuery authentication [here](https://cloud.google.com/bigquery/docs/authentication/)
+
+Example:
+<Tabs>
+  <Tab title="model.sql">
+    ```sql
+    --{{ config "name" "Google Ads" }}
+    --{{ config "datasource.type" "bigquery" }}
+    --{{ config "datasource.credentials.projectId" env.SYNCMAVEN_BQ_PROJECT }}
+    --{{ config "datasource.credentials.key" env.SYNCMAVEN_BQ_KEY }}
+    select * from users;
+    ```
+  </Tab>
+</Tabs>
+

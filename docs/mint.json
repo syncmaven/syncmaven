@@ -16,12 +16,10 @@
     }
   },
   "topbarLinks": [],
-  "tabs": [],
-  "anchors": [
+  "tabs": [
     {
-      "name": "GitHub",
-      "icon": "github",
-      "url": "https://go.syncmaven.sh/github"
+      "name": "References",
+      "url": "references"
     }
   ],
   "navigation": [
@@ -48,12 +46,32 @@
       ]
     },
     {
-      "group": "Contributing",
-      "pages": ["contributing/progress", "contributing/node-cdk"]
-    },
-    {
       "group": "References",
-      "pages": ["references/supported-databases", "references/destinations"]
+      "pages": [
+        {
+          "group": "Sources",
+          "icon": "database",
+          "pages": [
+            "references/sources/index",
+            "references/sources/postgres",
+            "references/sources/bigquery",
+            "references/sources/clickhouse",
+            "references/sources/mysql"
+          ]
+        },
+        {
+          "group": "Destinations",
+          "icon": "bullseye",
+          "pages": [
+            "references/destinations/resend",
+            "references/destinations/file",
+            "references/destinations/hubspot",
+            "references/destinations/intercom",
+            "references/destinations/mixpanel",
+            "references/destinations/twitter-ads"
+          ]
+        }
+      ]
     }
   ],
   "footerSocials": {

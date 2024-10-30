@@ -1,5 +1,5 @@
 import {
-  BaseRateLimitedOutputStream,
+  BaseOutputStream,
   DestinationProvider,
   DestinationStream,
   OutputStreamConfiguration,
@@ -80,17 +80,14 @@ function splitName(fullName: string): [string | undefined, string | undefined] {
   }
 }
 
-abstract class BaseHubspotStream<RowT extends Record<string, any>> extends BaseRateLimitedOutputStream<
-  RowT,
-  HubspotCredentials
-> {
+abstract class BaseHubspotStream<RowT extends Record<string, any>> extends BaseOutputStream<RowT, HubspotCredentials> {
   protected client: Client;
   protected model: Model;
   protected knownCustomAttributes: Record<string, any> = {};
   protected customAttributesPolicy: CustomAttributesPolicy;
 
   protected constructor(config: OutputStreamConfiguration<HubspotCredentials>, ctx: ExecutionContext, model: Model) {
-    super(config, ctx, 1000 / 60);
+    super(config, ctx);
     this.model = model;
     this.customAttributesPolicy = this.config.options.customAttributesPolicy || "create-unknown";
     if (!customAttributesPolicies.includes(this.customAttributesPolicy)) {
@@ -240,7 +237,7 @@ class ContactsOutputStream extends BaseHubspotStream<ContactRowType> {
     ]);
   }
 
-  protected async handleRowRateLimited(row: ContactRowType, ctx: ExecutionContext) {
+  async handleRow(row: ContactRowType, ctx: ExecutionContext) {
     const { id, company_ids, name, ...rest } = row;
     const knownFields = pick(rest, Object.keys(ContactRowType.shape));
     const customFields = omit(rest, Object.keys(ContactRowType.shape));
@@ -328,7 +325,7 @@ class CompaniesOutputStream extends BaseHubspotStream<CompanyRowType> {
     return this;
   }
 
-  protected async handleRowRateLimited(row: CompanyRowType, ctx: ExecutionContext) {
+  async handleRow(row: CompanyRowType, ctx: ExecutionContext) {
     const { id, ...rest } = row;
     const knownFields = pick(rest, Object.keys(CompanyRowType.shape));
     const customFields = omit(rest, Object.keys(CompanyRowType.shape));

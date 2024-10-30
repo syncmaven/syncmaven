@@ -1,4 +1,4 @@
-export const Destination = ({ name, url, docker, description }) => (
+export const Destination = ({ name, url, docker = `syncmaven/${name}`, description }) => (
   <>
     <p><a href={url} style={{ textTransform: 'capitalize' }}>{name}</a> is a {description}</p>
     <p>To use {name}, create a new <a href="/fundametals/connection">connection</a> file in <code>./connections</code> folder.</p>

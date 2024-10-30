@@ -18,17 +18,26 @@ function stringifyKey(prefix: StorageKey) {
   return prefixArr.join("::");
 }
 
+function getParameterFromConnectionString(url: string, param: string): string | undefined {
+  const urlObj = new URL(url);
+  return urlObj.searchParams.get(param) || undefined;
+}
+
 export class PostgresStore implements StreamPersistenceStore {
   private client: Client;
+  private schema: string;
 
   constructor(url: string) {
     this.client = new Client({
       connectionString: url,
     });
+    this.schema = getParameterFromConnectionString(url, "schema") || "syncmaven";
   }
 
   async init(): Promise<void> {
     await this.client.connect();
+    await this.client.query(`SET search_path TO ${this.schema}`);
+    await this.client.query(`create schema if not exists ${this.schema}`);
     await this.client.query(`create table if not exists syncmaven_store
                              (
                                  key   TEXT primary key,

@@ -1,6 +1,7 @@
 import { DestinationProvider, InMemoryStore } from "./index";
 import { TestContext } from "node:test";
 import { ZodError, ZodIssue } from "zod";
+import assert from "assert";
 
 function strinfigyZodIssue(e: ZodIssue) {
   if (e.code === "invalid_type") {
@@ -79,7 +80,7 @@ export async function testProvider<Creds extends any>(opts: {
       console.log("Validating results");
       await opts.validate(credentials);
     }
-  } catch (e) {
+  } finally {
     if (opts.after) {
       console.log("Cleaning up external resources...");
       try {
@@ -89,4 +90,20 @@ export async function testProvider<Creds extends any>(opts: {
       }
     }
   }
+}
+
+export function tableToJsonArray(table: any[][]): Record<string, any>[] {
+  assert(table.length > 0, "Table must have at least one row - header");
+  const header = table[0];
+  const rows = table.slice(1);
+  return rows.map((row, idx) => {
+    assert(
+      row.length === header.length,
+      `All rows must have the same number of columns (${header.length}). Row #${idx + 1} has ${row.length} columns`
+    );
+    return row.reduce((acc, cell, idx) => {
+      acc[header[idx] + ""] = cell;
+      return acc;
+    }, {});
+  });
 }

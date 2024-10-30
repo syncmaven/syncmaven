@@ -50,11 +50,11 @@ function getChannelAndMessage(
       },
       () => {}
     );
-    assert(opts.credentials, "If connection file is not set, credentials must be provided");
     const describeMessage: DescribeStreamsMessage = {
       type: "describe-streams",
       payload: {
-        credentials: JSON5.parse(opts.credentials),
+        //if credentials not set, we should pass an empty object. Some destinations have constant stream settings and do not require credentials to be set
+        credentials: opts.credentials ? JSON5.parse(opts.credentials) : { $empty: true },
       },
     };
     return { channel, describeMessage };
@@ -89,6 +89,6 @@ export async function streams(
     out(
       `${fmt.gray(i > 9 ? `${i + 1}.` : `0${i + 1}. `)}${fmt.bold(fmt.cyan(stream.name))}${stream.rowType.description ? `: ${fmt.gray(stream.rowType.description)}` : ""}`
     );
-    displayProperties(jsonSchema, 4);
+    out(displayProperties(jsonSchema, 4));
   }
 }

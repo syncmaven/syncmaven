@@ -106,7 +106,7 @@ export class CommandContainer implements StdIoContainer {
     this.lineReader.on("line", async data => {
       if (data.trim() !== "") {
         const message = parseRawMessage(parseLine(data.trim()));
-        console.debug(`Received message from container child process: ${JSON.stringify(message)}`);
+        console.debug(`Received message from container child process: ${JSON.stringify(message, null, 2)}`);
         if (!message || (!this.messageHandler && !this.oneTimeMessageHandler)) {
           return;
         }

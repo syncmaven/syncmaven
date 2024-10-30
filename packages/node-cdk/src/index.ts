@@ -1,6 +1,7 @@
 import { ZodType } from "zod";
 import type { ExecutionContext } from "@syncmaven/protocol";
 import crypto from "crypto";
+import { RateLimitError } from "./rate-limit";
 
 type AnyRow = Record<string, any>;
 type AnyCredentials = any;
@@ -13,6 +14,11 @@ export type DestinationStream<Cred extends AnyCredentials = AnyCredentials, RowT
     ctx: ExecutionContext
   ) => OutputStream<RowType> | Promise<OutputStream<RowType>>;
 };
+/**
+ * Some destinations have constant stream settings and do not require credentials to be set.
+ * This helper type should be used to indicate that credentials can be empty.
+ */
+export type CredentialsCanBeEmpty<T> = (T & { $empty?: never }) | ({ $empty: true } & { [K in keyof T]?: never });
 
 export type OutputStreamConfiguration<T extends AnyCredentials = AnyCredentials, O = any> = {
   streamId: string;
@@ -69,56 +75,6 @@ export abstract class BaseOutputStream<RowT extends Record<string, any>, ConfigT
   abstract init(ctx: ExecutionContext): this | Promise<this>;
 
   abstract handleRow(row: RowT, ctx: ExecutionContext): Promise<void> | void;
-}
-
-export abstract class BaseRateLimitedOutputStream<RowT extends Record<string, any>, ConfigT> extends BaseOutputStream<
-  RowT,
-  ConfigT
-> {
-  protected lastCallTime = Date.now();
-  // rateLimitRps
-  protected rateLimit = 1000;
-
-  protected constructor(
-    config: OutputStreamConfiguration<ConfigT>,
-    ctx: ExecutionContext,
-    rateLimitPerSec: number = 1000
-  ) {
-    super(config, ctx);
-    this.rateLimit = rateLimitPerSec;
-  }
-
-  protected abstract handleRowRateLimited(row: RowT, ctx: ExecutionContext): Promise<void> | void;
-
-  async handleRow(row: RowT, ctx: ExecutionContext) {
-    let retry = false;
-    do {
-      try {
-        await this.handleRowRateLimited(row, ctx);
-        await this.rateLimitDelay();
-      } catch (e: any) {
-        if (e.code === 429) {
-          retry = !retry;
-          if (retry) {
-            console.log("Rate limited, retrying in 1s");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        } else {
-          throw e;
-        }
-      }
-    } while (retry);
-  }
-
-  private async rateLimitDelay() {
-    const delay = 1000 / this.rateLimit;
-    const dt = Date.now();
-    const elapsed = dt - this.lastCallTime;
-    this.lastCallTime = dt;
-    if (elapsed < delay) {
-      await new Promise(resolve => setTimeout(resolve, delay - elapsed));
-    }
-  }
 }
 
 export abstract class BatchingOutputStream<RowT extends Record<string, any>, ConfigT> implements OutputStream<RowT> {
@@ -187,3 +143,4 @@ export * from "./rpc";
 export * from "./std";
 export * from "./inmem-store";
 export * from "./test-kit";
+export * from "./rate-limit";

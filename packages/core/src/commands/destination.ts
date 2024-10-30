@@ -1,6 +1,6 @@
 import { CommonOpts, PackageOpts } from "./index";
 import { SchemaObject } from "ajv/dist/types";
-import { fmt, out, rewriteSeverityLevel } from "../log";
+import { fmt, rewriteSeverityLevel } from "../log";
 import { codeHighlight } from "../lib/code-highlighter";
 import { getDestinationChannel } from "./sync";
 
@@ -20,7 +20,8 @@ function describeProp(prop: any) {
   return facts.join(". ");
 }
 
-export function displayProperties(credentialsSchema: SchemaObject, indent = 3) {
+export function displayProperties(credentialsSchema: SchemaObject, indent = 3): string[] {
+  const res: string[] = [];
   const requiredMark = " (required)";
   const optionalMark = " (optional)";
   const maxPropWidth = Math.max(...Object.keys(credentialsSchema.properties).map(k => k.length));
@@ -37,10 +38,11 @@ export function displayProperties(credentialsSchema: SchemaObject, indent = 3) {
   });
   for (const [key, prop] of props) {
     const required = credentialsSchema.required?.includes(key);
-    out(
+    res.push(
       `${" ".repeat(indent)}${fmt.magenta("➔")} ${fmt.bold(key) + " ".repeat(maxPropWidth - key.length)}${required ? fmt.red(requiredMark) : fmt.gray(optionalMark)} - ${describeProp(prop)}`
     );
   }
+  return res;
 }
 
 export async function describeDestination(opts: CommonOpts & PackageOpts & { json?: boolean }) {
@@ -72,7 +74,7 @@ export async function describeDestination(opts: CommonOpts & PackageOpts & { jso
   }
   output.push(`${packageType === "docker" ? "🐳" : ""}${fmt.bold(fmt.cyan(pkg))} has following credential properties`);
   output.push(``);
-  displayProperties(credentialsSchema);
+  output.push(...displayProperties(credentialsSchema));
   output.push(``);
   output.push(`📌 To see a full JSON schema run the command with --json flag`);
 

@@ -1,8 +1,9 @@
 import {
-  BaseRateLimitedOutputStream,
+  BaseOutputStream,
   DestinationProvider,
   DestinationStream,
   OutputStreamConfiguration,
+  RateLimitError,
   stdProtocol,
 } from "@syncmaven/node-cdk";
 import { z } from "zod";
@@ -66,7 +67,7 @@ function createClient(creds: IntercomCredentials) {
   });
 }
 
-abstract class BaseIntercomStream<RowT extends Record<string, any>> extends BaseRateLimitedOutputStream<
+abstract class BaseIntercomStream<RowT extends Record<string, any>> extends BaseOutputStream<
   RowT,
   IntercomCredentials
 > {
@@ -76,7 +77,7 @@ abstract class BaseIntercomStream<RowT extends Record<string, any>> extends Base
   protected customAttributesPolicy: CustomAttributesPolicy;
 
   protected constructor(config: OutputStreamConfiguration<IntercomCredentials>, ctx: ExecutionContext, model: Model) {
-    super(config, ctx, 1000 / 60);
+    super(config, ctx);
     this.model = model;
     this.customAttributesPolicy = this.config.options.customAttributesPolicy || "create-unknown";
     if (!customAttributesPolicies.includes(this.customAttributesPolicy)) {
@@ -212,7 +213,7 @@ class ContactsOutputStream extends BaseIntercomStream<ContactRowType> {
   }
 
   // https://developers.intercom.com/docs/references/rest-api/api.intercom.io/Contacts/CreateContact/
-  protected async handleRowRateLimited(row: ContactRowType, ctx: ExecutionContext) {
+  async handleRow(row: ContactRowType, ctx: ExecutionContext) {
     const { external_id, company_ids, signed_up_at, last_seen_at, ...rest } = row;
     const knownFields = pick(rest, Object.keys(ContactRowType.shape));
     const signedUpAt = signed_up_at;
@@ -322,6 +323,13 @@ function toAPIError(e: any, opts: { request?: any } = {}): Error {
       })
     );
     const err = new Error(baseMessage);
+    if (e.response?.status === 429) {
+      throw new RateLimitError("Rate limit exceeded", {
+        headers: Object.fromEntries(Object.entries(e.response.headers).map(([k, v]) => [k, v + ""])),
+        //if not available in headers, let's use an arbitrary value. We should test all this
+        retryAfterMs: 1000,
+      });
+    }
     err["code"] = e.response?.status;
     return err;
   } else {
@@ -335,7 +343,7 @@ class CompaniesOutputStream extends BaseIntercomStream<CompanyRowType> {
   }
 
   // https://developers.intercom.com/docs/references/rest-api/api.intercom.io/Companies/company/
-  protected async handleRowRateLimited(row: CompanyRowType, ctx: ExecutionContext) {
+  async handleRow(row: CompanyRowType, ctx: ExecutionContext) {
     const { company_id, remote_created_at, ...rest } = row;
     const knownFields = pick(rest, Object.keys(CompanyRowType.shape));
     const createdAt = remote_created_at;

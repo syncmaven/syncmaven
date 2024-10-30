@@ -12,9 +12,11 @@ export async function main(argv: string[] = process.argv) {
   } else {
     setEnabledDebugLogging(false);
   }
+
+  console.debug("The program has started with arguments", argv);
   try {
     await checkNewVersion();
-    await program.parseAsync(argv);
+    await program.parseAsync(argv.filter(arg => arg !== "--"));
     process.exit(0);
   } catch (e: any) {
     if (debug) {

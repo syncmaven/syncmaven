@@ -1,8 +1,10 @@
 import { describe, test } from "node:test";
 import { HubspotCredentials, hubspotProvider } from "../src";
-import { disableStdProtocol, testProvider } from "@syncmaven/node-cdk";
+import { disableStdProtocol, tableToJsonArray, testProvider } from "@syncmaven/node-cdk";
 import { Client } from "@hubspot/api-client";
-//import assert from "assert";
+
+import assert from "assert";
+import { omit } from "lodash";
 
 disableStdProtocol();
 
@@ -45,15 +47,18 @@ async function cleanHubspotAccount(accessToken: string) {
   await forEachCompany(accessToken, async company => await client.crm.companies.basicApi.archive(company.id));
 }
 
-// Example usage with your access token
-const accessToken = "your_access_token_here";
+const contacts = [
+  ["id", "email", "name", "phone", "contact_custom_field1", "company_ids"],
+  ["1", "john.doe@horns-and-hoofs.com", "John Doe", "+1234567890", "custom field value", 1],
+  ["2", "john.do2e@another.com", "John", "+71234567890", null, [1, 2]],
+  ["3", "", "John Doe3", "+81234567890", undefined, 1],
+];
 
-// Uncomment and use the function as needed
-// removeAllContactsAndCompanies(accessToken).then(() => {
-//     console.log('All contacts and companies removed.');
-// }).catch((error) => {
-//     console.error('Error removing contacts and companies:', error);
-// });
+const companies = [
+  ["id", "name", "custom_field1", "plan"],
+  [1, "Horns and Hoofs", "custom field value", "free"],
+  [2, "Another company", undefined, "free"],
+];
 
 describe("Hubspot Test", () => {
   test("Hubspot Provider", async t => {
@@ -68,44 +73,8 @@ describe("Hubspot Test", () => {
         },
       },
       testData: {
-        contacts: [
-          {
-            id: "1",
-            email: "john.doe@horns-and-hoofs.com",
-            name: "John Doe",
-            phone: "+1234567890",
-            contact_custom_field1: "custom field value",
-            company_ids: 1,
-          },
-          {
-            id: "2",
-            email: "john.do2e@another.com",
-            name: "John",
-            lastname: "Doe2",
-            phone: "+71234567890",
-            company_ids: [1, 2],
-          },
-          {
-            id: "3",
-            email: "john.do3e@another.com",
-            name: "John Doe3",
-            phone: "+81234567890",
-            company_ids: 1,
-          },
-        ],
-        companies: [
-          {
-            id: 1,
-            name: "Horns and Hoofs",
-            custom_field1: "custom field value",
-            plan: "free",
-          },
-          {
-            id: 2,
-            name: "Another company",
-            plan: "free",
-          },
-        ],
+        contacts: tableToJsonArray(contacts),
+        companies: tableToJsonArray(companies),
       },
       textContext: t,
       envVarName: "HUBSPOT_TEST_CREDENTIALS",
@@ -115,9 +84,12 @@ describe("Hubspot Test", () => {
         console.log(`Got ${contacts.length} contacts and ${companies.length} companies`);
         await forEachContact(c.accessToken, c => contacts.push(c));
         await forEachCompany(c.accessToken, c => companies.push(c));
-        // assert.equal(companies.length, 30)
-        // assert.equal(contacts.length, 30)
-        throw new Error("Not implemented");
+        console.info("Contacts:");
+        console.table(contacts.map(c => ({ ...omit(c, "properties"), ...omit(c.properties, "lastmodifieddate") })));
+        console.info("Companies:");
+        console.table(companies.map(c => ({ ...omit(c, "properties"), ...omit(c.properties, "lastmodifieddate") })));
+        assert.equal(companies.length, 2);
+        assert.equal(contacts.length, 3);
       },
       before: async (c: HubspotCredentials) => {
         await cleanHubspotAccount(c.accessToken);

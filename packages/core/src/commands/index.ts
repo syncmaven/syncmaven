@@ -35,7 +35,7 @@ export type FullRefreshOpt = {
 
 const commonOptions = {
   state: {
-    flag: "-t, --state <state-directory>",
+    flag: "--state <state-directory>",
     description:
       "Where Syncmaven should store it's state. Default is <project-directory>/.state. You can either provide a local directory, or an URL. Learn more about state management at https://syncmaven.sh/state",
   },
@@ -55,11 +55,12 @@ const commonOptions = {
   },
   packageName: {
     flag: "-p, --package <package-name>",
-    description: "Name of the package. Can be a docker image",
+    description:
+      "Name of the package. Either docker image for -t docker, or directory of npm package for -t npm. The directory should contain package.json file, the path should be absolute.",
   },
   packageType: {
     flag: "-t, --package-type <package-name>",
-    description: "Type of the package. `docker` is default",
+    description: "Type of the package - `docker` or `npm`. `docker` is default",
   },
   projectDir: {
     flag: "-d, --project-dir <project-directory>",
@@ -105,6 +106,35 @@ export async function initCli(): Promise<Command> {
     )
     .option(commonOptions.debug.flag, commonOptions.debug.description)
     .option(commonOptions.fullRefresh.flag, commonOptions.fullRefresh.description)
+    .option(
+      commonOptions.packageName.flag,
+      commonOptions.packageName.description +
+        ". Must be used with -m and -c for running adhoc sync without setting up the project"
+    )
+    .option(
+      commonOptions.packageType.flag,
+      commonOptions.packageType.description +
+        ". Must be used with -m and -c for running adhoc sync without setting up the project"
+    )
+    .option(
+      "-m, --model <model-or-sql-query>",
+      "Specify a model for ad-hoc runs - either as JSON, or @/path/to/a/file.json or yaml"
+    )
+    .option(
+      "-c, --credentials <credentials>",
+      "Specify destination credentials for adhoc runs, either as JSON or @/path/to/a/file.json or yaml"
+    )
+    .option(
+      "--datasource <credentials>",
+      "Specify datasource credentials for adhoc runs, either as JSON or @/path/to/a/file.json or yaml"
+    )
+    .option("--stream", "Optionally, you can specify a stream name")
+    .option("-o, --stream-options", "Optionally, you can specify a stream options")
+    .option("--checkpoint-every <n>", "Optionally, you can specify a checkpoint every N rows")
+    .option(
+      "--sync-id <id>",
+      "Id of the sync. Needed for saving state across runs if database is shared. If not set, `sync` will be used"
+    )
     .action(sync);
 
   program
@@ -131,7 +161,11 @@ export async function initCli(): Promise<Command> {
     .option(commonOptions.env.flag, commonOptions.env.description)
     .option(commonOptions.debug.flag, commonOptions.debug.description)
     .option(commonOptions.projectDir.flag, commonOptions.projectDir.description)
-    .argument("<args>", "If not specifying connection file, you can provide package and credentials as arguments")
+    .argument(
+      "[args]",
+      "If not specifying connection file, you can provide package and credentials as arguments",
+      undefined
+    )
     .action(streams);
 
   program
