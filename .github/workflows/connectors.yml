@@ -9,6 +9,11 @@ on:
         description: "Select connectors to build and publish (provide JSON array of connector names)"
         required: false
         default: '["resend", "twitter-ads", "people-data-labs", "intercom", "hubspot", "google-sheets"]'
+      publish:
+        type: boolean
+        description: "Check if release should be published, otherwise it's a dry run"
+        required: false
+        default: true
       select-go:
         description: "Select go-connectors to build and publish (provide JSON array of connector names)"
         required: false
@@ -134,7 +139,7 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           file: ${{ matrix.connector }}.Dockerfile
-          push: true
+          push: ${{ github.event.inputs.publish }}
           context: .
           tags: |
             syncmaven/${{ matrix.connector }}:${{ needs.prepare-tags.outputs.docker_tag }}

@@ -19,6 +19,8 @@ export interface StdIoContainer {
   stop(): Promise<void>;
 
   close(): Promise<void>;
+
+  describe(): string;
 }
 
 /**
@@ -84,6 +86,10 @@ export class CommandContainer implements StdIoContainer {
   init(): Promise<void> {
     //nothing to init, just run the command
     return Promise.resolve();
+  }
+
+  describe(): string {
+    return `🔧command-connector:${this.command}`;
   }
 
   async start(messagesHandler?: MessageHandler | undefined) {
@@ -175,6 +181,10 @@ export class DockerContainer implements StdIoContainer {
     });
   }
 
+  describe(): string {
+    return `🐳docker-connector:${this.image}`;
+  }
+
   async init() {
     try {
       const pullStream = await this.docker.pull(this.image);
@@ -202,7 +212,9 @@ export class DockerContainer implements StdIoContainer {
         .replace(/[T\:\-]/g, "")
         .replace(/\./, "-")}`,
     });
-    console.log(`Container created. Id: ${this.container.id}`);
+    console.log(
+      `Created ${this.image} docker container. This container will be used for running the syncs, and will be destroyed afterwards. Id: ${this.container.id}`
+    );
   }
 
   async start(messagesHandler?: MessageHandler) {
@@ -270,7 +282,7 @@ export class DockerContainer implements StdIoContainer {
       await this.init();
     }
     if (await this.isContainerRunning()) {
-      console.info(`Container ${this.container.id} of ${this.image} is already running.`);
+      console.warn(`Container ${this.container.id} of ${this.image} is already running.`);
       return;
     }
     if (this.containerStream) {
@@ -307,9 +319,9 @@ export class DockerContainer implements StdIoContainer {
       }
     });
 
-    console.log(`Starting container ${this.container.id} of ${this.image}...`);
+    console.debug(`Starting container ${this.container.id} of ${this.image}...`);
     await this.container.start();
-    console.log(`Container ${this.container.id} of ${this.image} has been started`);
+    console.debug(`Container ${this.container.id} of ${this.image} has been started`);
   }
 
   /**
@@ -317,9 +329,9 @@ export class DockerContainer implements StdIoContainer {
    */
   async stop() {
     if (await this.isContainerRunning()) {
-      console.log(`Stopping container ${this.container.id} of ${this.image}...`);
+      console.debug(`Stopping container ${this.container.id} of ${this.image}...`);
       await runCleanup(() => this.container.stop());
-      console.log(`Container ${this.container?.id} of ${this.image} has been stopped`);
+      console.debug(`Container ${this.container?.id} of ${this.image} has been stopped`);
     } else {
       console.debug(`Container ${this.container?.id} of ${this.image} is already stopped`);
     }

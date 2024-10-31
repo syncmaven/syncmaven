@@ -52,7 +52,7 @@ export function displayProperties(credentialsSchema: SchemaObject, indent = 3): 
 export async function describeDestination(opts: CommonOpts & PackageOpts & { json?: boolean }) {
   rewriteSeverityLevel("INFO", "DEBUG");
   const { package: pkg, packageType = "docker" } = opts;
-  const channel = getDestinationChannel(
+  const channel = await getDestinationChannel(
     {
       type: packageType,
       image: packageType === "docker" ? opts.package : undefined,

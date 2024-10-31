@@ -4,7 +4,7 @@ import JSON5 from "json5";
 import { ConnectionDefinition } from "../types/objects";
 import { getDestinationChannel } from "./sync";
 import assert from "assert";
-import { DescribeStreamsMessage } from "@syncmaven/protocol";
+import { DescribeStreamsMessage, DestinationChannel } from "@syncmaven/protocol";
 import { configureEnvVars } from "../lib/project";
 import { fmt, out, rewriteSeverityLevel } from "../log";
 import { SchemaObject } from "ajv/dist/types";
@@ -12,10 +12,10 @@ import { displayProperties } from "./destination";
 import path from "path";
 import { load } from "js-yaml";
 
-function getChannelAndMessage(
+async function getChannelAndMessage(
   opts: CommonOpts &
     PackageOpts & { credentials?: string; connectionFile?: string } & { projectDir?: string; connectionId?: string }
-) {
+): Promise<{ channel: DestinationChannel; describeMessage: DescribeStreamsMessage }> {
   let connectionFile = opts.connectionFile;
   if (opts.connectionId) {
     connectionFile = path.join(opts.projectDir || process.cwd(), "connections", `${opts.connectionId}.yml`);
@@ -31,7 +31,7 @@ function getChannelAndMessage(
     }
     const json = load(fs.readFileSync(connectionFile, "utf-8"));
     const connectionDefinition = ConnectionDefinition.parse(json);
-    const channel = getDestinationChannel(connectionDefinition.package, () => {});
+    const channel = await getDestinationChannel(connectionDefinition.package, () => {});
     const describeMessage: DescribeStreamsMessage = {
       type: "describe-streams",
       payload: {
@@ -42,7 +42,7 @@ function getChannelAndMessage(
     return { channel, describeMessage };
   } else {
     const packageType = opts.packageType || "docker";
-    const channel = getDestinationChannel(
+    const channel = await getDestinationChannel(
       {
         type: packageType,
         image: packageType === "docker" ? opts.package : undefined,
@@ -72,7 +72,7 @@ export async function streams(
   console.debug(`Calling streams command on ${args || "ad-hoc sync"} `, opts);
   rewriteSeverityLevel("INFO", "DEBUG");
   configureEnvVars(["."], opts.env || []);
-  const { channel, describeMessage } = getChannelAndMessage({ ...opts, connectionId: args });
+  const { channel, describeMessage } = await getChannelAndMessage({ ...opts, connectionId: args });
 
   const streams = await channel.streams(describeMessage);
   console.debug("Streams", JSON.stringify(streams, null, 2));

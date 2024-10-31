@@ -80,15 +80,17 @@ class ResendAudienceStream extends BaseOutputStream<ResendRow, CredentialsCanBeE
       };
       const creationResult = await this.resend.contacts.create(createPayload);
       if (creationResult.error) {
-        console.error(
-          `Error creating contact ${email}: ${creationResult.error.message}. Full error: ${JSON.stringify(creationResult.error)}`
-        );
         const rpsMatch = creationResult.error.message.match(/(\d+) requests per second/);
         if (rpsMatch) {
-          throw new RateLimitError(`Rate limit exceeded: ${rpsMatch[1]} requests per second`, {
+          console.error(
+            `Error creating contact ${email} - rate limit exceeded, will notify the runner to retry in 1s. Original message: ${creationResult?.error?.message}`
+          );
+          throw new RateLimitError(`Rate limit exceeded: ${rpsMatch?.[1]} requests per second`, {
             //this is a random number, we should get it from the error message / headers
             retryAfterMs: 1000,
           });
+        } else {
+          throw new Error(`Error creating contact ${email}: ${creationResult.error.message}`);
         }
       }
     } while (retry);

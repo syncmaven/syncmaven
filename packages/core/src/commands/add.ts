@@ -44,7 +44,7 @@ export async function add(args: string[], opts: CommonOpts & ProjectDirOpt & Sta
     if (packageName.indexOf("/") < 0) {
       packageName = `syncmaven/${packageName}`;
     }
-    const channel = getDestinationChannel(
+    const channel = await getDestinationChannel(
       {
         type: packageType,
         [packageType === "docker" ? "image" : "dir"]: packageName,

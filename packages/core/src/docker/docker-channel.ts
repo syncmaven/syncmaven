@@ -63,6 +63,7 @@ export class StdInOutChannel implements DestinationChannel {
   }
 
   async describe(): Promise<ConnectionSpecMessage> {
+    console.log(`Running \`describe\` command on ${this.dockerContainer?.describe()}`);
     await this.init();
     await this.dockerContainer?.start(this.messagesListener);
     let promiseResolve;
@@ -77,6 +78,9 @@ export class StdInOutChannel implements DestinationChannel {
       switch (message.type) {
         case "spec":
           promiseResolve(message as ConnectionSpecMessage);
+          console.log(
+            `Received description of connector ${this.dockerContainer?.describe()}. Enable --debug to see details`
+          );
           return "done";
         case "halt":
           promiseReject(new Error((message as HaltMessage).payload.message));
@@ -88,6 +92,7 @@ export class StdInOutChannel implements DestinationChannel {
 
   async streams(msg: DescribeStreamsMessage): Promise<StreamSpecMessage> {
     await this.init();
+    console.log(`Running \`describe-streams\` command on ${this.dockerContainer?.describe()}`);
     await this.dockerContainer?.start(this.messagesListener);
     let promiseResolve;
     let promiseReject;
@@ -100,6 +105,9 @@ export class StdInOutChannel implements DestinationChannel {
     this.dockerContainer?.dispatchMessage(msg, async message => {
       switch (message.type) {
         case "stream-spec":
+          console.log(
+            `Received description of streams of ${this.dockerContainer?.describe()}. Enable --debug to see details`
+          );
           promiseResolve(message as StreamSpecMessage);
           return "done";
         case "halt":
@@ -111,13 +119,19 @@ export class StdInOutChannel implements DestinationChannel {
   }
 
   async startStream(startStreamMessage: StartStreamMessage, ctx: ExecutionContext): Promise<void> {
+    console.log(`Starting \`${startStreamMessage.payload.stream}\` stream processing`);
     await this.init();
     this.ctx = ctx;
     await this.dockerContainer?.start(this.messagesListener);
     await this.dockerContainer?.dispatchMessage(startStreamMessage);
   }
 
+  /**
+   * This message indicates that all incoming data has been written, and the stream should be stopped
+   * once all data is processed
+   */
   async stopStream() {
+    console.log(`Waiting for the current stream to finish on ${this.dockerContainer?.describe()}...`);
     let promiseResolve;
     let promiseReject;
     const promise = new Promise<StreamResultMessage>((resolve, reject) => {
@@ -129,7 +143,11 @@ export class StdInOutChannel implements DestinationChannel {
     this.dockerContainer?.dispatchMessage({ type: "end-stream", reason: "success" }, async message => {
       switch (message.type) {
         case "stream-result":
-          promiseResolve(message as StreamResultMessage);
+          const streamResultMessage = message as StreamResultMessage;
+          console.log(
+            `Stream processing finished, statistics: ${JSON.stringify(streamResultMessage.payload, null, 2)}`
+          );
+          promiseResolve(streamResultMessage);
           return "done";
         case "halt":
           promiseReject(new Error((message as HaltMessage).payload.message));

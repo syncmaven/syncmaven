@@ -3,12 +3,12 @@ import path from "path";
 import { configureEnvVars, readProject, untildify } from "../lib/project";
 import { fmt, out, rewriteSeverityLevel } from "../log";
 import assert from "assert";
-import { Project } from "../types/project";
+import { Project, RawProject } from "../types/project";
 import { SyncDefinition } from "../types/objects";
 import fs from "fs";
 import { dump } from "js-yaml";
 
-function pickSyncId(project: Project, basName: string) {
+function pickSyncId(project: RawProject, basName: string) {
   let syncId = basName;
   let i = 0;
   while (project.syncs[syncId]) {
@@ -25,7 +25,7 @@ export async function link(opts: ProjectDirOpt & CommonOpts & { connection: stri
   const project = readProject(projectDir);
   const modelFactory = project.models[opts.model];
   assert(modelFactory, `Model ${opts.model} not found in ${projectDir}`);
-  const connectionFactory = project.connection[opts.connection];
+  const connectionFactory = project.connections[opts.connection];
   console.assert(connectionFactory, `Connection ${opts.connection} not found in ${projectDir}`);
   const syncId = pickSyncId(project, `${opts.connection}-${opts.model}${opts.stream ? `-${opts.stream}` : ""}`);
   const syncFile = path.join(projectDir, "syncs", `${syncId}.yml`);

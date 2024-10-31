@@ -26,13 +26,26 @@ export const EnrichmentSettings = z.object({
 
 export type EnrichmentSettings = Simplify<z.infer<typeof EnrichmentSettings>>;
 
+export const ConnectionDefinition = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  package: z.object({
+    type: z.string().default("docker").optional(),
+    image: z.string().optional(),
+    package: z.string().optional(),
+    command: z.string().optional(),
+    dir: z.string().optional(),
+  }),
+  credentials: z.any(),
+});
+
 export const SyncDefinition = z.object({
   disabled: z.boolean().optional(),
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
   model: z.string(),
-  destination: z.string(),
+  destination: z.union([z.string(), ConnectionDefinition]),
   stream: z.string().optional(),
   mapping: z.any(),
   enrichment: EnrichmentSettings.optional(),
@@ -48,15 +61,3 @@ function getEnrichments(sync: SyncDefinition): EnrichmentSettings[] {
 export type SyncDefinition = Simplify<z.infer<typeof SyncDefinition>>;
 
 export type ConnectionDefinition = Simplify<z.infer<typeof ConnectionDefinition>>;
-
-export const ConnectionDefinition = z.object({
-  id: z.string().optional(),
-  name: z.string().optional(),
-  package: z.object({
-    type: z.string().default("docker").optional(),
-    image: z.string().optional(),
-    command: z.string().optional(),
-    dir: z.string().optional(),
-  }),
-  credentials: z.any(),
-});

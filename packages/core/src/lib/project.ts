@@ -1,19 +1,18 @@
 import os from "node:os";
 import path from "path";
-import { ZodSchema, ZodType } from "zod";
+import { ZodSchema } from "zod";
 import fs from "fs";
-import Handlebars from "handlebars";
-import { merge, omit, set } from "lodash";
+import { omit, set } from "lodash";
 import { load } from "js-yaml";
 import { stringifyZodError } from "./zod";
-import type { Factory, Project } from "../types/project";
+import { ConfigurationObject, Project, RawProject } from "../types/project";
 import { ConnectionDefinition, ModelDefinition, SyncDefinition } from "../types/objects";
 import dotenv from "dotenv";
+import JSON5 from "json5";
+import { HandlebarsTemplateEngine } from "./template";
 
 type WithId = { id: string };
 type MakeRequired<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
-
-type CallbackFunction = (varName: string, defaultVal?: string) => string;
 
 function splitFileName(fileName: string): [string, string | undefined] {
   const parts = fileName.split(".");
@@ -21,37 +20,6 @@ function splitFileName(fileName: string): [string, string | undefined] {
     return [parts[0], undefined];
   }
   return [parts.slice(0, -1).join("."), parts[parts.length - 1]];
-}
-
-function replaceExpressions(obj: any, callback: CallbackFunction): any {
-  // Regular expression to find ${varName[:defaultVal]} patterns
-  // This regex allows varName to include letters, numbers, underscores, dashes, and dots
-  const regex = /\$\{([a-zA-Z0-9_.-]+)(?::([^}]*))?\}/g;
-
-  // Function to recursively process an object
-  function processValue(value: any): any {
-    if (Array.isArray(value)) {
-      // Process each item in the array
-      return value.map(item => processValue(item));
-    } else if (value !== null && typeof value === "object") {
-      // Process each property in the object
-      const processedObject: Record<string, any> = {};
-      for (const key of Object.keys(value)) {
-        processedObject[key] = processValue(value[key]);
-      }
-      return processedObject;
-    } else if (typeof value === "string") {
-      // Replace expressions in the string
-      return value.replace(regex, (match, varName, defaultVal) => {
-        return callback(varName.trim(), defaultVal?.trim());
-      });
-    } else {
-      // Return other types unchanged
-      return value;
-    }
-  }
-
-  return processValue(obj);
 }
 
 export function untildify(filePath: string): string {
@@ -73,24 +41,9 @@ function makeFactory<T extends WithId>(
     if (cached) {
       return cached;
     }
-    obj = replaceExpressions(obj, (varName, defaultVal) => {
-      const [prefix, ...rest] = varName.split(".");
-      if (prefix === "env") {
-        const value = process.env[rest.join(".")];
-        if (value === undefined) {
-          if (defaultVal === undefined) {
-            throw new Error(`Environment variable ${varName} is not set. It's used in ${file.fullPath}`);
-          } else {
-            return defaultVal;
-          }
-        }
-        return value;
-      } else {
-        throw new Error(
-          `Unsupported placeholder \${${varName}} in ${file.fullPath}. Only \${env.NAME} placeholders are supported. Did you mean \${env.${varName}}?`
-        );
-      }
-    });
+    console.debug(`Compiling object from ${file.fullPath}. Raw data: ${JSON.stringify(obj, null, 2)}`);
+    obj = new HandlebarsTemplateEngine().compile(obj, { fileName: file.fullPath })({ env: process.env });
+    console.debug(`Compiled object: ${JSON.stringify(obj, null, 2)}`);
     const { success, error, data } = zodSchema.safeParse(obj);
     if (!success) {
       throw new Error(`Error parsing ${file.fullPath}: ${stringifyZodError(error)}`);
@@ -120,95 +73,62 @@ export function configureEnvVars(dirs: (string | undefined) | (string | undefine
   });
 }
 
-export function readProjectObjectFromFile<T>(
-  filePath: string,
-  zodSchema: ZodType<T>,
-  opts: { ignoreDisabled?: boolean } = {}
-): { id: string; factory: Factory<T> } | undefined {
-  const { name, dir, base, ext } = path.parse(filePath);
-  if (ext === undefined || ext === "") {
-    console.debug(`Only files with extensions are supported in ${dir}. Skipping file ${base}`);
-  } else if (ext === ".sql") {
-    const content = fs.readFileSync(filePath, "utf-8");
-    let config: any = {};
-    Handlebars.registerHelper("config", function (arg1, arg2) {
-      if (arg2 === undefined && typeof arg1 === "object") {
-        config = merge(config, arg1);
-      }
-      if (typeof arg1 === "string" && typeof arg2 === "string") {
-        set(config, arg1, arg2);
-      } else {
-        throw new Error(`Unsupported config() call for '${arg1}' with arguments ${typeof arg1}, ${typeof arg2}`);
-      }
-    });
-    try {
-      const template = Handlebars.compile(content);
-      config.query = template({ env: process.env });
-    } catch (e: any) {
-      const message = (e?.message || "unknown error").replace("(unknown path)", filePath);
-
-      throw new Error(`Unable to parse template expression in ${filePath} model file: ${message}`, { cause: e });
-    }
-
-    if (!config.disabled || opts.ignoreDisabled) {
-      const id = config.id || name;
-      return {
-        id,
-        factory: makeFactory<any>(config, { fullPath: filePath, idFromName: name }, zodSchema) as any as any,
-      };
-    }
-  } else if (ext === ".yaml" || ext === ".yml") {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const yamlRaw = load(content, { filename: filePath, json: true }) as any;
-    if (!content || !yamlRaw) {
-      throw new Error(`Error parsing ${path}. File seems to be empty or invalid`);
-    }
-    if (!yamlRaw.disabled || opts.ignoreDisabled) {
-      const id = yamlRaw.id || name;
-
-      return {
-        id,
-        factory: makeFactory<any>(yamlRaw, { fullPath: filePath, idFromName: name }, zodSchema) as any,
-      };
-    }
-  } else if (ext === ".json") {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const jsonRaw = JSON.parse(content);
-    if (!content || !jsonRaw) {
-      throw new Error(`Error parsing ${path}. File seems to be empty or invalid`);
-    }
-    if (!jsonRaw.disabled || opts.ignoreDisabled) {
-      const id = jsonRaw.id || name;
-
-      return {
-        id,
-        factory: makeFactory<any>(jsonRaw, { fullPath: filePath, idFromName: name }, zodSchema) as any,
-      };
-    }
-  } else if (ext === ".ts") {
-    console.warn(`TypeScript models are not supported yet. Skipping ${filePath}`);
-  } else {
-    console.warn(`Unsupported file extension ${ext} in ${filePath}. Skipping file`);
-  }
+function getFileNameFromFullPath(fullPath: string): string {
+  return path.basename(fullPath).split(".")[0];
 }
 
-export function readObjectsFromDirectory<T>(dir: string, zodSchema: ZodSchema<T>): Record<string, () => T> {
-  const result: Record<string, () => T> = {};
+export function readConfigObjectFromFile(
+  filePath: string,
+  type: "model" | "sync" | "connection",
+  { relativeDir = undefined }: { relativeDir?: string } = {}
+): ConfigurationObject {
+  let content: string | Record<string, any> = {};
+  if (filePath.endsWith(".sql")) {
+    content = fs.readFileSync(filePath, "utf-8");
+  } else if (filePath.endsWith(".yaml") || filePath.endsWith(".yml")) {
+    content = load(fs.readFileSync(filePath, "utf-8"), { filename: filePath, json: true }) as any;
+  } else if (filePath.endsWith(".json")) {
+    content = JSON5.parse(fs.readFileSync(filePath, "utf-8"));
+  } else {
+    console.warn(`Unsupported file extension in ${filePath}. Skipping file`);
+  }
+  return {
+    type,
+    content,
+    fileId: getFileNameFromFullPath(filePath),
+    relativeFileName: relativeDir ? path.relative(relativeDir, filePath) : filePath,
+  };
+}
+
+export function readObjectsFromDirectory<T>(dir: string, type: ConfigurationObject["type"]): ConfigurationObject[] {
+  const result: ConfigurationObject[] = [];
+
   for (const child of fs.readdirSync(dir)) {
     const fullPath = path.join(dir, child);
+
     const pathStat = fs.statSync(fullPath);
     if (pathStat.isDirectory()) {
       console.warn(`Only files are supported in ${dir}. Skipping directory ${child}`);
+      continue;
     }
-    const projectFileParsed = readProjectObjectFromFile(fullPath, zodSchema);
-    if (projectFileParsed) {
-      result[projectFileParsed.id] = projectFileParsed.factory;
-    }
+    const item = readConfigObjectFromFile(fullPath, type, { relativeDir: dir });
+
+    result.push(item);
   }
   return result;
 }
 
-export function readProject(dir: string): Project {
+function pickId(startingName: string, has: (id: string) => boolean): string {
+  let id = startingName;
+  let i = 1;
+  while (has(id)) {
+    id = `${startingName}_${i}`;
+    i++;
+  }
+  return id;
+}
+
+export function readProject(dir: string): RawProject {
   console.debug("Reading project from", dir);
   if (!fs.existsSync(dir)) {
     throw new Error(`Project directory ${dir} does not exist`);
@@ -216,18 +136,136 @@ export function readProject(dir: string): Project {
   const modelDir = path.join(dir, "models");
   const syncDir = path.join(dir, "syncs");
   const connectionsDir = path.join(dir, "connections");
-  if (!fs.existsSync(modelDir)) {
-    throw new Error(`Model directory ./models does not exist in the project directory ${dir}`);
-  }
   if (!fs.existsSync(syncDir)) {
     throw new Error(`Model directory ./syncs does not exist in the project directory ${dir}`);
   }
-  if (!fs.existsSync(connectionsDir)) {
-    throw new Error(`Model directory ./destinations does not exist in the project directory ${dir}`);
+  const project = {
+    syncs: fs.existsSync(modelDir) ? readObjectsFromDirectory(syncDir, "sync") : [],
+    models: readObjectsFromDirectory(modelDir, "model"),
+    connections: fs.existsSync(connectionsDir) ? readObjectsFromDirectory(connectionsDir, "connection") : [],
+  };
+  unfoldSyncs(project);
+  return project;
+}
+
+export function getObjectId(obj: ConfigurationObject): string {
+  if (typeof obj.content === "string") {
+    //we need to handle this situation better in case of id is defined withing file as a template
+    if (!obj.fileId) {
+      throw new Error(`Object ${obj.relativeFileName} does not have an id`);
+    }
+    return obj.fileId;
+  } else {
+    //id defined in the object takes precedence
+    return obj.content.id || obj.fileId;
   }
+}
+
+/**
+ * We allow to define models and connections right in the syncs for simplicity. This
+ * function moves them to a connection/model section and updates syncs to reference them.
+ */
+export function unfoldSyncs(project: RawProject): void {
+  const usedConnectionIds = new Set<string>(project.connections.map(getObjectId));
+  for (const sync of project.syncs) {
+    const syncContent = sync.content as SyncDefinition;
+    if (typeof syncContent.destination !== "string") {
+      //we need to move the connection to the connection section
+      const connectionId = pickId(syncContent.id || sync.fileId, (id: string) => usedConnectionIds.has(id));
+      usedConnectionIds.add(connectionId);
+      project.connections.push({
+        type: "connection",
+        content: syncContent.destination,
+        fileId: connectionId,
+        relativeFileName: sync.relativeFileName,
+      });
+      syncContent.destination = connectionId;
+    }
+  }
+}
+
+/**
+ * Compile project by placeholding env variables and doing other post-processing.
+ */
+export function compileProject(raw: RawProject): Project {
+  const models: Record<string, ModelDefinition> = {};
+  const syncs: Record<string, SyncDefinition> = {};
+  const connections: Record<string, ConnectionDefinition> = {};
+
+  const templateEngine = new HandlebarsTemplateEngine();
+  for (const model of raw.models) {
+    if (typeof model.content === "string") {
+      let obj: any = {};
+      obj["query"] = templateEngine.compile(model.content, { fileName: model.relativeFileName })({
+        env: process.env,
+        config: (path, val) => {
+          const newVar = set(obj, path, val);
+          return "";
+        },
+      });
+      //we need to run template engine again to do replacement in config calls
+      obj = templateEngine.compile(obj, { fileName: model.relativeFileName })({ env: process.env });
+      let parsedModel: ModelDefinition;
+      try {
+        parsedModel = ModelDefinition.parse(obj);
+      } catch (e) {
+        throw new Error(`Error parsing model ${model.relativeFileName}: ${stringifyZodError(e)}`);
+      }
+      models[parsedModel.id || model.fileId] = parsedModel;
+    } else {
+      let parsedModel: ModelDefinition;
+      try {
+        parsedModel = ModelDefinition.parse(model.content);
+      } catch (e) {
+        throw new Error(`Error parsing model ${model.relativeFileName}: ${stringifyZodError(e)}`);
+      }
+      models[model.content.id || model.fileId] = templateEngine.compile(parsedModel, {
+        fileName: model.relativeFileName,
+      })({ env: process.env });
+    }
+  }
+
+  for (const conn of raw.connections) {
+    if (typeof conn.content === "string") {
+      throw new Error(`Connection ${conn.relativeFileName} should be defined in YML or JSON format`);
+    }
+    let parsedConnection: ConnectionDefinition;
+    try {
+      parsedConnection = ConnectionDefinition.parse(conn.content);
+    } catch (e) {
+      console.debug(
+        `Failed to parse connection ${conn.relativeFileName} (error will follow): ${JSON.stringify(conn.content, null, 2)}`
+      );
+      throw new Error(`Error parsing connection ${conn.relativeFileName}: ${stringifyZodError(e)}`);
+    }
+
+    connections[conn.content.id || conn.fileId] = templateEngine.compile(parsedConnection, {
+      fileName: conn.relativeFileName,
+    })({ env: process.env });
+  }
+
+  for (const sync of raw.syncs) {
+    if (typeof sync.content === "string") {
+      throw new Error(`Connection ${sync.relativeFileName} should be defined in YML or JSON format`);
+    }
+    let parsedSync: SyncDefinition;
+    try {
+      parsedSync = SyncDefinition.parse(sync.content);
+    } catch (e) {
+      console.debug(
+        `Failed to parse sync ${sync.relativeFileName} (error will follow): ${JSON.stringify(sync, null, 2)}`
+      );
+      throw new Error(`Error parsing sync ${sync.relativeFileName}: ${stringifyZodError(e)}`);
+    }
+
+    syncs[sync.content.id || sync.fileId] = templateEngine.compile(parsedSync, {
+      fileName: sync.relativeFileName,
+    })({ env: process.env });
+  }
+
   return {
-    syncs: readObjectsFromDirectory<SyncDefinition>(syncDir, SyncDefinition),
-    models: readObjectsFromDirectory<ModelDefinition>(modelDir, ModelDefinition),
-    connection: readObjectsFromDirectory<ConnectionDefinition>(connectionsDir, ConnectionDefinition),
+    models,
+    syncs,
+    connections,
   };
 }

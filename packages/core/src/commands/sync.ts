@@ -1,4 +1,4 @@
-import { ConnectionDefinition, ModelDefinition, SyncDefinition } from "../types/objects";
+import { ConnectionDefinition, ModelDefinition } from "../types/objects";
 import assert from "assert";
 import {
   BaseChannel,
@@ -11,9 +11,8 @@ import {
   StreamPersistenceStore,
 } from "@syncmaven/protocol";
 import { stringifyZodError } from "../lib/zod";
-import { configureEnvVars, readProject, untildify } from "../lib/project";
+import { compileProject, configureEnvVars, readProject, unfoldSyncs, untildify } from "../lib/project";
 import { createErrorThreshold } from "../lib/error-threshold";
-import { Project } from "../types/project";
 import { createParser, SchemaBasedParser, stringifyParseError } from "../lib/uniparser";
 import { StdInOutChannel } from "../docker/docker-channel";
 import { createDatasource, DataSource } from "../datasources";
@@ -27,14 +26,63 @@ import JSON5 from "json5";
 import { PackageOpts } from "./index";
 import { SetRequired } from "type-fest";
 import { load } from "js-yaml";
+import { HandlebarsTemplateEngine } from "../lib/template";
+import { ConfigurationObject, Project, RawProject } from "../types/project";
+import { requireDefined } from "../../__tests__/lib/preconditions";
+import os from "node:os";
+import { execSync } from "child_process";
 
-export function getDestinationChannel(
+function deleteDirBeforeExit(tmpDir: string) {
+  process.on("exit", () => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    console.log(`Deleted temporary directory: ${tmpDir}`);
+  });
+}
+
+function getNpmBinary() {
+  if (process.env.npm_execpath) {
+    return process.env.npm_execpath;
+  } else if (process.env.NODE) {
+    const npmPath = path.join(path.dirname(process.env.NODE), "npm");
+    if (fs.existsSync(npmPath)) {
+      return npmPath;
+    }
+  }
+  return "npm";
+}
+
+function splitPackageName(packageName: string): { name: string; version?: string } {
+  const match = packageName.match(/^(?<name>@?[^@]+\/?[^@]*)@?(?<version>.+)?$/);
+  if (match && match.groups) {
+    const { name, version } = match.groups;
+    return { name, version: version || undefined };
+  }
+  throw new Error(`Invalid package name format: ${packageName}`);
+}
+
+export async function downloadAndUnpackPackage(pkg: string) {
+  const { name, version } = splitPackageName(pkg);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "syncmaven-"));
+  deleteDirBeforeExit(tmpDir);
+  const npmBinary = getNpmBinary();
+  const command = `${npmBinary} install ${pkg} --prefix ${tmpDir}`;
+  console.log(`Downloading and installing ${pkg} to ${tmpDir}`);
+  console.debug(`Running command: ${command}`);
+  execSync(command);
+  return tmpDir + "/node_modules/" + name;
+}
+
+export async function getDestinationChannel(
   pkg: ConnectionDefinition["package"],
   messagesHandler: MessageHandler
-): DestinationChannel {
+): Promise<DestinationChannel> {
   if (pkg.type === "npm") {
-    let { command, dir } = pkg;
-    assert(dir, "dir is required for npm package type");
+    let { command, dir, package: packageName } = pkg;
+    if (!dir && packageName) {
+      dir = await downloadAndUnpackPackage(packageName);
+    } else {
+      throw new Error("Either dir or package is required for npm package type");
+    }
     if (!command) {
       console.debug(`Looking for package.json in ${dir}, cwd: ${process.cwd()}`);
       //get command from package.json
@@ -58,8 +106,9 @@ export function getEnrichmentProvider(en: ConnectionDefinition, messagesHandler:
   throw new Error("Package-based enrichments are not yet supported");
 }
 
-export async function createStore(state: string): Promise<StreamPersistenceStore> {
-  console.log(`Creating store defined by ${state}`);
+export async function createStore(_state: string): Promise<StreamPersistenceStore> {
+  console.log(`Creating state store defined by ${_state}`);
+  const state = new HandlebarsTemplateEngine().compile(_state, { fileName: "(unknown)" })({ env: process.env });
   if (state.startsWith("postgres://") || state.startsWith("postgresql://")) {
     const pgStore = new PostgresStore(state);
     await pgStore.init();
@@ -112,7 +161,7 @@ function getProjectModel(
       "model" | "streamOptions" | "credentials" | "datasource" | "stream" | "checkpointEvery" | "syncId"
     > &
     Partial<PackageOpts>
-): Project {
+): RawProject {
   if (opts.model) {
     assert(opts.credentials, "--credentials options should be set for ad-hoc runs");
     if (!opts.package) {
@@ -136,30 +185,47 @@ function getProjectModel(
     const connectionCredentials = readJson(opts.credentials, (val: string) => ({ apiKey: val }));
 
     const syncId = opts.syncId || "sync";
-    return {
-      models: {
-        source: () => source,
-      },
-      connection: {
-        [destinationId]: () => ({
-          package: {
-            type: packageType,
-            ...(packageType === "docker" ? { image: opts.package } : { dir: opts.package }),
+    const rawProject = {
+      models: [
+        {
+          type: "model" as ConfigurationObject["type"],
+          relativeFileName: "(cli)",
+          fileId: source.id,
+          content: source,
+        },
+      ],
+      connections: [
+        {
+          type: "connection" as ConfigurationObject["type"],
+          relativeFileName: "(cli)",
+          fileId: destinationId,
+          content: {
+            package: {
+              type: packageType,
+              ...(packageType === "docker" ? { image: opts.package } : { dir: opts.package }),
+            },
+            credentials: connectionCredentials,
           },
-          credentials: connectionCredentials,
-        }),
-      },
-      syncs: {
-        [syncId]: () => ({
-          model: "source",
-          id: syncId,
-          destination: destinationId,
-          stream: opts.stream,
-          options: opts.streamOptions ? JSON5.parse(opts.streamOptions) : {},
-          checkpointEvery: opts.checkpointEvery,
-        }),
-      },
+        },
+      ],
+      syncs: [
+        {
+          type: "sync" as ConfigurationObject["type"],
+          relativeFileName: "(cli)",
+          fileId: syncId,
+          content: {
+            model: "source",
+            id: syncId,
+            destination: destinationId,
+            stream: opts.stream,
+            options: opts.streamOptions ? JSON5.parse(opts.streamOptions) : {},
+            checkpointEvery: opts.checkpointEvery,
+          },
+        },
+      ],
     };
+    unfoldSyncs(rawProject);
+    return rawProject;
   }
   return readProject(untildify(opts.projectDir || process.env.SYNCMAVEN_PROJECT_DIR || process.cwd()));
 }
@@ -207,10 +273,13 @@ export async function sync(_projectDir: string, _opts: SyncCommandOpts & Partial
   await trackEvent("sync-command", { fullRefresh: !!opts.fullRefresh });
 
   configureEnvVars([opts.projectDir, "."], opts.env || []);
-  const project = getProjectModel(opts);
+  const rawProject = getProjectModel(opts);
+  console.debug(`Raw project: ${JSON.stringify(rawProject, null, 2)}`);
+  const project = compileProject(rawProject);
+  console.debug(`Compiled project: ${JSON.stringify(project, null, 2)}`);
   const syncIds = opts.select ? opts.select.split(",") : Object.keys(project.syncs);
   let store: StreamPersistenceStore;
-  const storeCfg = opts.state || path.join(opts.projectDir, ".state");
+  const storeCfg = opts.state || process.env.SYNCMAVEN_STATE || path.join(opts.projectDir, ".state");
   try {
     store = await createStore(storeCfg);
   } catch (e: any) {
@@ -266,6 +335,17 @@ function stringifyCursor(val: any) {
   }
 }
 
+function processLogMessage(logMessage: LogMessage, syncId: string) {
+  const params = logMessage.payload.params?.length
+    ? ` ${logMessage.payload.params.map(p => JSON.stringify(p)).join(", ")}`
+    : "";
+  const logLevel = logMessage.payload.level.toLowerCase();
+  const logFunction = ["debug", "info", "warn", "error"].includes(logLevel) ? console[logLevel] : console.log;
+  //sometimes message + params is an empty string. In this case we display a raw payload
+  const stringMessage = `${logMessage.payload.message}${params}` || JSON.stringify(logMessage);
+  logFunction(`<${syncId}> ${stringMessage} - ${JSON.stringify(logMessage)}`);
+}
+
 export async function runSync(opts: {
   project: Project;
   syncId: string;
@@ -273,28 +353,23 @@ export async function runSync(opts: {
   fullRefresh?: boolean;
 }) {
   const { project, syncId, store } = opts;
-  const syncFactory = project.syncs[syncId];
-  if (!syncFactory) {
-    throw new Error(
-      `Sync with id \`${syncId}\` not found in the project, or it's disabled. Available syncs: ${Object.keys(project.syncs).join(", ")}`
-    );
-  }
-  const sync: SyncDefinition = syncFactory();
-  console.info(`Running sync \`${syncId}\``, sync);
+  const sync = requireDefined(
+    project.syncs[syncId],
+    `Can't find sync ${syncId} in the project. Available syncs: ${Object.keys(project.syncs).join(", ")}`
+  );
+  console.info(`Running sync \`${syncId}\``);
   const modelId = sync.model;
   const checkpointEvery = sync.checkpointEvery;
 
-  const modelFactory = project.models[modelId];
-  assert(modelFactory, `Model with id ${modelId} referenced from sync ${syncId} not found in the project`);
-  const model = modelFactory();
-
-  const destinationId = sync.destination;
-  const destinationFactory = project.connection[destinationId];
-  assert(
-    destinationFactory,
-    `Destination with id \`${destinationId}\` referenced from sync \`${syncId}\` not found in the project`
+  const model = requireDefined(
+    project.models[modelId],
+    `Can't find model ${modelId} in the project. Available models: ${Object.keys(project.models).join(", ")}`
   );
-  const destination = destinationFactory();
+  const destinationId = sync.destination;
+  const destination = requireDefined(
+    project.connections[destinationId],
+    `Can't find destination ${destinationId} in the project. Available destinations: ${Object.keys(project.connections).join(", ")}`
+  );
   const context: ExecutionContext = { store };
 
   let halt = false;
@@ -303,13 +378,7 @@ export async function runSync(opts: {
   const messageListener = message => {
     switch (message.type) {
       case "log":
-        const logMes = message as LogMessage;
-        const params = logMes.payload.params?.length
-          ? ` ${logMes.payload.params.map(p => JSON.stringify(p)).join(", ")}`
-          : "";
-        const logLevel = logMes.payload.level.toLowerCase();
-        const logFunction = ["debug", "info", "warn", "error"].includes(logLevel) ? console[logLevel] : console.log;
-        logFunction(`<${syncId}> ${logMes.payload.message}${params}`);
+        processLogMessage(message, syncId);
         break;
       case "halt":
         const haltMes = message as HaltMessage;
@@ -332,7 +401,7 @@ export async function runSync(opts: {
     }
   };
 
-  const destinationChannel: DestinationChannel = getDestinationChannel(destination.package, messageListener);
+  const destinationChannel: DestinationChannel = await getDestinationChannel(destination.package, messageListener);
   const enrichments: EnrichmentChannel[] = [];
   let datasource: DataSource | undefined = undefined;
   try {
@@ -340,6 +409,9 @@ export async function runSync(opts: {
     const connectionCredentialsParser = createParser(connectionSpec.payload.connectionCredentials);
     const parsedCredentials = connectionCredentialsParser.safeParse(destination.credentials);
     if (!parsedCredentials.success) {
+      console.debug(
+        `Malformed destination config. Will fail, see error message below:\n${JSON.stringify(destination, null, 2)}`
+      );
       throw new Error(
         `Invalid credentials for destination ${destinationId}: ${stringifyParseError(parsedCredentials.error)}`
       );
@@ -361,7 +433,7 @@ export async function runSync(opts: {
     const enrichmentSettings = sync.enrichments || (sync.enrichment ? [sync.enrichment] : []);
 
     for (const enrichmentRef of enrichmentSettings) {
-      const connection = project.connection[enrichmentRef.connection]();
+      const connection = project.connections[enrichmentRef.connection];
       // TODO: probably enrichments need to have their own messageListener. not sure yet
       const enrichmentProvider = getEnrichmentProvider(connection, messageListener);
       enrichments.push(enrichmentProvider);
@@ -381,7 +453,7 @@ export async function runSync(opts: {
     let enrichedRows = 0;
     const errorThreshold = createErrorThreshold();
     datasource = await createDatasource(model);
-    console.debug(`Will run query '${model.query}' on ${datasource.type()}`);
+    console.debug(`Will run query (raw): '${model.query}' on ${datasource.type()}`);
     const query = new SqlQuery(model.query, datasource.type(), datasource.toQueryParameter);
     if (model.cursor && !query.getNamedParameters().includes("cursor")) {
       throw new Error(
@@ -403,7 +475,7 @@ export async function runSync(opts: {
     async function checkpoint(completed: boolean) {
       const res = await destinationChannel.stopStream();
       if (model.cursor) {
-        console.debug(`Max cursor value: ${maxCursorVal}`);
+        console.debug(`Max cursor value: ${JSON.stringify(maxCursorVal)}`);
         await store.set(cursorStoreKey, maxCursorVal);
       }
       console.info(
@@ -419,8 +491,10 @@ export async function runSync(opts: {
     }
 
     let previousCursorValue: any = undefined;
+    const compiledQuery = model.cursor ? query.compile({ cursor: lastMaxCursor?.val || null }) : query.compile({});
+    console.debug(`Query was compiled to: ${compiledQuery}`);
     await datasource.executeQuery({
-      query: model.cursor ? query.compile({ cursor: lastMaxCursor?.val || null }) : query.compile({}),
+      query: compiledQuery,
       handler: {
         header: async header => {
           console.debug(`Header: ${JSON.stringify(header)}`);

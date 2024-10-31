@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
-import { Factory, Project } from "../types/project";
-import { configureEnvVars, readProjectObjectFromFile } from "../lib/project";
+import { ConfigurationObject, Factory, Project, RawProject } from "../types/project";
+import { compileProject, configureEnvVars, getObjectId, readConfigObjectFromFile } from "../lib/project";
 import { ConnectionDefinition, ModelDefinition, SyncDefinition } from "../types/objects";
 import assert from "assert";
 import { createStore, runSync } from "./sync";
@@ -34,50 +34,36 @@ export async function connectorDev(
     throw new Error(`Connector package.json does not contain main field`);
   }
 
-  const connection = readProjectObjectFromFile(opts.connectionFile, ConnectionDefinition, { ignoreDisabled: true });
-  const model = readProjectObjectFromFile(opts.modelFile, ModelDefinition, {
-    ignoreDisabled: true,
-  })!;
-  assert(model, `Can't read model from ${opts.modelFile}`);
-  assert(connection, `Can't read connection from ${opts.connectionFile}`);
+  const connection = readConfigObjectFromFile(opts.connectionFile, "connection");
+  const model = readConfigObjectFromFile(opts.modelFile, "model");
 
-  const sync: { id: string; factory: Factory<SyncDefinition> } = looksLikePath(opts.sync)
-    ? readProjectObjectFromFile(opts.sync, SyncDefinition, {
-        ignoreDisabled: true,
-      })!
+  const sync: ConfigurationObject = looksLikePath(opts.sync)
+    ? readConfigObjectFromFile(opts.sync, "sync")
     : {
-        id: opts.sync || model.id + "-" + connection.id,
-        factory: () => ({
-          model: model.id,
-          destination: connection.id,
-        }),
+        type: "sync",
+        relativeFileName: opts.sync,
+        fileId: opts.sync,
+        content: {
+          id: "sync",
+          model: getObjectId(model),
+          destination: getObjectId(connection),
+        },
       };
-  const project: Project = {
-    models: {
-      [model.id]: model.factory,
-    },
-    syncs: {
-      [sync.id]: sync.factory,
-    },
-    connection: {
-      [connection.id]: () => {
-        return {
-          ...connection.factory(),
-          package: {
-            type: "npm",
-            command: process.execPath + " " + packageJson.main,
-            dir,
-          },
-        };
-      },
-    },
+  const rawProject: RawProject = {
+    models: [model],
+    connections: [connection],
+    syncs: [sync],
   };
-  console.log(`Running sync ${sync.id} with model ${model.id} and connection ${connection.id}`, project);
+  const project = compileProject(rawProject);
+  console.log(
+    `Running sync ${getObjectId(sync)} with model ${getObjectId(model)} and connection ${getObjectId(connection)}`,
+    project
+  );
   const storeCfg = opts.state || path.join(dir, ".state");
 
   await runSync({
     project,
-    syncId: sync.id,
+    syncId: getObjectId(sync),
     fullRefresh: opts.fullRefresh,
     store: await createStore(storeCfg),
   });

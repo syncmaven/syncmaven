@@ -1,5 +1,5 @@
 import readline from "readline";
-import { DestinationProvider, OutputStream, rpc } from "./index";
+import { DestinationProvider, OutputStream, RateLimitError, rpc } from "./index";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { Entry, ExecutionContext, StartStreamMessage, StorageKey } from "@syncmaven/protocol";
 
@@ -145,11 +145,34 @@ export async function stdProtocol(provider: DestinationProvider) {
         if (currentOutputStream) {
           const row = message.payload.row;
           try {
-            await currentOutputStream.handleRow(row, ctx!);
+            let retry = false;
+            while (true) {
+              try {
+                await currentOutputStream.handleRow(row, ctx!);
+              } catch (e: any) {
+                console.debug(
+                  `Got error while processing row: ${JSON.stringify(row)} error: ${e?.message || e.toString()}. Now, will decide to retry or not.`
+                );
+                if (e instanceof RateLimitError && e.getRetryAfterMs()) {
+                  console.log(`Rate limit exceeded, retrying in ${e.getRetryAfterMs()}ms as signaled by connector`);
+                  retry = true;
+                  await new Promise(r => setTimeout(r, e.getRetryAfterMs()));
+                } else {
+                  throw e;
+                }
+              }
+              if (!retry) {
+                break;
+              }
+            }
+
             success++;
           } catch (e: any) {
             failed++;
-            log("error", `Failed to process row: ${JSON.stringify(row)} error: ${e.toString()}`);
+            log(
+              "error",
+              `Failed to process row: ${JSON.stringify(row)} error: ${e.toString()}\n\tTotal failed: ${failed} out of ${success + failed}`
+            );
           }
         } else {
           log("error", "There is no started stream.");

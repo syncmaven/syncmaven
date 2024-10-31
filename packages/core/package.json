@@ -57,6 +57,7 @@
     "dayjs": "^1.11.11",
     "dockerode": "^4.0.2",
     "dotenv": "^16.4.5",
+    "expr-eval": "^2.0.2",
     "express": "4.19.2",
     "google-ads-api": "^16.0.0-rest-beta3",
     "google-auth-library": "^9.9.0",
