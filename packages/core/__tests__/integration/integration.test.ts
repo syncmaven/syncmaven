@@ -1,4 +1,4 @@
-import { describe, test } from "node:test";
+import { describe, test, before, after } from "node:test";
 
 import { Client } from "pg";
 import assert from "assert";
@@ -8,19 +8,85 @@ import { connectSnowflake, SnowflakeCredentials, snowflakeQuery } from "../../sr
 import snowflake from "snowflake-sdk";
 import { BigQuery } from "@google-cloud/bigquery";
 import { BigQueryCredentials, bqQuery } from "../../src/datasources/bigquery";
+import Docker from "dockerode";
+import * as net from "node:net";
 
+const docker = new Docker();
+let container: Docker.Container | null = null;
+let postgresPort: number = 5432;
+let postgresConnectionString: string = ""
+
+type PostgresContainer = {
+  shutdown: () => Promise<void>;
+  connectionString: string;
+}
+
+async function startPostgresContainer(): Promise<PostgresContainer> {
+  postgresPort = await findAvailablePort(5432);
+  console.log(`Using port ${postgresPort} for postgres.`);
+
+  container = await docker.createContainer({
+    Image: 'postgres:latest',
+    Env: ['POSTGRES_USER=test', 'POSTGRES_PASSWORD=test', 'POSTGRES_DB=testdb'],
+    HostConfig: {
+      AutoRemove: true,
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      OpenStdin: true,
+      StdinOnce: false,
+      ExtraHosts: ["host.docker.internal:host-gateway"],
+      Tty: false,
+      name: `syncmaven-test-postgres-${postgresPort}`,
+      PortBindings: { '5432/tcp': [{ HostPort: postgresPort.toString() }] },
+    },
+  });
+  postgresConnectionString = `postgres://test:test@localhost:${postgresPort}/testdb`;
+
+  await container.start();
+  console.log(`Postgres container started on port ${postgresPort}. Id: ${container.id}`);
+  return {
+    shutdown: async () => {
+      if (container) {
+        try {
+          await container.stop();
+        } catch (e) {
+          console.error('Failed to stop container:', e);
+        }
+        console.log('Container stopped and removed.');
+      }
+    },
+    connectionString: postgresConnectionString,
+  }
+}
+
+async function findAvailablePort(startPort: number): Promise<number> {
+  let port = startPort;
+
+  while (true) {
+    const isAvailable = await new Promise((resolve) => {
+      const server = net.createServer();
+      server.once('error', () => resolve(false));
+      server.once('listening', () => {
+        server.close(() => resolve(true));
+      });
+      server.listen(port);
+    });
+
+    if (isAvailable) {
+      return port;
+    }
+    port += 1;
+  }
+}
 describe("integration tests", c => {
   test("test-postgres", async t => {
-    if (!process.env.TEST_POSTGRES) {
-      t.skip("TEST_POSTGRES is not set.");
-      return;
-    }
+    const container = await startPostgresContainer();
     let client: Client | undefined = undefined;
 
     try {
-      const dsn = process.env.TEST_POSTGRES;
       client = new Client({
-        connectionString: dsn,
+        connectionString: postgresConnectionString,
       });
       await client.connect();
 
@@ -31,7 +97,7 @@ describe("integration tests", c => {
           {
             name: "test_date_cursor",
             cursor: "time",
-            datasource: dsn,
+            datasource: postgresConnectionString,
             query:
               "select * from syncmaven_test.syncmaven_test_table where :cursor is null or time >= :cursor order by id asc",
           },
@@ -48,7 +114,7 @@ describe("integration tests", c => {
           {
             name: "test_int_cursor",
             cursor: "id",
-            datasource: dsn,
+            datasource: postgresConnectionString,
             query:
               "select * from syncmaven_test.syncmaven_test_table where :cursor is null or id >= :cursor order by id asc",
           },
@@ -64,6 +130,7 @@ describe("integration tests", c => {
         await client.end();
         console.log(`Disconnected from database.`);
       }
+      await container.shutdown();
     }
   });
 
