@@ -14,72 +14,19 @@ import * as net from "node:net";
 const docker = new Docker();
 let container: Docker.Container | null = null;
 let postgresPort: number = 5432;
-let postgresConnectionString: string = ""
+let postgresConnectionString: string = "";
 
 type PostgresContainer = {
   shutdown: () => Promise<void>;
   connectionString: string;
-}
+};
 
-async function startPostgresContainer(): Promise<PostgresContainer> {
-  postgresPort = await findAvailablePort(5432);
-  console.log(`Using port ${postgresPort} for postgres.`);
-
-  container = await docker.createContainer({
-    Image: 'postgres:latest',
-    Env: ['POSTGRES_USER=test', 'POSTGRES_PASSWORD=test', 'POSTGRES_DB=testdb'],
-    HostConfig: {
-      AutoRemove: true,
-      AttachStdin: true,
-      AttachStdout: true,
-      AttachStderr: true,
-      OpenStdin: true,
-      StdinOnce: false,
-      ExtraHosts: ["host.docker.internal:host-gateway"],
-      Tty: false,
-      name: `syncmaven-test-postgres-${postgresPort}`,
-      PortBindings: { '5432/tcp': [{ HostPort: postgresPort.toString() }] },
-    },
-  });
-  postgresConnectionString = `postgres://test:test@localhost:${postgresPort}/testdb`;
-
-  await container.start();
-  console.log(`Postgres container started on port ${postgresPort}. Id: ${container.id}`);
-  return {
-    shutdown: async () => {
-      if (container) {
-        try {
-          await container.stop();
-        } catch (e) {
-          console.error('Failed to stop container:', e);
-        }
-        console.log('Container stopped and removed.');
-      }
-    },
-    connectionString: postgresConnectionString,
-  }
-}
-
-async function findAvailablePort(startPort: number): Promise<number> {
-  let port = startPort;
-
-  while (true) {
-    const isAvailable = await new Promise((resolve) => {
-      const server = net.createServer();
-      server.once('error', () => resolve(false));
-      server.once('listening', () => {
-        server.close(() => resolve(true));
-      });
-      server.listen(port);
-    });
-
-    if (isAvailable) {
-      return port;
-    }
-    port += 1;
-  }
-}
 describe("integration tests", c => {
+  after(async () => {
+    if (container) {
+      await container.stop();
+    }
+  });
   test("test-postgres", async t => {
     const container = await startPostgresContainer();
     let client: Client | undefined = undefined;
@@ -89,6 +36,7 @@ describe("integration tests", c => {
         connectionString: postgresConnectionString,
       });
       await client.connect();
+      console.log(`Connected to database.`);
 
       await t.test("date cursor", async t => {
         await runTest(
@@ -253,3 +201,74 @@ describe("integration tests", c => {
     }
   });
 });
+
+async function startPostgresContainer(): Promise<PostgresContainer> {
+  const image = "postgres:latest";
+  try {
+    const pullStream = await docker.pull(image);
+    await new Promise(res => docker.modem.followProgress(pullStream, res));
+    console.log(`Image ${image} pulled. Creating container...`);
+  } catch (e) {
+    console.error(`Failed to pull image ${image} Trying with local one.`, { cause: e });
+  }
+
+  container = await docker.createContainer({
+    Image: "postgres:latest",
+    Env: ["POSTGRES_USER=test", "POSTGRES_PASSWORD=test", "POSTGRES_DB=test"],
+    HostConfig: {
+      AutoRemove: true,
+      ExtraHosts: ["host.docker.internal:host-gateway"],
+      PortBindings: { "5432/tcp": [{}] },
+    },
+    Healthcheck: {
+      Test: ["CMD-SHELL", "pg_isready -U test"],
+      Interval: 1000000 * 1000, // 1s
+      Timeout: 1000000 * 1000, // 1s
+      Retries: 10,
+      StartPeriod: 1000000 * 1000, // 1s
+    },
+    AttachStdin: true,
+    AttachStdout: true,
+    AttachStderr: true,
+    OpenStdin: true,
+    StdinOnce: false,
+    Tty: false,
+    name: `syncmaven-test-postgres`,
+  });
+
+  await container.start();
+  let healthy = false;
+  for (let i = 0; i < 10; i++) {
+    const stats = await container.inspect();
+    if (stats.State.Running) {
+      if (stats.State.Health?.Status === "healthy") {
+        healthy = true;
+        const p = stats.NetworkSettings.Ports["5432/tcp"];
+        postgresPort = parseInt(p[0].HostPort, 10);
+        console.log(`Using port ${postgresPort} for postgres.`);
+        break;
+      }
+    }
+    await new Promise(res => setTimeout(res, 1000));
+  }
+  if (!healthy) {
+    throw new Error("Postgres container is not healthy.");
+  }
+
+  postgresConnectionString = `postgres://test:test@localhost:${postgresPort}/test`;
+
+  console.log(`Postgres container started on port ${postgresPort}. Id: ${container.id}`);
+  return {
+    shutdown: async () => {
+      if (container) {
+        try {
+          await container.stop();
+        } catch (e) {
+          console.error("Failed to stop container:", e);
+        }
+        console.log("Container stopped and removed.");
+      }
+    },
+    connectionString: postgresConnectionString,
+  };
+}

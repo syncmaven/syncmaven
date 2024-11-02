@@ -78,11 +78,14 @@ export async function getDestinationChannel(
 ): Promise<DestinationChannel> {
   if (pkg.type === "npm") {
     let { command, dir, package: packageName } = pkg;
-    if (!dir && packageName) {
-      dir = await downloadAndUnpackPackage(packageName);
-    } else {
-      throw new Error("Either dir or package is required for npm package type");
+    if (!dir) {
+      if (packageName) {
+        dir = await downloadAndUnpackPackage(packageName);
+      } else {
+        throw new Error("Either dir or package is required for npm package type");
+      }
     }
+
     if (!command) {
       console.debug(`Looking for package.json in ${dir}, cwd: ${process.cwd()}`);
       //get command from package.json

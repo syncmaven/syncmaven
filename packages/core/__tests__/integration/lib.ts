@@ -46,13 +46,16 @@ export async function runSync(projectDir: string, model: ModelDefinition, expect
   fs.mkdirSync(connectionsPath, { recursive: true });
   const connectionPath = path.join(connectionsPath, "connection.json");
   const resultPath = path.join(projectDir, "result.ndjson");
+
+  const fileConnectorDir = path.join(process.cwd(), "../connectors/file");
+  console.log(`File connector dir: ${fileConnectorDir}`);
   fs.writeFileSync(
     connectionPath,
     JSON.stringify(
       {
         package: {
-          type: "docker",
-          image: "syncmaven/file:dev",
+          type: "npm",
+          dir: fileConnectorDir,
         },
         credentials: {
           filePath: resultPath,
@@ -63,7 +66,7 @@ export async function runSync(projectDir: string, model: ModelDefinition, expect
     )
   );
 
-  await connectorDev(path.join(process.cwd(), "../connectors/file"), {
+  await connectorDev(fileConnectorDir, {
     modelFile: modelPath,
     sync: "sync",
     connectionFile: connectionPath,

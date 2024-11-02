@@ -203,9 +203,11 @@ export class DockerContainer implements StdIoContainer {
       AttachStderr: true,
       OpenStdin: true,
       StdinOnce: false,
-      ExtraHosts: ["host.docker.internal:host-gateway"],
+      HostConfig: {
+        ExtraHosts: ["host.docker.internal:host-gateway"],
+      },
       Tty: false,
-      env: this.envs,
+      Env: this.envs,
       //env: [`RPC_URL=http://host.docker.internal:${this.rpcServer.port}`],
       name: `syncmaven-${new Date()
         .toISOString()
