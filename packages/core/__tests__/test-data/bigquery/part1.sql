@@ -10,6 +10,7 @@ create table if not exists syncmaven_test.syncmaven_test_table
     utm_source   string,
     utm_campaign string
 );
+truncate table syncmaven_test.syncmaven_test_table;
 
 INSERT INTO syncmaven_test.syncmaven_test_table (id, time, source, campaign_id, cost, clicks, impressions, utm_source, utm_campaign)
 VALUES (1, '2024-05-15 13:39:05.172616Z', 'google', 123, 10, 1, 100, null, null);

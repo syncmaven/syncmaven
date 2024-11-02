@@ -43,7 +43,7 @@ describe("integration tests", c => {
           "postgres",
           "date_cursor",
           {
-            name: "test_date_cursor",
+            name: "test_postgres_date_cursor",
             cursor: "time",
             datasource: postgresConnectionString,
             query:
@@ -60,7 +60,7 @@ describe("integration tests", c => {
           "postgres",
           "int_cursor",
           {
-            name: "test_int_cursor",
+            name: "test_postgres_int_cursor",
             cursor: "id",
             datasource: postgresConnectionString,
             query:
@@ -99,7 +99,7 @@ describe("integration tests", c => {
           "snowflake",
           "date_cursor",
           {
-            name: "test_date_cursor",
+            name: "test_snowflake_date_cursor",
             cursor: "time",
             datasource: {
               type: "snowflake",
@@ -118,7 +118,7 @@ describe("integration tests", c => {
           "snowflake",
           "int_cursor",
           {
-            name: "test_int_cursor",
+            name: "test_snowflake_int_cursor",
             cursor: "id",
             datasource: {
               type: "snowflake",
@@ -161,7 +161,7 @@ describe("integration tests", c => {
           "bigquery",
           "date_cursor",
           {
-            name: "test_date_cursor",
+            name: "test_bigquery_date_cursor",
             cursor: "time",
             datasource: {
               type: "bigquery",
@@ -181,7 +181,7 @@ describe("integration tests", c => {
           "bigquery",
           "int_cursor",
           {
-            name: "test_int_cursor",
+            name: "test_bigquery_int_cursor",
             cursor: "id",
             datasource: {
               type: "bigquery",
