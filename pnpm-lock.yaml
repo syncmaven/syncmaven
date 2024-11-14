@@ -125,6 +125,37 @@ importers:
         specifier: ^5.4.5
         version: 5.4.5
 
+  packages/connectors/http:
+    dependencies:
+      '@syncmaven/node-cdk':
+        specifier: workspace:*
+        version: link:../../node-cdk
+      '@syncmaven/protocol':
+        specifier: workspace:*
+        version: link:../../protocol
+      tslib:
+        specifier: ^2.6.2
+        version: 2.6.2
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
+    devDependencies:
+      '@syncmaven/configs':
+        specifier: workspace:*
+        version: link:../../configs
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.12.12
+      syncmaven:
+        specifier: workspace:*
+        version: link:../../core
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@swc/core@1.5.5(@swc/helpers@0.5.11))(@types/node@20.12.12)(typescript@5.4.5)
+      typescript:
+        specifier: ^5.4.5
+        version: 5.4.5
+
   packages/connectors/hubspot:
     dependencies:
       '@hubspot/api-client':
@@ -2398,6 +2429,7 @@ packages:
 
   acorn-import-assertions@1.9.0:
     resolution: {integrity: sha512-cmMwop9x+8KFhxvKrKfPYmN6/pKTYYHBqLa0DfvVZcKMJWNyWLnaqND7dx/qn66R7ewM1UX5XMaDVP5wlVTaVA==}
+    deprecated: package has been renamed to acorn-import-attributes
     peerDependencies:
       acorn: ^8
 
