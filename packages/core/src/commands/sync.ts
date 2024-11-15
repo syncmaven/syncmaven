@@ -157,14 +157,7 @@ function readJson(_resource: any, nonJsonHandler: (val: string) => any) {
 }
 
 //reads project either from the directory or from source and destination
-function getProjectModel(
-  opts: Required<Pick<SyncCommandOpts, "projectDir">> &
-    Pick<
-      SyncCommandOpts,
-      "model" | "streamOptions" | "credentials" | "datasource" | "stream" | "checkpointEvery" | "syncId"
-    > &
-    Partial<PackageOpts>
-): RawProject {
+function getProjectModel(opts: SyncCommandOpts & Partial<PackageOpts>): RawProject {
   if (opts.model) {
     assert(opts.credentials, "--credentials options should be set for ad-hoc runs");
     if (!opts.package) {
