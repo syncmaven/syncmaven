@@ -143,7 +143,6 @@ export async function saveToGoogleSheets(opts: {
       }
     }
   }
-  console.log(`Raw values:\n${JSON.stringify(table, null, 2)}`);
   await sheets.spreadsheets.values.update({
     spreadsheetId: opts.spreadsheetId,
     range: opts.sheetName,
