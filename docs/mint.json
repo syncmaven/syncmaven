@@ -64,11 +64,12 @@
           "icon": "bullseye",
           "pages": [
             "references/destinations/resend",
-            "references/destinations/file",
             "references/destinations/hubspot",
             "references/destinations/intercom",
             "references/destinations/mixpanel",
-            "references/destinations/twitter-ads"
+            "references/destinations/twitter-ads",
+            "references/destinations/file",
+            "references/destinations/http"
           ]
         }
       ]

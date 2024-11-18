@@ -16,7 +16,6 @@ export const HttpCredentials = z.object({
     .optional()
     .describe("HTTP method. Can be GET, POST, PUT, DELETE"),
   headers: z.array(z.string()).optional().describe("List of headers in format `key: value`"),
-  body: z.string().optional().describe("Body of the request"),
   format: z
     .enum(["ndjson", "json", "array"])
     .default("json")
@@ -24,25 +23,23 @@ export const HttpCredentials = z.object({
     .describe(
       "Payload format. Can be 'ndjson', 'array' - array of JSON objects, 'json' - single JSON object (can nest array of JSON objects with help of 'template')"
     ),
-  template: z
+  body: z
     .union([z.string(), z.object({}).passthrough()])
     .optional()
     .describe(
-      'Template for \'json\' format. Must be a valid JSON string. Support the following macros: "[JSON_ARRAY]","[JSON] or any [ENV_VAR]"'
+      'Template for request body in \'json\' format. Must be a valid JSON string. Support the following macros: "{{ result.rows }}","{{ result.row }}","{{ result.length }}" or any "{{ env.VAR }}"'
     ),
   batchSize: z
     .number()
     .default(1)
     .optional()
-    .describe("Batch size for 'array', 'ndjson' or 'json' with nested \"[JSON_ARRAY]\" formats"),
+    .describe("Batch size for 'array', 'ndjson' or 'json' with nested \"{{ result.rows }}\" formats"),
   timeout: z.number().default(10000).optional().describe("Request timeout in milliseconds. Default is 10000"),
 });
 
 export type HttpCredentials = z.infer<typeof HttpCredentials>;
 
 const HttpRow = z.object({}).passthrough();
-
-const macroRegex = /\[([A-Z_]+)]/g;
 
 type HttpRow = z.infer<typeof HttpRow>;
 
@@ -59,28 +56,25 @@ function processTemplate(template: any, row?: HttpRow, rows?: HttpRow[]) {
   for (const [key, value] of Object.entries(template)) {
     // check if value is a macro
     if (typeof value === "string") {
-      if (value === "[JSON_ARRAY]") {
+      if (value === "[RESULT_ROWS]") {
         if (rows) {
           template[key] = rows;
         } else {
           template[key] = [row];
         }
-      } else if (value === "[JSON]") {
+      } else if (value === "[RESULT_ROW]") {
         if (rows) {
-          throw new Error("Array provided for [JSON] macro. [JSON] macro may be used only with batch size = 1");
+          throw new Error(
+            "Array provided for 'result.row' macro. 'result.row' macro may be used only with batch size = 1"
+          );
         }
         template[key] = row;
-      } else {
-        const matches = value.matchAll(macroRegex);
-        let newValue = value;
-        for (const match of matches) {
-          const envVar = process.env[match[1]];
-          if (!envVar) {
-            throw new Error(`Environment variable ${match[1]} is not defined`);
-          }
-          newValue = newValue.replace(match[0], envVar);
+      } else if (value === "[RESULT_LENGTH]") {
+        if (rows) {
+          template[key] = rows.length;
+        } else {
+          template[key] = row ? 1 : 0;
         }
-        template[key] = newValue;
       }
     } else if (typeof value === "object") {
       processTemplate(value, row, rows);
@@ -102,10 +96,10 @@ class HttpSingleStream extends BaseOutputStream<HttpRow, HttpCredentials> {
     switch (config.format || "json") {
       case "json":
         let template: any = {};
-        if (typeof config.template === "string") {
-          template = JSON.parse(config.template);
+        if (typeof config.body === "string") {
+          template = JSON.parse(config.body);
         } else {
-          template = config.template;
+          template = config.body;
         }
         processTemplate(template, row);
         return JSON.stringify(template);
@@ -165,10 +159,10 @@ class HttpBatchStream extends BatchingOutputStream<HttpRow, HttpCredentials> {
     switch (config.format || "json") {
       case "json":
         let template: any = {};
-        if (typeof config.template === "string") {
-          template = JSON.parse(config.template);
+        if (typeof config.body === "string") {
+          template = JSON.parse(config.body);
         } else {
-          template = config.template;
+          template = config.body;
         }
         processTemplate(template, undefined, rows);
         return JSON.stringify(template);

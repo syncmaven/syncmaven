@@ -360,6 +360,7 @@ export async function runSync(opts: {
     project.syncs[syncId],
     `Can't find sync ${syncId} in the project. Available syncs: ${Object.keys(project.syncs).join(", ")}`
   );
+  const startedAt = Date.now();
   console.info(`Running sync \`${syncId}\``);
   const modelId = sync.model;
   const checkpointEvery = sync.checkpointEvery;
@@ -482,7 +483,7 @@ export async function runSync(opts: {
         await store.set(cursorStoreKey, maxCursorVal);
       }
       console.info(
-        `Sync ${syncId} ${completed ? "is finished" : "is checkpointing"}. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats:`
+        `Sync ${syncId} ${completed ? "is finished" : "is checkpointing"} in ${(Date.now() - startedAt) / 1000}s. Source rows ${totalRows}, enriched: ${enrichedRows}, channel stats:`
       );
       for (const [k, v] of Object.entries(res.payload as any)) {
         if (typeof v === "number") {

@@ -241,7 +241,14 @@ export function compileProject(raw: RawProject): Project {
 
     connections[conn.content.id || conn.fileId] = templateEngine.compile(parsedConnection, {
       fileName: conn.relativeFileName,
-    })({ env: process.env });
+    })({
+      env: process.env,
+      result: {
+        rows: "[RESULT_ROWS]",
+        row: "[RESULT_ROW]",
+        length: "[RESULT_LENGTH]",
+      },
+    });
   }
 
   for (const sync of raw.syncs) {

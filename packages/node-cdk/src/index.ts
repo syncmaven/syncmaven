@@ -105,7 +105,7 @@ export abstract class BatchingOutputStream<RowT extends Record<string, any>, Con
 
   async handleRow(row: RowT, ctx: ExecutionContext) {
     this.currentBatch.push(row);
-    if (this.currentBatch.length >= 1000) {
+    if (this.currentBatch.length >= this.maxBatchSize) {
       await this.flushBatch(ctx);
     }
   }

@@ -9,6 +9,7 @@ import { isTruish } from "../lib/util";
 import { add } from "./add";
 import { preview } from "./preview";
 import { link } from "./link";
+import { connectorDev } from "./connector-dev";
 
 /**
  * Options of every command
@@ -177,27 +178,27 @@ export async function initCli(): Promise<Command> {
     .option(commonOptions.debug.flag, commonOptions.debug.description)
     .action(describeDestination);
 
-  // program
-  //   .command("connector-dev")
-  //   .description("Runs a NPM based connector in development mode")
-  //   .option(commonOptions.env.flag, commonOptions.env.description)
-  //   .option(commonOptions.state.flag, commonOptions.state.description)
-  //   .option(
-  //     "-c, --connector-dir <connector-directory>",
-  //     "Directory where the connector is based. If not set, current process directory will be used"
-  //   )
-  //   .option(commonOptions.debug.flag, commonOptions.debug.description)
-  //   .requiredOption(
-  //     "-f, --connection-file <connection-file>",
-  //     "File with a definition of the connection. Package section of this file will be ignored"
-  //   )
-  //   .requiredOption("-m, --model-file <model-file>", "Model file that are used as a source for the test sync")
-  //   .option(
-  //     "-s, --sync <sync-file-or-id>",
-  //     "Optional. You can specify either sync file if the sync requires additional options, or id for a sync. If id is not provided, it will be generated from model and connection ids. Id is required for saving state across runs"
-  //   )
-  //   .argument("[connector-directory]", "You can also specify connector directory as a positional an argument")
-  //   .action(connectorDev);
+  program
+    .command("connector-dev")
+    .description("Runs a NPM based connector in development mode")
+    .option(commonOptions.env.flag, commonOptions.env.description)
+    .option(commonOptions.state.flag, commonOptions.state.description)
+    .option(
+      "-c, --connector-dir <connector-directory>",
+      "Directory where the connector is based. If not set, current process directory will be used"
+    )
+    .option(commonOptions.debug.flag, commonOptions.debug.description)
+    .requiredOption(
+      "-f, --connection-file <connection-file>",
+      "File with a definition of the connection. Package section of this file will be ignored"
+    )
+    .requiredOption("-m, --model-file <model-file>", "Model file that are used as a source for the test sync")
+    .option(
+      "-s, --sync <sync-file-or-id>",
+      "Optional. You can specify either sync file if the sync requires additional options, or id for a sync. If id is not provided, it will be generated from model and connection ids. Id is required for saving state across runs"
+    )
+    .argument("[connector-directory]", "You can also specify connector directory as a positional an argument")
+    .action(connectorDev);
 
   program
     .command("add")
