@@ -8,7 +8,7 @@ on:
       select:
         description: "Select connectors to build and publish (provide JSON array of connector names)"
         required: false
-        default: '["resend", "twitter-ads", "people-data-labs", "intercom", "hubspot", "google-sheets"]'
+        default: '["resend", "twitter-ads", "people-data-labs", "intercom", "hubspot", "google-sheets", "http"]'
       publish:
         type: boolean
         description: "Check if release should be published, otherwise it's a dry run"

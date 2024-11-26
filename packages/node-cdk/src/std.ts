@@ -81,7 +81,6 @@ export async function stdProtocol(provider: DestinationProvider) {
         log("error", "Message received does not have a type", { message });
         process.exit(1);
       }
-      log("debug", `Received message ${message.type}`, { message });
       if (message.type === "describe") {
         reply("spec", {
           description: provider.name,
