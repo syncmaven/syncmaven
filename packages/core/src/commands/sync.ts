@@ -339,7 +339,7 @@ function processLogMessage(logMessage: LogMessage, syncId: string) {
   const logFunction = ["debug", "info", "warn", "error"].includes(logLevel) ? console[logLevel] : console.log;
   //sometimes message + params is an empty string. In this case we display a raw payload
   const stringMessage = `${logMessage.payload.message}${params}` || JSON.stringify(logMessage);
-  logFunction(`<${syncId}> ${stringMessage} - ${JSON.stringify(logMessage)}`);
+  logFunction(`<${syncId}> ${stringMessage}`);
 }
 
 export async function runSync(opts: {
