@@ -215,8 +215,6 @@ func processRow(mp *mixpanel.ApiClient, payload *RowPayload) {
 		}
 	}
 	event := mp.NewEvent("$ad_spend", "", map[string]any{
-		"$insert_id":      makeInsertId(payload),
-		"time":            t,
 		"$ad_platform":    payload.Source,
 		"campaign_id":     payload.CampaignId,
 		"$ad_cost":        payload.Cost,
@@ -232,6 +230,8 @@ func processRow(mp *mixpanel.ApiClient, payload *RowPayload) {
 		"utm_term":        payload.UtmTerm,
 		"utm_content":     payload.UtmContent,
 	})
+	event.AddInsertID(makeInsertId(payload))
+	event.AddTime(t)
 	batch = append(batch, event)
 	processedRanges.Append(daterange.NewDateRange(t, t))
 	if len(batch) >= batchSize {
@@ -290,14 +290,9 @@ func makeInsertId(payload *RowPayload) string {
 		builder.WriteString("-")
 		builder.WriteString(fmt.Sprint(payload.AdId))
 	}
-	if builder.Len() > 36 {
-		hasher := crypto.MD5.New()
-		_, _ = hasher.Write([]byte(builder.String()))
-		return strings.ToUpper(payload.Source[0:1]) + "-" + payload.Date + "-" + fmt.Sprintf("%x", hasher.Sum(nil))[0:23]
-	} else {
-		return builder.String()
-	}
-
+	hasher := crypto.MD5.New()
+	_, _ = hasher.Write([]byte(builder.String()))
+	return strings.ToUpper(payload.Source[0:1]) + "-" + payload.Date + "-" + fmt.Sprintf("%x", hasher.Sum(nil))[0:23]
 }
 
 func logErr(err error) {
