@@ -58,6 +58,7 @@ export async function newBigQueryDatasource(modelDefinition: ModelDefinition): P
         const jobResult = await job.getQueryResults({
           pageToken,
           autoPaginate: false,
+          maxResults: modelDefinition.pageSize,
         });
         const rows = jobResult[0];
         const meta = jobResult[2];
@@ -87,7 +88,10 @@ export async function newBigQueryDatasource(modelDefinition: ModelDefinition): P
         }
         pageToken = meta.pageToken;
         if (pageToken) {
-          console.debug(`[${id}] Fetching next page.`);
+          console.info(`[${id}] Fetching next page.`);
+          if (modelDefinition.pauseBetweenPagesMs) {
+            await new Promise(resolve => setTimeout(resolve, modelDefinition.pauseBetweenPagesMs));
+          }
         }
       } while (pageToken);
       if (handler.finalize) {

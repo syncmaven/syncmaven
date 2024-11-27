@@ -8,6 +8,8 @@ export const ModelDefinition = z.object({
   query: z.string(),
   cursor: z.string().optional(),
   deleteField: z.string().optional(),
+  pageSize: z.number().optional(),
+  pauseBetweenPagesMs: z.number().optional(),
   datasource: z.union([
     z.string(),
     z.object({
