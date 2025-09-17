@@ -293,10 +293,6 @@ func makeInsertId(payload *RowPayload) string {
 		builder.WriteString("-")
 		builder.WriteString(fmt.Sprint(payload.AdId))
 	}
-	if payload.AdSetId != nil {
-		builder.WriteString("-")
-		builder.WriteString(fmt.Sprint(payload.AdSetId))
-	}
 	hasher := crypto.MD5.New()
 	_, _ = hasher.Write([]byte(builder.String()))
 	return strings.ToUpper(payload.Source[0:1]) + "-" + payload.Date + "-" + fmt.Sprintf("%x", hasher.Sum(nil))[0:23]
