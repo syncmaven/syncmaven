@@ -7,12 +7,13 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	daterange "github.com/felixenescu/date-range"
-	"github.com/mitchellh/mapstructure"
-	"github.com/mixpanel/mixpanel-go"
 	"os"
 	"strings"
 	"time"
+
+	daterange "github.com/felixenescu/date-range"
+	"github.com/mitchellh/mapstructure"
+	"github.com/mixpanel/mixpanel-go"
 )
 
 //go:embed credentials.schema.json
@@ -36,6 +37,7 @@ type RowPayload struct {
 	CampaignName string  `mapstructure:"campaign_name"`
 	GroupId      any     `mapstructure:"group_id"`
 	AdId         any     `mapstructure:"ad_id"`
+	AdSetId      any     `mapstructure:"ad_set_id"`
 	Cost         float64 `mapstructure:"cost"`
 	Clicks       float64 `mapstructure:"clicks"`
 	Impressions  float64 `mapstructure:"impressions"`
@@ -223,6 +225,7 @@ func processRow(mp *mixpanel.ApiClient, payload *RowPayload) {
 		"conversions":     payload.Conversions,
 		"ad_group_id":     payload.GroupId,
 		"ad_id":           payload.AdId,
+		"ad_set_id":       payload.AdSetId,
 		"campaign_name":   payload.CampaignName,
 		"utm_campaign":    payload.UtmCampaign,
 		"utm_source":      payload.UtmSource,
