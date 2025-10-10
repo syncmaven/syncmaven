@@ -133,8 +133,9 @@ func main() {
 				os.Exit(0)
 			})
 		case "row":
-			payload := message.Payload.(RowPayload)
-			processRow(mp, payload)
+			payload := message.Payload.(map[string]any)
+			row := payload["row"].(RowPayload)
+			processRow(mp, row)
 		default:
 			lerror("Unknown message type", message.Type)
 		}
