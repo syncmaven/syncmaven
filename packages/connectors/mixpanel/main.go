@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"crypto"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	daterange "github.com/felixenescu/date-range"
-	"github.com/mitchellh/mapstructure"
 	"github.com/mixpanel/mixpanel-go"
 )
 
@@ -23,38 +21,6 @@ var credentialSchema = UnmarshalSchema(credentialSchemaString)
 //go:embed row.schema.json
 var rowSchemaString string
 var rowSchema = UnmarshalSchema(rowSchemaString)
-
-type Message struct {
-	Type      string `json:"type"`
-	Direction string `json:"direction"`
-	Payload   any    `json:"payload"`
-}
-
-type RowPayload struct {
-	Date         string  `mapstructure:"date"`
-	Source       string  `mapstructure:"source"`
-	CampaignId   any     `mapstructure:"campaign_id"`
-	CampaignName string  `mapstructure:"campaign_name"`
-	GroupId      any     `mapstructure:"group_id"`
-	AdId         any     `mapstructure:"ad_id"`
-	AdSetId      any     `mapstructure:"ad_set_id"`
-	Cost         float64 `mapstructure:"cost"`
-	Clicks       float64 `mapstructure:"clicks"`
-	Impressions  float64 `mapstructure:"impressions"`
-	Conversions  float64 `mapstructure:"conversions"`
-	UtmSource    string  `mapstructure:"utm_source"`
-	UtmCampaign  string  `mapstructure:"utm_campaign"`
-	UtmMedium    string  `mapstructure:"utm_medium"`
-	UtmTerm      string  `mapstructure:"utm_term"`
-	UtmContent   string  `mapstructure:"utm_content"`
-}
-
-type Status struct {
-	Received int `json:"received"`
-	Success  int `json:"success"`
-	Skipped  int `json:"skipped"`
-	Failed   int `json:"failed"`
-}
 
 var lookbackWindow = 2
 var initialSyncDays = 30
@@ -167,15 +133,8 @@ func main() {
 				os.Exit(0)
 			})
 		case "row":
-			payload := message.Payload.(map[string]any)
-			var rowPayload RowPayload
-			err = mapstructure.Decode(payload["row"], &rowPayload)
-			if err != nil {
-				lerror("Cannot parse row payload: "+line, err.Error())
-				os.Exit(1)
-			} else {
-				processRow(mp, &rowPayload)
-			}
+			payload := message.Payload.(RowPayload)
+			processRow(mp, payload)
 		default:
 			lerror("Unknown message type", message.Type)
 		}
@@ -186,19 +145,20 @@ func main() {
 	}
 }
 
-func processRow(mp *mixpanel.ApiClient, payload *RowPayload) {
-	if lastProcessedDate != payload.Date {
+func processRow(mp *mixpanel.ApiClient, payload RowPayload) {
+	date := Date(payload)
+	if lastProcessedDate != date {
 		if lastProcessedDate != "" {
 			sendBatch(mp)
 		}
-		lastProcessedDate = payload.Date
-		currentStatus = getStatus(payload.Date)
+		lastProcessedDate = date
+		currentStatus = getStatus(date)
 	}
 	currentStatus.Received++
-	t, err := time.Parse(time.DateOnly, payload.Date)
+	t, err := time.Parse(time.DateOnly, date)
 	if err != nil {
 		currentStatus.Failed++
-		lerror("Error parsing time: "+payload.Date, err.Error())
+		lerror("Error parsing time: "+date, err.Error())
 		return
 	}
 	initialSyncStart := startTime.Truncate(time.Hour * 24).Add(time.Hour * 24 * time.Duration(-initialSyncDays))
@@ -216,24 +176,7 @@ func processRow(mp *mixpanel.ApiClient, payload *RowPayload) {
 			return
 		}
 	}
-	event := mp.NewEvent("$ad_spend", "", map[string]any{
-		"$ad_platform":    payload.Source,
-		"campaign_id":     payload.CampaignId,
-		"$ad_cost":        payload.Cost,
-		"$ad_clicks":      payload.Clicks,
-		"$ad_impressions": payload.Impressions,
-		"conversions":     payload.Conversions,
-		"ad_group_id":     payload.GroupId,
-		"ad_id":           payload.AdId,
-		"ad_set_id":       payload.AdSetId,
-		"campaign_name":   payload.CampaignName,
-		"utm_campaign":    payload.UtmCampaign,
-		"utm_source":      payload.UtmSource,
-		"utm_medium":      payload.UtmMedium,
-		"utm_term":        payload.UtmTerm,
-		"utm_content":     payload.UtmContent,
-	})
-	event.AddInsertID(makeInsertId(payload))
+	event := mp.NewEvent("$ad_spend", "", Adapted(payload))
 	event.AddTime(t)
 	batch = append(batch, event)
 	processedRanges.Append(daterange.NewDateRange(t, t))
@@ -276,26 +219,6 @@ func getStatus(date string) *Status {
 		statuses[date] = &Status{}
 	}
 	return statuses[date]
-}
-
-func makeInsertId(payload *RowPayload) string {
-	builder := strings.Builder{}
-	builder.WriteString(strings.ToUpper(payload.Source[0:1]))
-	builder.WriteString("-")
-	builder.WriteString(payload.Date)
-	builder.WriteString("-")
-	builder.WriteString(fmt.Sprint(payload.CampaignId))
-	if payload.GroupId != nil {
-		builder.WriteString("-")
-		builder.WriteString(fmt.Sprint(payload.GroupId))
-	}
-	if payload.AdId != nil {
-		builder.WriteString("-")
-		builder.WriteString(fmt.Sprint(payload.AdId))
-	}
-	hasher := crypto.MD5.New()
-	_, _ = hasher.Write([]byte(builder.String()))
-	return strings.ToUpper(payload.Source[0:1]) + "-" + payload.Date + "-" + fmt.Sprintf("%x", hasher.Sum(nil))[0:23]
 }
 
 func logErr(err error) {
