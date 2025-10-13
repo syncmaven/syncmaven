@@ -52,7 +52,9 @@ func main() {
 			continue
 		}
 		var message Message
-		err := json.Unmarshal([]byte(line), &message)
+		dec := json.NewDecoder(strings.NewReader(line))
+		dec.UseNumber()
+		err := dec.Decode(&message)
 		if err != nil {
 			lerror("Message received cannot be parsed: "+line, err.Error())
 			os.Exit(1)

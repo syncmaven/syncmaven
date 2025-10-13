@@ -91,6 +91,9 @@ func makeInsertId(r RowPayload) string {
 		builder.WriteString(fmt.Sprint(adId))
 	}
 	hasher := crypto.MD5.New()
-	_, _ = hasher.Write([]byte(builder.String()))
-	return strings.ToUpper(source) + "-" + date + "-" + fmt.Sprintf("%x", hasher.Sum(nil))[0:23]
+	str := builder.String()
+	_, _ = hasher.Write([]byte(str))
+	insertId := strings.ToUpper(source) + "-" + date + "-" + fmt.Sprintf("%x", hasher.Sum(nil))[0:23]
+	//debug(fmt.Sprintf("makeInsertId for %s = %s", str, insertId))
+	return insertId
 }
